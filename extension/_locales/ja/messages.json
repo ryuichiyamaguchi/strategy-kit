@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "STRATEGY-KIT Helper",
+    "description": "拡張機能の名前"
+  },
+  "extDescription": {
+    "message": "マスタードキュメント中心のマーケ戦略立案を、対応する AI チャット画面を横断して進めるためのプロンプト挿入支援ツール。",
+    "description": "拡張機能の説明"
+  }
+}

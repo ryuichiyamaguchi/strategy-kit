@@ -1,0 +1,27 @@
+{
+  "timeZone": "Asia/Tokyo",
+  "dependencies": {
+    "libraries": [
+      {
+        "userSymbol": "StrategyKitLib",
+        "libraryId": "<AKfycbyGFDIzf7GZqEfd-djvsd6GpkJmJj91LacEyhOYtjOa8W4CHodxTzmcCEbkrQlZBRAt>",
+        "version": "0",
+        "developmentMode": true
+      }
+    ]
+  },
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/script.container.ui",
+    "https://www.googleapis.com/auth/script.external_request",
+    "https://www.googleapis.com/auth/script.scriptapp"
+  ],
+  "webapp": {
+    "executeAs": "USER_DEPLOYING",
+    "access": "ANYONE"
+  }
+}

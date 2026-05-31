@@ -1,0 +1,215 @@
+{
+  "version": "3.0.0",
+  "updated": "2026-05-13",
+  "default": "generic",
+  "items": [
+    {
+      "id": "generic",
+      "label": "汎用（業種非依存）",
+      "description": "業種を限定しない一般的なテンプレート。未知業種ではこれを起点にする。",
+      "examples": ["新しいサービス全般", "個人事業主の屋号サービス"],
+      "hints": {
+        "phase-0": "プレリサーチは『5情報源』を意識：①Googleトレンド／②政府統計・矢野経済／③IR・プレスリリース／④SNS・口コミ／⑤業界紙",
+        "phase-1": "ヒアリングは6カテゴリ（事業全体／市場顧客／競合業界／マーケ営業／内部リソース／課題制約）を網羅",
+        "phase-2": "3Cの『真ん中』はKSF（業界共通入場券）または競争優位として2段階で扱う",
+        "phase-4": "地道戦略のままでも刺さる業種か、ズラさないと魅力薄か、§4-1で必ず判定する"
+      },
+      "unitEconomicsBenchmark": {
+        "currency": "JPY",
+        "region": "JP",
+        "updated": "2026-05-13",
+        "notes": "業種横断の代表値。具体業種が決まったら必ずその業種の値で上書きする。",
+        "metrics": {
+          "customerUnitPrice":      { "low": 1000,  "mid": 3000,  "high": 10000,  "unit": "JPY/回",    "tag": "[事実-複数]" },
+          "grossMarginRate":        { "low": 0.27,  "mid": 0.40,  "high": 0.55,                       "tag": "[事実-一次]" },
+          "monthlyRetention":       { "low": 0.70,  "mid": 0.85,  "high": 0.95,                       "tag": "[仮説]" },
+          "visitFrequencyPerMonth": { "low": 0.5,   "mid": 2.0,   "high": 5.0,    "unit": "回/月",     "tag": "[事実-複数]" },
+          "cac":                    { "low": 5000,  "mid": 15000, "high": 50000,  "unit": "JPY/人",    "tag": "[事実-複数]" },
+          "ltv":                    { "low": 10000, "mid": 80000, "high": 400000, "unit": "JPY",       "tag": "[仮説]" },
+          "paybackMonths":          { "low": 2,     "mid": 6,     "high": 18,     "unit": "ヶ月",      "tag": "[仮説]" }
+        },
+        "sources": [
+          { "label": "中小企業実態基本調査 令和6年確報", "url": "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040303382" },
+          { "label": "中小企業庁 2024年版小規模企業白書", "url": "https://www.chusho.meti.go.jp/pamflet/hakusyo/2024/shokibo/b2_1_1.html" },
+          { "label": "電通 2024年 日本の広告費", "url": "https://www.dentsu.co.jp/news/release/2024/0224-010682.html" }
+        ]
+      }
+    },
+    {
+      "id": "climbing-gym",
+      "label": "クライミングジム（エナジー柏型）",
+      "description": "ボルダリング/リードジム。会員制＋単発来場のハイブリッドモデル。",
+      "examples": ["エナジー柏店"],
+      "hints": {
+        "phase-0": "プレリサーチでは『パリ五輪以降の競技認知』『中高年の運動再開トレンド』『同エリアジム数』『単発vs月会員の業界平均』を起点に",
+        "phase-1": "ヒアリングは時間帯別利用構成（平日昼/夜・週末）と単発vs月会員比率がカギ",
+        "phase-2": "競合は近隣ジムだけでなく『運動習慣の選択肢』全般（ヨガ/パーソナル/ランニング）",
+        "phase-4": "ズラし候補例: 競技志向→運動習慣再起動／単独利用→親子・カップル／日中→朝活"
+      },
+      "unitEconomicsBenchmark": {
+        "currency": "JPY",
+        "region": "JP",
+        "updated": "2026-05-13",
+        "notes": "クライミングジム専業IRなし。粗利率・継続率はフィットネスクラブ（ルネサンス・セントラルスポーツ等）類推。",
+        "metrics": {
+          "customerUnitPrice":      { "low": 1700,   "mid": 10500,  "high": 11500,  "unit": "JPY/月", "tag": "[事実-複数]", "memo": "low=ビジター1回、mid/high=月会費" },
+          "grossMarginRate":        { "low": 0.37,   "mid": 0.40,   "high": 0.55,                    "tag": "[事実-一次]" },
+          "monthlyRetention":       { "low": 0.92,   "mid": 0.95,   "high": 0.97,                    "tag": "[事実-複数]" },
+          "visitFrequencyPerMonth": { "low": 1.0,    "mid": 4.0,    "high": 12.0,   "unit": "回/月",  "tag": "[事実-複数]" },
+          "cac":                    { "low": 5000,   "mid": 8000,   "high": 12000,  "unit": "JPY/人", "tag": "[事実-複数]" },
+          "ltv":                    { "low": 105000, "mid": 280000, "high": 460000, "unit": "JPY",    "tag": "[仮説]" },
+          "paybackMonths":          { "low": 2,      "mid": 4,      "high": 8,      "unit": "ヶ月",   "tag": "[仮説]" }
+        },
+        "sources": [
+          { "label": "グラビティリサーチ料金", "url": "https://www.gravity-research.jp/GRmembers/" },
+          { "label": "J-Net21 スポーツクライミング開業ガイド", "url": "https://j-net21.smrj.go.jp/startup/guide/service/bouldering.html" },
+          { "label": "ボルダリング月額費用調査", "url": "https://boulmedia.com/getsugaku/" },
+          { "label": "中小企業実態基本調査 令和6年確報（生活関連サービス業）", "url": "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040303382" },
+          { "label": "Fitness Business 上場大手6社2024Q2決算（ルネサンス退会率3.2%）", "url": "https://business.fitnessclub.jp/articles/-/2025" },
+          { "label": "スポーツクラブ獲得単価事例", "url": "https://www.sportza.jp/column/104" }
+        ]
+      }
+    },
+    {
+      "id": "restaurant",
+      "label": "飲食店（地域単店舗）",
+      "description": "個人経営〜数店舗規模の飲食。立地依存度高、リピート設計が鍵。",
+      "examples": ["地域型カフェ", "居酒屋", "専門料理店"],
+      "hints": {
+        "phase-0": "プレリサーチでは『商圏内の飲食店密度』『時間帯別の人流』『食べログ／Googleマップ評価分布』",
+        "phase-1": "ヒアリングは時間帯×席数×回転×客単価で売上を分解",
+        "phase-2": "競合は徒歩/車◯分圏のカテゴリ違いも含めて",
+        "phase-4": "ズラし例: 単純な業態→『場面提供（記念日/接待/集まり）』、立地→デリバリー/出張",
+        "phase-6": "Quick Winは『来店動機を作るイベント』が出やすい"
+      },
+      "unitEconomicsBenchmark": {
+        "currency": "JPY",
+        "region": "JP",
+        "updated": "2026-05-13",
+        "notes": "客単価・頻度はホットペッパーグルメ外食総研2024月次、粗利率は飲食サービス業の中小企業実態基本調査。",
+        "metrics": {
+          "customerUnitPrice":      { "low": 1000,  "mid": 2900,  "high": 4500,   "unit": "JPY/回",  "tag": "[事実-一次]" },
+          "grossMarginRate":        { "low": 0.63,  "mid": 0.67,  "high": 0.72,                     "tag": "[事実-一次]" },
+          "monthlyRetention":       { "low": 0.65,  "mid": 0.77,  "high": 0.85,                     "tag": "[事実-複数]" },
+          "visitFrequencyPerMonth": { "low": 1.5,   "mid": 3.8,   "high": 5.0,    "unit": "回/月",   "tag": "[事実-一次]" },
+          "cac":                    { "low": 500,   "mid": 1500,  "high": 3500,   "unit": "JPY/人",  "tag": "[事実-複数]" },
+          "ltv":                    { "low": 30000, "mid": 75000, "high": 165000, "unit": "JPY",     "tag": "[仮説]" },
+          "paybackMonths":          { "low": 1,     "mid": 3,     "high": 8,      "unit": "ヶ月",    "tag": "[仮説]" }
+        },
+        "sources": [
+          { "label": "家計調査 第5表 外食", "url": "https://www.e-stat.go.jp/stat-search/file-download?fileKind=4&statInfId=000040297525" },
+          { "label": "ホットペッパーグルメ外食総研 2024年5月度", "url": "https://www.hotpepper.jp/ggs/research/article/marketing/202405" },
+          { "label": "ホットペッパーグルメ外食総研 2024年10月度", "url": "https://fs-ring.jp/news_trend/1097/" },
+          { "label": "飲食店リピート実態調査", "url": "https://www.hotpepper.jp/ggs/research/article/column/20191002" },
+          { "label": "中小企業実態基本調査 令和6年確報（飲食サービス業）", "url": "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040303382" },
+          { "label": "日本フードサービス協会 2024年外食産業市場動向", "url": "https://www.jfnet.or.jp/wp/wp-content/uploads/2025/09/nenkandata-2024pdf.pdf" },
+          { "label": "物語コーポレーション 2024年6月期決算説明資料", "url": "https://www.monogatari.co.jp/ir/" }
+        ]
+      }
+    },
+    {
+      "id": "beauty-salon",
+      "label": "美容室・整体院（個人事業主）",
+      "description": "施術型サービス業。指名・リピート率が事業の基幹指標。",
+      "examples": ["1人美容室", "整体院", "ネイルサロン"],
+      "hints": {
+        "phase-0": "プレリサーチでは『商圏内の美容室密度』『単価帯のレンジ』『口コミ評価上位店の特徴』",
+        "phase-1": "ヒアリングは新規/リピート/紹介の比率と顧客年齢層を必ず聞く",
+        "phase-4": "ペルソナは『悩み軸』で立てる／ズラし例: 美容→セルフケア指導、施術→空間体験",
+        "phase-7": "KPIは指名率／再来率／紹介率の3軸が中心"
+      },
+      "unitEconomicsBenchmark": {
+        "currency": "JPY",
+        "region": "JP",
+        "updated": "2026-05-13",
+        "notes": "美容センサス2024上期と田谷IR、生活関連サービス業の粗利率を組み合わせ。",
+        "metrics": {
+          "customerUnitPrice":      { "low": 5000,  "mid": 7500,  "high": 10000,  "unit": "JPY/回",  "tag": "[事実-複数]" },
+          "grossMarginRate":        { "low": 0.85,  "mid": 0.90,  "high": 0.95,                     "tag": "[事実-一次]" },
+          "monthlyRetention":       { "low": 0.65,  "mid": 0.75,  "high": 0.85,                     "tag": "[事実-複数]" },
+          "visitFrequencyPerMonth": { "low": 0.20,  "mid": 0.38,  "high": 0.45,   "unit": "回/月",   "tag": "[事実-複数]" },
+          "cac":                    { "low": 3000,  "mid": 4000,  "high": 8000,   "unit": "JPY/人",  "tag": "[事実-複数]" },
+          "ltv":                    { "low": 18000, "mid": 45000, "high": 95000,  "unit": "JPY",     "tag": "[仮説]" },
+          "paybackMonths":          { "low": 2,     "mid": 4,     "high": 8,      "unit": "ヶ月",    "tag": "[仮説]" }
+        },
+        "sources": [
+          { "label": "家計調査 第5表 その他の消費支出（理美容）", "url": "https://www.e-stat.go.jp/stat-search/file-download?fileKind=4&statInfId=000040297534" },
+          { "label": "美容センサス2024上期（HPBアカデミー）", "url": "https://hba.beauty.hotpepper.jp/" },
+          { "label": "中小企業実態基本調査 令和6年確報（生活関連サービス業）", "url": "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040303382" },
+          { "label": "株式会社田谷 2025年3月期IR", "url": "https://taya.co.jp/ir/" },
+          { "label": "矢野経済研究所 理美容サロン市場調査 2025", "url": "https://www.yano.co.jp/press-release/show/press_id/3843" }
+        ]
+      }
+    },
+    {
+      "id": "btob-creative",
+      "label": "BtoB制作・受託（Web制作・デザインなど）",
+      "description": "受託案件中心の事業。ファネル構造とリードタイムが長い。",
+      "examples": ["Web制作", "グラフィックデザイン", "コピーライティング"],
+      "hints": {
+        "phase-0": "プレリサーチでは『発注側の予算相場』『内製化／オフショアの動向』『主要直接競合の制作実績』",
+        "phase-1": "ヒアリングは1案件単価×件数×粗利率で売上を分解",
+        "phase-2": "競合は『内製化』『フリーランス』『海外オフショア』も含めて",
+        "phase-4": "ズラし例: 受託→自社プロダクト／単発制作→運用パートナー／全方位→特定業種特化",
+        "phase-6": "施策は『獲得→育成→提案→受注』の各段階で分けて出す"
+      },
+      "unitEconomicsBenchmark": {
+        "currency": "JPY",
+        "region": "JP",
+        "updated": "2026-05-13",
+        "notes": "B2B読み替え: customerUnitPrice=1案件単価、visitFrequencyPerMonth=月間受注件数、monthlyRetention=年間継続契約率。",
+        "metrics": {
+          "customerUnitPrice":      { "low": 300000,  "mid": 900000,   "high": 3000000, "unit": "JPY/案件", "tag": "[事実-複数]" },
+          "grossMarginRate":        { "low": 0.47,    "mid": 0.61,     "high": 0.78,                       "tag": "[事実-一次]" },
+          "monthlyRetention":       { "low": 0.60,    "mid": 0.80,     "high": 0.90,                       "tag": "[仮説]",     "memo": "年間継続契約率" },
+          "visitFrequencyPerMonth": { "low": 0.08,    "mid": 0.17,     "high": 0.25,    "unit": "件/月",    "tag": "[仮説]" },
+          "cac":                    { "low": 50000,   "mid": 200000,   "high": 600000,  "unit": "JPY/件",   "tag": "[事実-複数]" },
+          "ltv":                    { "low": 800000,  "mid": 2000000,  "high": 8000000, "unit": "JPY",      "tag": "[仮説]" },
+          "paybackMonths":          { "low": 1,       "mid": 3,        "high": 12,      "unit": "ヶ月",     "tag": "[仮説]" }
+        },
+        "sources": [
+          { "label": "日本政策金融公庫 小企業の経営指標調査 2024年8月", "url": "https://www.jfc.go.jp/n/findings/shihyou_kekka_m_index.html" },
+          { "label": "中小企業実態基本調査 令和6年確報（情報通信／専門・技術サービス業）", "url": "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040303382" },
+          { "label": "経済構造実態調査 2024", "url": "https://www.e-stat.go.jp/dbview?sid=0004030061" },
+          { "label": "経産省 特定サービス産業動態統計（広告業・情報サービス業）", "url": "https://www.meti.go.jp/statistics/tyo/tokusabido/" },
+          { "label": "JISA 情報サービス産業基本統計調査", "url": "https://www.jisa.or.jp/Default.aspx?TabId=769" }
+        ]
+      }
+    },
+    {
+      "id": "retail",
+      "label": "小売・物販（実店舗中心）",
+      "description": "実店舗での物販。在庫・粗利・回転率が事業の屋台骨。",
+      "examples": ["セレクトショップ", "雑貨店", "専門店"],
+      "hints": {
+        "phase-0": "プレリサーチでは『商圏内の同業密度』『EC流通量』『オンライン口コミ／SNS言及量』",
+        "phase-1": "ヒアリングは客数×客単価×購買頻度で売上を分解、平均在庫回転日数も把握",
+        "phase-2": "競合はEC（Amazon／楽天／ZOZO等）も含む",
+        "phase-4": "ペルソナは『常連／たまに来る／一見』で3層／ズラし例: 単純物販→体験型／店頭→D2C",
+        "phase-7": "KPIは在庫回転日数／粗利率／客単価／リピート率"
+      },
+      "unitEconomicsBenchmark": {
+        "currency": "JPY",
+        "region": "JP",
+        "updated": "2026-05-13",
+        "notes": "業態幅が広い。コンビニ・スーパー・衣料・家具で大きく変動。midは中央業態の目安。",
+        "metrics": {
+          "customerUnitPrice":      { "low": 700,   "mid": 2500,  "high": 15000,  "unit": "JPY/回",  "tag": "[事実-一次]" },
+          "grossMarginRate":        { "low": 0.26,  "mid": 0.30,  "high": 0.51,                     "tag": "[事実-一次]" },
+          "monthlyRetention":       { "low": 0.30,  "mid": 0.50,  "high": 0.75,                     "tag": "[事実-複数]" },
+          "visitFrequencyPerMonth": { "low": 1.0,   "mid": 4.0,   "high": 12.0,   "unit": "回/月",   "tag": "[事実-複数]" },
+          "cac":                    { "low": 1000,  "mid": 2500,  "high": 8000,   "unit": "JPY/人",  "tag": "[事実-複数]" },
+          "ltv":                    { "low": 5000,  "mid": 25000, "high": 150000, "unit": "JPY",     "tag": "[仮説]" },
+          "paybackMonths":          { "low": 2,     "mid": 4,     "high": 12,     "unit": "ヶ月",    "tag": "[仮説]" }
+        },
+        "sources": [
+          { "label": "経産省 商業動態統計", "url": "https://www.meti.go.jp/statistics/tyo/syoudou/" },
+          { "label": "経産省 企業活動基本調査 2024年", "url": "https://www.meti.go.jp/statistics/tyo/kikyo/" },
+          { "label": "家計調査 第5表 家具・家事用品", "url": "https://www.e-stat.go.jp/stat-search/file-download?fileKind=4&statInfId=000040297527" },
+          { "label": "家計調査 第5表 被服及び履物", "url": "https://www.e-stat.go.jp/stat-search/file-download?fileKind=4&statInfId=000040297528" },
+          { "label": "中小企業実態基本調査 令和6年確報（小売業）", "url": "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040303382" }
+        ]
+      }
+    }
+  ]
+}

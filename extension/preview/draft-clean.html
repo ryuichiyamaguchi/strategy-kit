@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>STRATEGY-KIT DRAFT Preview</title>
+    <link rel="stylesheet" href="draft-clean.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p id="kind-label" class="eyebrow">DRAFTクリーン版</p>
+        <h1 id="preview-title" class="hero-main">STRATEGY-KIT DRAFT</h1>
+      </div>
+      <div class="actions">
+        <button id="print-btn" class="icon-btn" type="button" title="印刷">印刷</button>
+        <button id="open-doc-btn" class="icon-btn secondary" type="button" title="Docsを開く">Docs</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="toc-panel" aria-label="目次">
+        <p class="toc-label">CONTENTS</p>
+        <nav id="toc"></nav>
+      </aside>
+
+      <article class="document">
+        <section class="summary-band">
+          <p class="summary-label">SUMMARY</p>
+          <p id="preview-summary" class="hero-sub"></p>
+        </section>
+        <div id="section-list" class="section-list"></div>
+      </article>
+    </main>
+
+    <p id="empty-state" class="empty-state hidden">プレビューを表示できませんでした。</p>
+    <script type="module" src="draft-clean.js"></script>
+  </body>
+</html>

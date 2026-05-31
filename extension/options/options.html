@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>STRATEGY-KIT 設定</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Noto+Sans+JP:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <div class="back-bar">
+      <button id="back-btn" class="btn btn-ghost back-btn" type="button">← サイドパネルに戻る</button>
+    </div>
+    <div class="return-banner">
+      設定はこのタブで行います。完了したら左上の「← サイドパネルに戻る」ボタン、またはこのタブを閉じてサイドパネルに戻ってください。
+    </div>
+    <main class="container">
+      <h1>STRATEGY-KIT</h1>
+      <p class="lede">事業情報を入力すれば、サイドパネルから戦略立案 + Google Docs 章別記録が使えます。v0.12 では Google アカウント連携で Docs / Drive に直接保存します。</p>
+
+      <section class="card">
+        <h2>事業情報</h2>
+        <p class="muted">
+          まず「業種プリセット」で近いものを選び、必要なら「業種（自由入力）」で細かく書き直してください。プリセットにない業種は「その他」を選んで自由入力に書きます。
+        </p>
+        <label class="row">
+          <span>業種プリセット</span>
+          <select id="industry"></select>
+        </label>
+        <label class="row">
+          <span>業種（自由入力）</span>
+          <input id="industry-label" type="text" placeholder="例: クライミングジム" />
+        </label>
+        <label class="row">
+          <span>店舗・屋号</span>
+          <input id="store-name" type="text" placeholder="例: エナジー柏店" />
+        </label>
+      </section>
+
+      <section class="card" id="oauth-card">
+        <h2>Google アカウント連携</h2>
+        <p class="muted">Docs / Drive へ保存するために Chrome の Google 連携を使います。token 本体は保存しません。</p>
+        <div class="row inline">
+          <button id="oauth-connect" class="btn" type="button">連携 / 再連携</button>
+          <button id="oauth-probe" class="btn btn-ghost" type="button">状態確認</button>
+          <button id="oauth-clear" class="btn btn-ghost" type="button">token cache clear</button>
+          <span id="oauth-status" class="status" role="status" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>表示設定</h2>
+        <label class="row checkbox">
+          <input id="show-safety" type="checkbox" />
+          <span>サイドパネルに「運用原則」を表示する</span>
+        </label>
+      </section>
+
+      <section class="card" id="engagement-mode-readout-card">
+        <h2>現在の入口モード</h2>
+        <p id="engagement-mode-readout" class="muted">未選択</p>
+        <p class="muted">入口モードの変更はサイドパネル冒頭で行います。</p>
+      </section>
+
+      <section class="card" id="master-doc-card">
+        <h2>マスタードキュメント</h2>
+        <p class="muted">既存の Google Docs URL を登録するか、現在のフェーズ定義から新規作成します。</p>
+        <label class="row">
+          <span>Google Docs URL</span>
+          <input id="master-doc-url" type="url" placeholder="https://docs.google.com/document/d/..." />
+        </label>
+        <div class="row inline">
+          <button id="master-doc-verify" class="btn" type="button">確認して保存</button>
+          <button id="master-doc-create" class="btn btn-ghost" type="button">新規作成</button>
+          <button id="open-master-doc" class="btn btn-ghost" type="button">📄 開く</button>
+          <span id="master-doc-status" class="status"></span>
+        </div>
+      </section>
+
+      <section class="card" id="gemini-settings-card">
+        <h2>Gemini 設定</h2>
+        <p class="muted">全自動生成と図解自動生成で使います。学習用途では「セキュア学習モード」を推奨します。</p>
+
+        <div class="settings-block">
+          <h3>直接 API key モード</h3>
+          <div class="warning-box">
+            <strong>注意:</strong>
+            API key をこの端末の local storage に保存します。学習用の無料枠または少額上限の key にし、Google AI Studio / Cloud Console 側で Generative Language API のみに制限し、利用上限も絞ってください。漏れても被害が小さくなる設定が前提です。セキュリティ上、最も推奨される方法ではありません。
+          </div>
+          <label class="row checkbox">
+            <input id="gemini-local-key-ack" type="checkbox" />
+            <span>上限を絞った学習用 key だけを保存することを確認しました</span>
+          </label>
+          <label class="row">
+            <span>Gemini API key</span>
+            <input id="gemini-api-key" type="password" placeholder="AIza..." autocomplete="off" />
+          </label>
+          <div class="row inline">
+            <button id="gemini-key-save" class="btn" type="button">直接 key を保存</button>
+            <button id="gemini-key-delete" class="btn btn-ghost" type="button">直接 key を削除</button>
+            <button id="gemini-probe" class="btn btn-ghost" type="button">直接 key 実行確認</button>
+            <span id="gemini-status" class="status"></span>
+          </div>
+        </div>
+
+        <div class="settings-block">
+          <h3>セキュア学習モード</h3>
+          <p class="muted">マスタードキュメントに紐づいた Apps Script proxy を作成し、Gemini API key は Apps Script の Script Properties に保存します。拡張機能側には key を保存しません。初回だけ Apps Script 側の承認が求められる場合があります。</p>
+          <p id="proxy-image-mode-notice" class="muted">画像系図解（Nano Banana・きれい・編集不可）を proxy で使う場合、2026-05-26 以前に作成した proxy は「Gemini proxy を作成」から再作成してください。</p>
+          <div class="row inline">
+            <button id="gemini-proxy-create" class="btn" type="button">Gemini proxy を作成</button>
+            <button id="gemini-proxy-open" class="btn btn-ghost" type="button">Apps Script を開く</button>
+            <button id="gemini-proxy-clear" class="btn btn-ghost" type="button">proxy 設定削除</button>
+            <span id="gemini-proxy-status" class="status"></span>
+          </div>
+          <label class="row">
+            <span>Gemini API key（proxyへ送信し、Apps ScriptのScript Propertiesに保存。拡張には保存しません）</span>
+            <input id="gemini-proxy-api-key" type="password" placeholder="AIza..." autocomplete="off" autocapitalize="off" spellcheck="false" />
+          </label>
+          <div class="row inline">
+            <button id="gemini-proxy-setup-key" class="btn" type="button">proxy に key を設定</button>
+            <button id="gemini-proxy-test" class="btn btn-ghost" type="button">proxy 実行確認</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>このツールについて</h2>
+        <p>
+          STRATEGY-KIT
+          は、職業訓練マーケティング戦略講座の修了記念配布物です。マスタードキュメント中心のマーケ戦略立案を、複数AI横断で支援します。
+        </p>
+        <p>
+          <strong>AIの出力を直接マスタードキュメントに書き込まないでください。</strong>必ず別ファイルに残し、人間が選別して転記する運用を守ってください。
+        </p>
+        <p id="about-version" class="muted"></p>
+      </section>
+
+      <div class="actions">
+        <button id="save" class="btn">保存</button>
+        <span id="saved-msg" class="saved-msg hidden" role="status" aria-live="polite">保存しました。サイドパネルを開いたままでも数秒で反映されます。</span>
+        <button id="back-btn-bottom" class="btn btn-ghost" type="button" style="margin-left:auto">← サイドパネルに戻る</button>
+      </div>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

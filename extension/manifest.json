@@ -1,0 +1,138 @@
+{
+  "manifest_version": 3,
+  "name": "STRATEGY-KIT Helper",
+  "version": "0.12.15",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArhjpMOgnUQQx4GxKNVm4CV+fwtSjCy0oyMZOocCNIVZsdf81Vncj26K2wuDJzxf5X4Ee2TldrC7I8P20f2oUmEztE9cPYCWNUS2rmuaSFIb96asNiuDqmJLFwRgYHgX+lQEOqCz3l+lAgpwBPpYscfB7XKi5l45CpNMfpd+km2qw+FITYasn0NMYIPymx1Btod+OLJdRMxLW2ijfa13F6OKmnQerJrzvtDsHFF9HmSZ0BamNyVObaiPROQnpeb9NvUkV+wuu+OGnOJ24Myn8aYTrVaN2mtdJWZV81rq69SpJbtyLmKx5kwVabP5wKVZdvmpSOIRuqomOuLzAYoLn7QIDAQAB",
+  "oauth2": {
+    "client_id": "975964313152-9oo5d5f2onr7ds3ei4qntg4qs3k2fltt.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/script.projects",
+      "https://www.googleapis.com/auth/script.deployments"
+    ]
+  },
+  "description": "マーケティング戦略立案を10フェーズで進める教材用 Chrome 拡張機能。対応する AI チャット画面へユーザー操作でプロンプトを挿入し、Google ドキュメントへ章別記録します。",
+  "default_locale": "ja",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "STRATEGY-KIT Helper",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "options_page": "options/options.html",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "clipboardWrite",
+    "tabs",
+    "identity"
+  ],
+  "host_permissions": [
+    "https://claude.ai/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://gemini.google.com/*",
+    "https://manus.im/*",
+    "https://www.manus.im/*",
+    "https://genspark.ai/*",
+    "https://www.genspark.ai/*",
+    "https://www.perplexity.ai/*",
+    "https://perplexity.ai/*",
+    "https://notebooklm.google.com/*",
+    "https://docs.google.com/*",
+    "https://grok.com/*",
+    "https://www.grok.com/*",
+    "https://www.googleapis.com/*",
+    "https://docs.googleapis.com/*",
+    "https://script.googleapis.com/*",
+    "https://script.google.com/*",
+    "https://script.googleusercontent.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://mermaid.ink/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["lib/insert-helpers.js", "content/claude.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["lib/insert-helpers.js", "content/chatgpt.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://gemini.google.com/*"],
+      "js": ["lib/insert-helpers.js", "content/gemini.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://manus.im/*", "https://www.manus.im/*"],
+      "js": ["lib/insert-helpers.js", "content/manus.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://genspark.ai/*", "https://www.genspark.ai/*"],
+      "js": ["lib/insert-helpers.js", "content/genspark.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.perplexity.ai/*", "https://perplexity.ai/*"],
+      "js": ["lib/insert-helpers.js", "content/perplexity.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://notebooklm.google.com/*"],
+      "js": ["lib/insert-helpers.js", "content/notebooklm.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://grok.com/*", "https://www.grok.com/*"],
+      "js": ["lib/insert-helpers.js", "content/grok.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://docs.google.com/document/*"],
+      "js": ["lib/insert-helpers.js", "content/google-docs.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["data/prompts.json", "data/industries.json", "data/ai-profiles.json", "data/diagram-types.json"],
+      "matches": [
+        "https://claude.ai/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://gemini.google.com/*",
+        "https://manus.im/*",
+        "https://www.manus.im/*",
+        "https://genspark.ai/*",
+        "https://www.genspark.ai/*",
+        "https://www.perplexity.ai/*",
+        "https://perplexity.ai/*",
+        "https://notebooklm.google.com/*",
+        "https://docs.google.com/*",
+        "https://grok.com/*",
+        "https://www.grok.com/*"
+      ]
+    }
+  ]
+}

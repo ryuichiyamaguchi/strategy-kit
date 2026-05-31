@@ -1,0 +1,140 @@
+{
+  "version": "1.1.0",
+  "updated": "2026-04-29",
+  "viewers": {
+    "mermaid": {
+      "label": "Mermaid Live Editor",
+      "url": "https://mermaid.live/edit",
+      "instruction": "コードを貼り付けるとプレビューとPNG/SVGエクスポートができます"
+    },
+    "mermaid_ink": {
+      "label": "Mermaid Ink",
+      "urlPattern": "https://mermaid.ink/img/{base64}",
+      "instruction": "短いMermaidコードならPNG画像を直接生成できます"
+    }
+  },
+  "imageGeneration": {
+    "instruction": "画像生成AIに貼り付けて、そのまま配布できる1枚画像へ変換するためのプロンプト",
+    "stylePresets": {
+      "clean": "白背景、黒文字、左ボーダーアクセント、A4縦向き、余白広め、図表は読みやすく整理",
+      "presentation": "プレゼン資料向け。要点を大きく、色面を使い、視線誘導がはっきりした構成",
+      "infographic": "数字と要点を強調したインフォグラフィック。日本語は太めで可読性重視",
+      "whiteboard": "ホワイトボード風の手書きニュアンス。親しみやすく、要点は明快に",
+      "corporate": "社内共有資料向け。白背景、濃いグレー文字、アクセント1色、フォーマルな印象"
+    },
+    "promptTemplate": "以下の戦略内容を、{{HINT}} として1枚の図版に整形してください。\n\n【スタイル】\n{{STYLE}}\n\n【文字ルール】\n文字はすべて正確な日本語で、誤字脱字なし。小さすぎる文字は使わず、A4で読める可読性を優先してください。\n\n【構造データ】\n{{CONTENT}}\n\n【出力】\nPNG または SVG の画像1枚。白背景ベース、印刷でもつぶれないコントラスト。"
+  },
+  "diagrams": [
+    {
+      "id": "swot-cards",
+      "label": "SWOT 4象限カード",
+      "group": "おすすめ（HTMLカード）",
+      "format": "html-card-swot",
+      "imagePromptHint": "SWOT分析を4象限カードで整理したA4向け図解",
+      "sourceSection": ["§3"],
+      "promptFor": "claude",
+      "body": "§3 統合（SWOT / クロスSWOT）の内容から、配布用のSWOT 4象限カードに必要なテキストだけをJSONで出力してください。\n\n【出力ルール】\n- HTMLは出さない\n- 説明文は不要\n- 必ず ```json から ``` までのコードブロックのみ\n- JSONのキーは次の通り:\n{\n  \"title\": \"SWOT分析タイトル\",\n  \"summary\": \"このSWOTの要点を1文\",\n  \"strengths\": [\"...\", \"...\", \"...\"],\n  \"weaknesses\": [\"...\", \"...\", \"...\"],\n  \"opportunities\": [\"...\", \"...\", \"...\"],\n  \"threats\": [\"...\", \"...\", \"...\"]\n}\n- 各配列は3項目まで、1項目40字以内\n\n【元データ】\n★貼付★"
+    },
+    {
+      "id": "four-p-four-c",
+      "label": "4P / 4C 比較表",
+      "group": "おすすめ（HTMLカード）",
+      "format": "html-card-4p4c",
+      "imagePromptHint": "4Pと4Cを左右比較した戦略整理表",
+      "sourceSection": ["§5"],
+      "promptFor": "claude",
+      "body": "§5 価値設計の4P/4C対応表から、配布用の比較表に必要なテキストだけをJSONで出力してください。\n\n【出力ルール】\n- HTMLは出さない\n- 必ず ```json から ``` までのコードブロックのみ\n- rows は [視点, 企業側, 顧客側] の3列配列\n- 4行以上5行以内\n- JSONの形:\n{\n  \"title\": \"4P / 4C 比較表\",\n  \"summary\": \"要約1文\",\n  \"rows\": [\n    [\"Product / Value\", \"...\", \"...\"],\n    [\"Price / Cost\", \"...\", \"...\"],\n    [\"Place / Convenience\", \"...\", \"...\"],\n    [\"Promotion / Communication\", \"...\", \"...\"]\n  ]\n}\n\n【元データ】\n★貼付★"
+    },
+    {
+      "id": "persona-card",
+      "label": "ペルソナカード",
+      "group": "おすすめ（HTMLカード）",
+      "format": "html-card-persona",
+      "imagePromptHint": "顔写真風プレースホルダー付きのペルソナ紹介カード",
+      "sourceSection": ["§4", "§5"],
+      "promptFor": "claude",
+      "body": "§4 ペルソナと §5 価値設計から、1人分のペルソナカードに必要なテキストだけをJSONで出力してください。\n\n【出力ルール】\n- HTMLは出さない\n- 必ず ```json から ``` までのコードブロックのみ\n- JSONの形:\n{\n  \"name\": \"名前または仮名\",\n  \"profile\": \"年齢・職業・居住地を1文で\",\n  \"photoHint\": \"顔写真風の一言説明\",\n  \"attributes\": [\"...\", \"...\", \"...\"],\n  \"pains\": [\"...\", \"...\", \"...\"],\n  \"goals\": [\"...\", \"...\", \"...\"],\n  \"channels\": [\"...\", \"...\", \"...\"],\n  \"reason\": \"このサービスを選ぶ理由を1文\"\n}\n- 各配列は3項目まで\n\n【元データ】\n★貼付★"
+    },
+    {
+      "id": "customer-journey",
+      "label": "カスタマージャーニー",
+      "group": "おすすめ（HTMLカード）",
+      "format": "html-card-journey",
+      "imagePromptHint": "認知から再来までを横並びで整理したジャーニーマップ",
+      "sourceSection": ["§4", "§5", "§6"],
+      "promptFor": "claude",
+      "body": "§4〜§6 の内容から、時系列のカスタマージャーニー図解に必要なテキストだけをJSONで出力してください。\n\n【出力ルール】\n- HTMLは出さない\n- 必ず ```json から ``` までのコードブロックのみ\n- stages は 4〜6 件\n- JSONの形:\n{\n  \"title\": \"カスタマージャーニー\",\n  \"summary\": \"要約1文\",\n  \"stages\": [\n    {\n      \"stage\": \"認知\",\n      \"action\": \"顧客の行動\",\n      \"emotion\": \"感情\",\n      \"touchpoint\": \"接点\",\n      \"opportunity\": \"打ち手\"\n    }\n  ]\n}\n\n【元データ】\n★貼付★"
+    },
+    {
+      "id": "kpi-tree-card",
+      "label": "KPIツリーカード",
+      "group": "おすすめ（HTMLカード）",
+      "format": "html-card-kpi-tree",
+      "imagePromptHint": "KGIから施策までを階層表示したKPIツリー",
+      "sourceSection": ["§7"],
+      "promptFor": "claude",
+      "body": "§7 KPIツリー＋PDCA の内容から、立体感のあるKPIツリー図解に必要なテキストだけをJSONで出力してください。\n\n【出力ルール】\n- HTMLは出さない\n- 必ず ```json から ``` までのコードブロックのみ\n- branches は2〜4件\n- actions は各KPIにつき2件まで\n- JSONの形:\n{\n  \"title\": \"KPIツリー\",\n  \"summary\": \"要約1文\",\n  \"kgi\": \"最上位目標\",\n  \"kgiTarget\": \"数値目標や期限\",\n  \"branches\": [\n    {\n      \"kpi\": \"中間KPI\",\n      \"target\": \"目標値\",\n      \"actions\": [\"施策1\", \"施策2\"]\n    }\n  ]\n}\n\n【元データ】\n★貼付★"
+    },
+    {
+      "id": "competitor-table",
+      "label": "競合比較表",
+      "group": "おすすめ（HTMLカード）",
+      "format": "html-card-competitor",
+      "imagePromptHint": "自社と競合を横比較した競合分析表",
+      "sourceSection": ["§2", "§3"],
+      "promptFor": "claude",
+      "body": "§2 調査分析と §3 統合の内容から、競合比較表に必要なテキストだけをJSONで出力してください。\n\n【出力ルール】\n- HTMLは出さない\n- 必ず ```json から ``` までのコードブロックのみ\n- headers は5列: [\"比較対象\", \"特徴\", \"強み\", \"弱み\", \"狙う余地\"]\n- rows は3〜5行\n- JSONの形:\n{\n  \"title\": \"競合比較表\",\n  \"summary\": \"要約1文\",\n  \"headers\": [\"比較対象\", \"特徴\", \"強み\", \"弱み\", \"狙う余地\"],\n  \"rows\": [\n    [\"自社\", \"...\", \"...\", \"...\", \"...\"],\n    [\"競合A\", \"...\", \"...\", \"...\", \"...\"]\n  ]\n}\n\n【元データ】\n★貼付★"
+    },
+    {
+      "id": "industry-checklist",
+      "label": "業種別チェックリスト",
+      "group": "おすすめ（HTMLカード）",
+      "format": "html-card-checklist",
+      "imagePromptHint": "現場で使える改善チェックリストカード",
+      "sourceSection": ["§2", "§6", "§7"],
+      "promptFor": "claude",
+      "body": "§2・§6・§7 の内容から、現場で使える改善チェックリストに必要なテキストだけをJSONで出力してください。\n\n【出力ルール】\n- HTMLは出さない\n- 必ず ```json から ``` までのコードブロックのみ\n- items は5〜7件\n- JSONの形:\n{\n  \"title\": \"業種別チェックリスト\",\n  \"summary\": \"要約1文\",\n  \"items\": [\n    { \"title\": \"確認項目\", \"detail\": \"見るポイント\" },\n    { \"title\": \"確認項目\", \"detail\": \"見るポイント\" }\n  ]\n}\n\n【元データ】\n★貼付★"
+    },
+    {
+      "id": "cross-3c-analysis",
+      "label": "クロス3C分析（顧客×自社×競合）",
+      "group": "おすすめ（HTMLカード）",
+      "format": "html-card-cross-3c",
+      "imagePromptHint": "顧客・自社・競合の3円ベン図で重なり領域を可視化した戦略図解",
+      "sourceSection": ["§3", "§4"],
+      "promptFor": "claude",
+      "body": "次の情報から、クロス3C分析（顧客・自社・競合の3円ベン図）を構造化してください。出力は厳密にJSON。\n\n出力フォーマット:\n{\n  \"title\": \"クロス3C分析タイトル\",\n  \"summary\": \"3Cの重なりを1文で要約\",\n  \"customer\": [\"顧客の特徴1\", \"特徴2\", \"特徴3\"],\n  \"company\": [\"自社の強み・特徴1\", \"特徴2\"],\n  \"competitor\": [\"競合の特徴1\", \"特徴2\"],\n  \"customer_company\": [\"顧客∩自社：刺さるポイント1\", \"ポイント2\"],\n  \"customer_competitor\": [\"顧客∩競合：取られている領域1\", \"領域2\"],\n  \"company_competitor\": [\"自社∩競合：レッドオーシャン1\", \"領域2\"],\n  \"all_three\": [\"3つ全て：三つ巴1\", \"三つ巴2\"],\n  \"insight\": \"このクロス3Cから得られる戦略的示唆を3行以内で\"\n}\n\n各配列は2〜4項目。重なり領域は具体名詞で、主戦場候補が伝わる表現にしてください。\n\n対象データ（章本文）:\n★sourceText★",
+      "description": "顧客・自社・競合の3円ベン図で『どこで戦うか』を可視化"
+    },
+    {
+      "id": "overview-mindmap",
+      "label": "全体マップ（Mermaid）",
+      "group": "上級者向け（Mermaid）",
+      "format": "mermaid-mindmap",
+      "imagePromptHint": "戦略全体像を放射状に整理したMermaidマインドマップ",
+      "sourceSection": ["§0", "§1", "§2", "§3", "§4", "§5", "§6", "§7"],
+      "promptFor": "claude",
+      "body": "全章の内容から、戦略全体の構造を Mermaid mindmap 形式で出力してください。\n\n【ルール】\n- 中心ノード: 業種・店舗名\n- 第1階層: フェーズ0〜7\n- 第2階層: 各章の要点を3つまで\n- ノード文字数: 各18文字以内\n- 出力は ```mermaid から ``` までのコードブロックのみ\n\n【元データ】\n★貼付★"
+    },
+    {
+      "id": "positioning-map",
+      "label": "ポジショニングマップ（Mermaid）",
+      "group": "上級者向け（Mermaid）",
+      "format": "mermaid-quadrant",
+      "imagePromptHint": "自社と競合を2軸で配置したポジショニングマップ",
+      "sourceSection": ["§4"],
+      "promptFor": "claude",
+      "body": "§4 戦略策定の内容から、競合とのポジショニングを Mermaid quadrantChart 形式で出力してください。\n\n【ルール】\n- x軸 / y軸は差別化軸2つをAIが判断\n- 自社・競合3〜5社を配置\n- 出力は ```mermaid から ``` までのコードブロックのみ\n\n【元データ】\n★貼付★"
+    },
+    {
+      "id": "phase-flow",
+      "label": "フェーズ依存関係（Mermaid）",
+      "group": "上級者向け（Mermaid）",
+      "format": "mermaid-flowchart",
+      "imagePromptHint": "フェーズ0から9までの依存関係を横並びで示すフロー図",
+      "sourceSection": ["§0", "§1", "§2", "§3", "§4", "§5", "§6", "§7", "§8", "§9"],
+      "promptFor": "claude",
+      "body": "§0〜§9 の内容から、フェーズ間の依存関係を Mermaid flowchart LR 形式で図解してください。\n\n【ルール】\n- 左から右へフェーズ進行\n- 各ノードにフェーズ名と主要アウトプットを1〜2個\n- 矢印ラベルに次フェーズへ渡すものを書く\n- 出力は ```mermaid から ``` までのコードブロックのみ\n\n【元データ】\n★貼付★"
+    }
+  ]
+}

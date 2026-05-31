@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STRATEGY-KIT 最新版 構造図解</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --paper: #fffaf0;
+      --base: #f5f0e6;
+      --ink: #17233a;
+      --muted: #4a5871;
+      --line: #d9cbb4;
+      --navy: #24364f;
+      --blue: #0f6c81;
+      --amber: #9a5b00;
+      --rose: #9d2f4d;
+      --green: #23715a;
+      --soft-blue: #e6f3f5;
+      --soft-amber: #fff0d1;
+      --soft-rose: #fff0f3;
+      --soft-green: #e6f4ee;
+      --shadow: 0 18px 38px rgba(36, 54, 79, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      overflow-x: hidden;
+    }
+
+    body {
+      margin: 0;
+      background: var(--base);
+      color: var(--ink);
+      font-family: "Hiragino Sans", "Yu Gothic", "BIZ UDPGothic", "Noto Sans JP", sans-serif;
+      line-height: 1.75;
+      letter-spacing: 0;
+      overflow-x: hidden;
+    }
+
+    /* Japanese text layout fix */
+    h1, h2, h3 { word-break: keep-all; overflow-wrap: break-word; }
+    p, span, li, a, td { overflow-wrap: break-word; }
+    img { object-fit: contain; }
+    .phrase { display: inline; }
+    @media (min-width: 768px) {
+      .phrase { display: inline-block; }
+    }
+    @media (max-width: 767px) {
+      .hero-main { font-size: clamp(1.5rem, 7vw, 2.5rem) !important; line-height: 1.3 !important; }
+      .hero-sub { font-size: clamp(0.9rem, 3.5vw, 1.25rem) !important; line-height: 1.5 !important; }
+      nav { padding: 0.75rem 1rem !important; }
+      nav .hidden { display: none !important; }
+    }
+
+    a {
+      color: var(--blue);
+    }
+
+    code {
+      padding: 0.08rem 0.35rem;
+      border-radius: 4px;
+      background: #eef2f5;
+      color: #20314c;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+      overflow-wrap: anywhere;
+    }
+
+    .wrap {
+      width: min(1160px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      padding: 54px 0 34px;
+      background: var(--paper);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 34px;
+      align-items: end;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 18px;
+      padding: 5px 9px;
+      border-radius: 4px;
+      background: var(--navy);
+      color: #fffaf0;
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .hero-main {
+      margin: 0;
+      font-size: clamp(2.25rem, 5vw, 4.55rem);
+      line-height: 1.08;
+      max-width: 940px;
+    }
+
+    .hero-sub {
+      margin: 18px 0 0;
+      max-width: 780px;
+      color: var(--muted);
+      font-size: clamp(1.05rem, 2.4vw, 1.42rem);
+      line-height: 1.65;
+      overflow-wrap: anywhere;
+    }
+
+    .version-box {
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      background: #fffdf7;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .version-box h2 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+    }
+
+    .version-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .version-list strong {
+      color: var(--ink);
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 250, 240, 0.96);
+      backdrop-filter: blur(10px);
+      padding: 12px 0;
+    }
+
+    .nav-inner {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .nav-inner a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fffdf7;
+      color: var(--ink);
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    main {
+      padding: 30px 0 72px;
+    }
+
+    section {
+      margin: 0;
+      padding: 44px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    section:last-child {
+      border-bottom: 0;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: clamp(1.6rem, 3vw, 2.35rem);
+      line-height: 1.25;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 1.15rem;
+      line-height: 1.35;
+    }
+
+    .lead {
+      max-width: 850px;
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 1.06rem;
+      overflow-wrap: anywhere;
+    }
+
+    .diagram-panel {
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      background: #fffdf7;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .diagram-panel img {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #fffaf0;
+    }
+
+    .download-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .button-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 4px 12px;
+      border: 2px solid var(--navy);
+      border-radius: 4px;
+      background: var(--navy);
+      color: #fffaf0;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .button-link + .button-link {
+      margin-left: 8px;
+    }
+
+    .summary-grid,
+    .roles-grid,
+    .change-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .summary-item,
+    .role-card,
+    .change-card,
+    .guard-card {
+      border: 1.5px solid var(--line);
+      border-radius: 8px;
+      background: #fffdf7;
+      padding: 18px;
+    }
+
+    .summary-item {
+      border-top: 5px solid var(--blue);
+    }
+
+    .summary-item:nth-child(2) {
+      border-top-color: var(--amber);
+    }
+
+    .summary-item:nth-child(3) {
+      border-top-color: var(--green);
+    }
+
+    .summary-item p,
+    .role-card p,
+    .change-card p,
+    .guard-card p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .role-card .badge {
+      display: inline-flex;
+      margin-bottom: 12px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      color: #fffaf0;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .badge.source { background: var(--amber); }
+    .badge.work { background: var(--blue); }
+    .badge.gas { background: var(--navy); }
+    .badge.extension { background: var(--rose); }
+    .badge.output { background: var(--green); }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1.5px solid var(--line);
+      border-radius: 8px;
+      background: #fffdf7;
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      min-width: 930px;
+      border-collapse: collapse;
+      font-size: 0.94rem;
+    }
+
+    th,
+    td {
+      padding: 13px 14px;
+      border-bottom: 1px solid #eadfce;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #f0e3cf;
+      color: var(--ink);
+      font-size: 0.88rem;
+      letter-spacing: 0;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td:nth-child(1) {
+      width: 20%;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    td:nth-child(2) {
+      width: 22%;
+    }
+
+    td:nth-child(3) {
+      width: 26%;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      margin: 0 5px 5px 0;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: #eef2f5;
+      color: var(--ink);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .flow {
+      display: grid;
+      gap: 12px;
+      max-width: 920px;
+    }
+
+    .flow-step {
+      display: grid;
+      grid-template-columns: 86px minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+      border: 1.5px solid var(--line);
+      border-radius: 8px;
+      background: #fffdf7;
+      padding: 16px;
+    }
+
+    .flow-num {
+      display: grid;
+      place-items: center;
+      min-height: 44px;
+      border-radius: 4px;
+      background: var(--navy);
+      color: #fffaf0;
+      font-weight: 800;
+    }
+
+    .flow-step p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .note {
+      border-left: 6px solid var(--amber);
+      border-radius: 8px;
+      background: var(--soft-amber);
+      padding: 16px 18px;
+      color: #4f3a18;
+    }
+
+    .note strong {
+      color: var(--ink);
+    }
+
+    .guard-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .guard-card {
+      border-left: 6px solid var(--rose);
+    }
+
+    .guard-card.ok {
+      border-left-color: var(--green);
+    }
+
+    .source-list {
+      margin: 0;
+      padding-left: 1.25rem;
+      color: var(--muted);
+    }
+
+    .source-list li + li {
+      margin-top: 6px;
+    }
+
+    footer {
+      padding: 30px 0 44px;
+      border-top: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 980px) {
+      .hero-grid,
+      .summary-grid,
+      .roles-grid,
+      .change-grid,
+      .guard-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .version-box {
+        max-width: 520px;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .wrap {
+        width: min(100% - 28px, 1160px);
+      }
+
+      .hero {
+        padding-top: 36px;
+      }
+
+      .hero-sub {
+        max-width: 100%;
+      }
+
+      section {
+        padding: 34px 0;
+      }
+
+      .flow-step {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-num {
+        width: 86px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="eyebrow">非エンジニア向け構造メモ</p>
+        <h1 class="hero-main">
+          <span class="phrase">STRATEGY-KITは</span>
+          <span class="phrase">どこが何をしているか</span>
+        </h1>
+        <p class="hero-sub">テンプレート原本、作業用Doc、GAS、GASライブラリ、Chrome拡張の関係を「どこを触ると、どこに書き込まれるか」で見られるように整理しました。</p>
+      </div>
+      <aside class="version-box" aria-label="確認した最新版">
+        <h2>確認した最新版</h2>
+        <ul class="version-list">
+          <li><strong>Chrome拡張:</strong> v0.11.3</li>
+          <li><strong>GASライブラリ:</strong> v0.11.2</li>
+          <li><strong>受講者貼付GAS:</strong> shim v0.11.0</li>
+          <li><strong>テンプレート:</strong> template_v3.0.md</li>
+        </ul>
+      </aside>
+    </div>
+  </header>
+
+  <nav aria-label="ページ内ナビゲーション">
+    <div class="wrap nav-inner">
+      <a href="#map">全体図</a>
+      <a href="#short">まず結論</a>
+      <a href="#roles">登場人物</a>
+      <a href="#writes">書き込み先</a>
+      <a href="#updates">更新の伝わり方</a>
+      <a href="#guards">注意点</a>
+    </div>
+  </nav>
+
+  <main>
+    <section id="map">
+      <div class="wrap">
+        <h2>全体図</h2>
+        <p class="lead">大きく見ると、Chrome拡張は「受付」、GASシムは「窓口」、StrategyKitLibは「実作業をする本体」、Google Docs/Driveは「保存場所」です。</p>
+        <div class="diagram-panel">
+          <img src="./strategy-kit-relationship-map.svg" alt="STRATEGY-KITのテンプレート原本、作業用Doc、GAS、ライブラリ、拡張機能、書き込み先の関係図">
+          <div class="download-row">
+            <span>画像だけで共有する場合はSVGまたはPNGを使えます。</span>
+            <span>
+              <a class="button-link" href="./strategy-kit-relationship-map.svg">SVGを開く</a>
+              <a class="button-link" href="./strategy-kit-relationship-map.png">PNGを開く</a>
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="short">
+      <div class="wrap">
+        <h2>まず結論</h2>
+        <div class="summary-grid">
+          <article class="summary-item">
+            <h3>原本はコピー元</h3>
+            <p>テンプレート原本 Doc は、案件用マスターを作るための型です。基本的にここへ作業結果を書き込みません。</p>
+          </article>
+          <article class="summary-item">
+            <h3>書き込みはGAS経由</h3>
+            <p>Chrome拡張はGoogle Docsを直接編集するのではなく、登録されたGAS Web App URLへ依頼します。</p>
+          </article>
+          <article class="summary-item">
+            <h3>本体ロジックはライブラリ</h3>
+            <p>受講者が貼るGASは薄い窓口です。実際の処理は山口さん管理の <code>StrategyKitLib</code> が担当します。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="roles">
+      <div class="wrap">
+        <h2>登場人物</h2>
+        <p class="lead">同じ「テンプレート」「GAS」という言葉でも役割が違います。ここを分けると全体像が見えやすくなります。</p>
+        <div class="roles-grid">
+          <article class="role-card">
+            <span class="badge source">コピー元</span>
+            <h3>テンプレート原本 Doc</h3>
+            <p><code>template_v3.0.md</code> をGoogle Docsにしたもの。章構造と <code>{{店舗名}}</code> などの差し替え欄を持つ元型です。</p>
+          </article>
+          <article class="role-card">
+            <span class="badge work">作業場所</span>
+            <h3>テンプレート作業用 / マスター Doc</h3>
+            <p>受講者が開いて操作するGoogle Doc。GASシムを紐づけ、<code>SK_DOC_ID</code> として現在の書き込み先になります。</p>
+          </article>
+          <article class="role-card">
+            <span class="badge gas">窓口</span>
+            <h3>GASシム</h3>
+            <p><code>Code.gs</code> 約117行。メニュー、<code>doPost</code>、<code>doGet</code>、プロパティ受け渡しだけを担当します。</p>
+          </article>
+          <article class="role-card">
+            <span class="badge gas">本体</span>
+            <h3>StrategyKitLib</h3>
+            <p>章の読み書き、Doc作成、Drive保存、Gemini呼び出しを実行するGASライブラリ。最新版は <code>SK_VERSION = 0.11.2</code> です。</p>
+          </article>
+          <article class="role-card">
+            <span class="badge extension">操作UI</span>
+            <h3>STRATEGY-KIT Helper</h3>
+            <p>Chrome拡張 v0.11.3。サイドパネル、設定画面、プロンプト、AIサイトへの挿入、GAS呼び出しを担当します。</p>
+          </article>
+          <article class="role-card">
+            <span class="badge output">保存先</span>
+            <h3>Google Docs / Drive</h3>
+            <p>マスターDoc、DRAFT Doc、CLEAN Doc、SUMMARY Doc、researchフォルダが残る場所です。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="writes">
+      <div class="wrap">
+        <h2>何をいじると、どこに書き込まれるか</h2>
+        <p class="lead">日常運用で迷いやすい操作だけを、書き込み先ベースでまとめます。</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>操作</th>
+                <th>触る場所</th>
+                <th>保存・書き込み先</th>
+                <th>意味</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>テンプレート原本セットアップ</td>
+                <td>Docメニュー または GAS action <code>setupTemplate</code></td>
+                <td><span class="pill">SK_TEMPLATE_DOC_ID</span></td>
+                <td>「どのDocを原本としてコピーするか」をGASが覚えます。原本文面は書き換えません。</td>
+              </tr>
+              <tr>
+                <td>新規マスタードキュメント作成</td>
+                <td>Docメニュー または <code>createMasterFromTemplate</code></td>
+                <td><span class="pill">新規マスターDoc</span> <span class="pill">SK_DOC_ID</span></td>
+                <td>原本を <code>makeCopy()</code> し、<code>{{店舗名}}</code> などを <code>replaceText()</code> で差し替えます。</td>
+              </tr>
+              <tr>
+                <td>拡張機能にGAS URLを登録</td>
+                <td>Chrome拡張のOptions</td>
+                <td><span class="pill">chrome.storage.sync</span> <code>gasWebAppUrl_v10</code></td>
+                <td>拡張機能がどのGASへ依頼するかを覚えます。Google Docs本文には書き込みません。</td>
+              </tr>
+              <tr>
+                <td>業種・店舗名などを入力</td>
+                <td>Chrome拡張サイドパネル</td>
+                <td><span class="pill">chrome.storage.sync</span> と <span class="pill">§-1 案件メタ情報</span></td>
+                <td>設定として保存し、GAS URLがある場合は <code>appendMeta</code> でマスターまたはDRAFTの§-1へ反映します。</td>
+              </tr>
+              <tr>
+                <td>プロンプト挿入</td>
+                <td>Chrome拡張サイドパネル</td>
+                <td><span class="pill">AIサイトの入力欄</span></td>
+                <td>Claude / ChatGPT / Geminiなどの入力欄へ入れるだけです。送信やDoc保存は人の確認を挟みます。</td>
+              </tr>
+              <tr>
+                <td>全自動モード</td>
+                <td>Chrome拡張サイドパネル</td>
+                <td><span class="pill">[DRAFT] Doc</span> <span class="pill">SK_DRAFT_DOC_ID</span></td>
+                <td><code>geminiProxy</code> で生成し、<code>appendDraftSection</code> でDRAFTへ追記します。マスターDocは直接汚しません。</td>
+              </tr>
+              <tr>
+                <td>§N 要点版を追記</td>
+                <td>Docメニュー または <code>appendSectionSummary</code></td>
+                <td><span class="pill">マスターDocの該当§</span></td>
+                <td>後続フェーズが参照しやすいよう、章末の「§N 要点版」を追加または置換します。</td>
+              </tr>
+              <tr>
+                <td>決定ログ追記</td>
+                <td>Docメニュー または 拡張の決定ログ機能</td>
+                <td><span class="pill">マスターDocの§99</span></td>
+                <td>意思決定、理由、次アクションを1行で残します。</td>
+              </tr>
+              <tr>
+                <td>リサーチ保存</td>
+                <td>拡張機能</td>
+                <td><span class="pill">Driveのresearchフォルダ</span></td>
+                <td>マスターDocと同じフォルダに <code>research-*.md</code> を作ります。</td>
+              </tr>
+              <tr>
+                <td>CLEAN / SUMMARY 作成</td>
+                <td>GAS action</td>
+                <td><span class="pill">[CLEAN] Doc</span> <span class="pill">[SUMMARY] Doc</span></td>
+                <td>DRAFTを整形した別Doc、または要約Docを新しく作ります。元のマスターとは別ファイルです。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="updates">
+      <div class="wrap">
+        <h2>更新の伝わり方</h2>
+        <p class="lead">「何を更新したら、受講者側に反映されるか」は場所ごとに違います。</p>
+        <div class="change-grid">
+          <article class="change-card">
+            <h3>テンプレート原本を直した場合</h3>
+            <p>次に <code>createMasterFromTemplate</code> で作る新規マスターに反映されます。すでに作成済みのマスターDocには自動反映されません。</p>
+          </article>
+          <article class="change-card">
+            <h3>StrategyKitLibを直した場合</h3>
+            <p>shim側が <code>developmentMode: true</code> なので、受講者のGAS窓口から呼ばれる処理が更新後のライブラリになります。</p>
+          </article>
+          <article class="change-card">
+            <h3>Chrome拡張を直した場合</h3>
+            <p>サイドパネル、設定画面、プロンプト、GAS呼び出し方が変わります。受講者は拡張機能の更新版を読み込み直します。</p>
+          </article>
+        </div>
+        <div class="note" style="margin-top: 18px;">
+          <strong>覚え方:</strong> 原本は「コピーされる紙」、GASシムは「受付窓口」、StrategyKitLibは「中で作業する人」、拡張機能は「操作リモコン」です。
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>初期セットアップの流れ</h2>
+        <div class="flow">
+          <div class="flow-step">
+            <div class="flow-num">1</div>
+            <p>テンプレート原本 Doc を用意します。これは章構造と差し替え欄を持つコピー元です。</p>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">2</div>
+            <p>作業用Docを開き、Apps Scriptにshimの <code>Code.gs</code> を貼ります。<code>appsscript.json</code> では <code>StrategyKitLib</code> ライブラリを参照します。</p>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">3</div>
+            <p>Web Appとしてデプロイし、発行されたURLをChrome拡張Optionsの <code>gasWebAppUrl_v10</code> に保存します。</p>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">4</div>
+            <p>Docメニューの「テンプレート原本セットアップ」で原本DocのURLを登録します。GASは <code>SK_TEMPLATE_DOC_ID</code> として覚えます。</p>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">5</div>
+            <p>案件ごとに「新規マスタードキュメント作成」を実行します。原本をコピーし、案件名などを差し替えたマスターDocができます。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="guards">
+      <div class="wrap">
+        <h2>事故を防ぐ注意点</h2>
+        <div class="guard-grid">
+          <article class="guard-card">
+            <h3>テンプレート原本では作業メニューを実行しない</h3>
+            <p>原本に作業結果を書いてしまうと、次に作る全案件の型が汚れます。原本はコピー元として扱います。</p>
+          </article>
+          <article class="guard-card">
+            <h3>GAS URLの登録先を間違えない</h3>
+            <p>拡張機能は <code>gasWebAppUrl_v10</code> に保存されたURLへ依頼します。別案件のGAS URLを入れると別Docへ書く可能性があります。</p>
+          </article>
+          <article class="guard-card ok">
+            <h3>DRAFTは安全な下書き場所</h3>
+            <p>全自動モードの出力は <code>[DRAFT]</code> Doc に追記されます。人が確認してからマスターへ採用します。</p>
+          </article>
+          <article class="guard-card ok">
+            <h3>ライブラリ更新とテンプレ更新は別物</h3>
+            <p>ライブラリ更新は動き方、テンプレ更新は新しく作るDocの型に効きます。既存Docの本文は勝手に差し替わりません。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>根拠にした主なファイル</h2>
+        <ul class="source-list">
+          <li><code>v0.11.1/release/strategy-kit-v0.11.3.zip</code> / <code>src/extension/manifest.json</code>: Chrome拡張 v0.11.3</li>
+          <li><code>v0.11.1/src/apps-script/shim/Code.gs</code>: 受講者が貼るGASシム</li>
+          <li><code>v0.11.1/src/apps-script/shim/appsscript.json</code>: <code>StrategyKitLib</code> ライブラリ参照</li>
+          <li><code>v0.11.1/src/apps-script/library/StrategyKitLib.gs</code>: GASロジック本体、<code>SK_VERSION = 0.11.2</code></li>
+          <li><code>v0.11.1/src/extension/lib/sk-gas-client.js</code>: 拡張機能からGASへPOSTするクライアント</li>
+          <li><code>v0.11.1/src/master-doc/template_v3.0.md</code>: テンプレート原本のMarkdownソース</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p>作成日: 2026-05-07 / 目的: 非エンジニア向けにSTRATEGY-KIT最新版の構造と書き込み先を把握するための図解。</p>
+    </div>
+  </footer>
+</body>
+</html>

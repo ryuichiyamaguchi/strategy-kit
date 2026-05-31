@@ -1,0 +1,1149 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gemini API 完全ガイド — STRATEGY-KIT v0.11</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <style>
+      /* ページ固有スタイル */
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-family: 'Manrope', sans-serif;
+        font-size: 0.86rem;
+        font-weight: 700;
+      }
+      .badge-green {
+        background: rgba(40, 89, 67, 0.12);
+        color: var(--forest-deep);
+      }
+      .badge-gold {
+        background: var(--marigold-soft);
+        color: #7a4a0a;
+      }
+      .part-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 14px;
+        border-radius: 999px;
+        background: var(--marigold-soft);
+        color: #7a4a0a;
+        font-family: 'Manrope', sans-serif;
+        font-size: 0.84rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+      }
+      .compare-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 0.96rem;
+      }
+      .compare-table th {
+        background: rgba(40, 89, 67, 0.09);
+        color: var(--forest-deep);
+        font-family: 'Manrope', sans-serif;
+        font-weight: 700;
+        padding: 10px 14px;
+        text-align: left;
+        border-bottom: 2px solid rgba(40, 89, 67, 0.15);
+      }
+      .compare-table td {
+        padding: 10px 14px;
+        border-bottom: 1px solid rgba(40, 89, 67, 0.08);
+        vertical-align: top;
+        line-height: 1.65;
+      }
+      .compare-table tr:last-child td {
+        border-bottom: none;
+      }
+      .compare-table .highlight-cell {
+        background: rgba(40, 89, 67, 0.06);
+        font-weight: 700;
+        color: var(--forest-deep);
+      }
+      .ascii-diagram {
+        margin: 18px 0;
+        padding: 18px 20px;
+        border: 1px solid rgba(40, 89, 67, 0.18);
+        border-radius: var(--radius-sm);
+        background: #fffdf7;
+        font-family: 'SFMono-Regular', 'Consolas', 'Menlo', monospace;
+        font-size: 0.92rem;
+        line-height: 1.9;
+        overflow-x: auto;
+        color: var(--ink);
+      }
+      .ascii-diagram .comment {
+        color: var(--ink-soft);
+        font-style: italic;
+      }
+      .step-card {
+        position: relative;
+        padding-top: 28px;
+      }
+      .screenshot-placeholder {
+        margin: 16px 0;
+        padding: 20px 18px;
+        border: 2px dashed rgba(40, 89, 67, 0.25);
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.55);
+        color: var(--ink-soft);
+        font-size: 0.93rem;
+        text-align: center;
+      }
+      .check-list {
+        list-style: none;
+        padding-left: 0;
+        margin: 12px 0 0;
+      }
+      .check-list li {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(40, 89, 67, 0.08);
+        font-size: 0.97rem;
+      }
+      .check-list li:last-child {
+        border-bottom: none;
+      }
+      .check-list li::before {
+        content: '□';
+        flex-shrink: 0;
+        color: var(--marigold);
+        font-weight: 700;
+        font-size: 1rem;
+        margin-top: 1px;
+      }
+      .faq-block {
+        margin-top: 14px;
+      }
+      .faq-item {
+        border: 1px solid rgba(40, 89, 67, 0.13);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        margin-bottom: 10px;
+      }
+      .faq-q {
+        padding: 14px 16px;
+        background: rgba(40, 89, 67, 0.06);
+        font-weight: 700;
+        font-size: 0.97rem;
+        color: var(--forest-deep);
+      }
+      .faq-q .faq-label {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: var(--marigold-soft);
+        color: #7a4a0a;
+        font-size: 0.82rem;
+        font-weight: 700;
+        margin-right: 6px;
+      }
+      .faq-a {
+        padding: 14px 16px;
+        font-size: 0.97rem;
+        line-height: 1.75;
+        background: rgba(255, 255, 255, 0.6);
+      }
+      .faq-a code,
+      .step-warn code,
+      .step-tip code,
+      .alert code {
+        background: rgba(40, 89, 67, 0.09);
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 0.92em;
+      }
+      .step-warn {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-left: 4px solid var(--marigold);
+        border-radius: var(--radius-sm);
+        background: var(--alert-bg);
+        font-size: 0.96rem;
+        line-height: 1.7;
+      }
+      .step-warn strong {
+        color: #92600f;
+      }
+      .step-tip {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-left: 4px solid rgba(40, 89, 67, 0.5);
+        border-radius: var(--radius-sm);
+        background: rgba(40, 89, 67, 0.07);
+        font-size: 0.96rem;
+        line-height: 1.7;
+      }
+      ol.detail-steps {
+        margin: 10px 0 0;
+        padding-left: 1.4em;
+      }
+      ol.detail-steps li {
+        margin-bottom: 8px;
+        line-height: 1.75;
+      }
+      ol.detail-steps li code {
+        background: rgba(40, 89, 67, 0.09);
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 0.92em;
+      }
+      .step-section-title {
+        margin: 24px 0 8px;
+        font-family: 'Manrope', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+      .toc-list {
+        list-style: none;
+        padding-left: 0;
+        margin: 16px 0 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 8px;
+      }
+      .toc-list li a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border: 1px solid rgba(40, 89, 67, 0.13);
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.6);
+        text-decoration: none;
+        font-size: 0.95rem;
+        color: var(--forest-deep);
+        font-weight: 600;
+        transition: background 0.15s;
+      }
+      .toc-list li a:hover {
+        background: rgba(40, 89, 67, 0.07);
+      }
+      .toc-num {
+        flex-shrink: 0;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--marigold);
+        color: #fff;
+        font-family: 'Manrope', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 800;
+        display: grid;
+        place-items: center;
+      }
+      .key-chip {
+        display: inline-block;
+        padding: 2px 8px;
+        border: 1px solid rgba(40, 89, 67, 0.25);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.85);
+        font-family: 'SFMono-Regular', 'Consolas', 'Menlo', monospace;
+        font-size: 0.9em;
+        color: var(--forest-deep);
+      }
+      .security-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .security-item {
+        padding: 16px 18px;
+        border: 1px solid rgba(40, 89, 67, 0.15);
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.7);
+        font-size: 0.95rem;
+        line-height: 1.65;
+      }
+      .security-item strong {
+        display: block;
+        color: var(--forest-deep);
+        font-family: 'Manrope', sans-serif;
+        font-size: 0.86rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+      }
+      .version-note {
+        margin-top: 28px;
+        padding-top: 18px;
+        border-top: 1px solid rgba(40, 89, 67, 0.12);
+        color: var(--ink-soft);
+        font-size: 0.93rem;
+      }
+      .mode-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+      }
+      .mode-card {
+        padding: 20px;
+        border: 1px solid rgba(40, 89, 67, 0.15);
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.7);
+      }
+      .mode-card h3 {
+        margin: 0 0 8px;
+        font-size: 1.05rem;
+      }
+      .mode-card p {
+        margin: 0 0 10px;
+        font-size: 0.95rem;
+      }
+      .mode-card .mode-badge {
+        display: inline-flex;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        font-family: 'Manrope', sans-serif;
+      }
+      .mode-badge-recommend {
+        background: rgba(40, 89, 67, 0.12);
+        color: var(--forest-deep);
+      }
+      .mode-badge-caution {
+        background: rgba(216, 140, 31, 0.2);
+        color: #7a4a0a;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <strong>Gemini API 完全ガイド — STRATEGY-KIT v0.11</strong>
+        <a href="strategy-kit-hub.html">配布ページへ戻る</a>
+      </header>
+
+      <main>
+
+        <!-- ヒーロー -->
+        <section class="hero">
+          <span class="eyebrow">Gemini API ガイド</span>
+          <h1>Gemini API 完全ガイド</h1>
+          <p style="font-size:1.1rem; font-weight:600; color:var(--forest-deep); margin:4px 0 8px;">
+            STRATEGY-KIT で半自動／全自動を使うために
+          </p>
+          <p class="lede">
+            IT 用語ゼロから理解できるよう、ひとつずつ説明します。<br>
+            所要時間：30〜45 分
+          </p>
+          <div class="badge-row">
+            <span class="badge badge-green">初心者向け</span>
+            <span class="badge badge-green">無料枠OK</span>
+            <span class="badge badge-gold">クレカ不要</span>
+          </div>
+        </section>
+
+        <!-- 目次 -->
+        <section>
+          <div class="section-card">
+            <h2>このガイドの構成</h2>
+            <p>Part 1 から順番に読み進めてください。API キーの取得（Part 4）と GAS への登録（Part 5）が完了すれば、STRATEGY-KIT の半自動／全自動が使えるようになります。</p>
+            <ul class="toc-list">
+              <li><a href="#part1"><span class="toc-num">1</span>「API」って何？</a></li>
+              <li><a href="#part2"><span class="toc-num">2</span>AI Studio と GCP の違い</a></li>
+              <li><a href="#part3"><span class="toc-num">3</span>Gemini の無料枠</a></li>
+              <li><a href="#part4"><span class="toc-num">4</span>API キーの取得手順</a></li>
+              <li><a href="#part5"><span class="toc-num">5</span>GAS スクリプトプロパティに登録</a></li>
+              <li><a href="#part6"><span class="toc-num">6</span>半自動／全自動の使い方</a></li>
+              <li><a href="#part7"><span class="toc-num">7</span>トラブルシュート（FAQ）</a></li>
+              <li><a href="#part8"><span class="toc-num">8</span>セキュリティの基本</a></li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- Part 1 -->
+        <section id="part1">
+          <div class="section-card">
+            <span class="part-label">Part 1 — 5分・概念説明</span>
+            <h2>そもそも「API」って何？</h2>
+            <p>
+              「API（エーピーアイ）」という言葉を聞いたことがある方も多いと思います。<br>
+              難しく聞こえますが、ChatGPT を例にとると理解しやすくなります。
+            </p>
+
+            <h3>ChatGPT を使う 2 つの方法</h3>
+            <div class="dual-list">
+              <div class="status-good">
+                <strong style="display:block; margin-bottom:6px; color:var(--forest-deep);">方法 A：ブラウザ画面から使う（今あなたがやっている方法）</strong>
+                <p style="margin:0; font-size:0.96rem; line-height:1.7;">
+                  chatgpt.com をブラウザで開いて、テキストボックスに文字を打ち込む。<br>
+                  画面で返事を受け取る。<br>
+                  <strong>人間が操作して使う。</strong>
+                </p>
+              </div>
+              <div class="status-caution">
+                <strong style="display:block; margin-bottom:6px; color:#92600f;">方法 B：プログラム経由で使う（API を使う方法）</strong>
+                <p style="margin:0; font-size:0.96rem; line-height:1.7;">
+                  拡張機能（プログラム）が自動で AI に質問を送り、返事を受け取る。<br>
+                  人間は「開始ボタン」を押すだけ。<br>
+                  <strong>プログラムが代わりに操作する。</strong>
+                </p>
+              </div>
+            </div>
+
+            <h3 style="margin-top:22px;">API＝プログラム同士の「話す言葉」</h3>
+            <p>
+              <strong>API（Application Programming Interface）</strong>とは、プログラム同士がやりとりするための「決まった話し方の形式」です。<br>
+              難しく言うとそうなりますが、受講者のみなさんにとって一番大事なことは：
+            </p>
+            <div class="alert">
+              <strong>拡張機能が「受講者の代わりに Gemini に質問するためのドア」が API です。</strong><br>
+              そのドアを開けるための「鍵」が <strong>API キー</strong> です。
+            </div>
+
+            <h3>図解：2 つの使い方の違い</h3>
+            <div class="ascii-diagram">
+<span class="comment">── 方法A：ブラウザ画面から使う ──────────────────────────</span>
+
+  あなた（人間）
+      │
+      │ テキストボックスに文字を打つ
+      ▼
+  ChatGPT の画面
+      │
+      │ 内部で AI に送信・受信
+      ▼
+  返答が画面に表示される
+
+<span class="comment">── 方法B：API を使う（拡張機能が代わりに動く） ──────────────</span>
+
+  あなた（「開始」ボタンを押すだけ）
+      │
+      ▼
+  STRATEGY-KIT 拡張機能（プログラム）
+      │
+      │ API キーを使ってリクエストを送る
+      ▼
+  Gemini API（プログラム用の入口）
+      │
+      │ AI が処理・返答
+      ▼
+  拡張機能がスプレッドシートに書き込む
+            </div>
+
+            <div class="step-tip">
+              <strong>ポイント：</strong>STRATEGY-KIT の「半自動」「全自動」モードは方法 B で動いています。だから API キーが必要なのです。
+            </div>
+          </div>
+        </section>
+
+        <!-- Part 2 -->
+        <section id="part2">
+          <div class="section-card">
+            <span class="part-label">Part 2</span>
+            <h2>Google AI Studio と Google Cloud Platform の違い</h2>
+            <p>
+              Gemini API を調べると「Google AI Studio」と「Google Cloud Platform（GCP）」の 2 つの名前が出てきます。<br>
+              違いが分からなくて混乱する方がとても多いので、しっかり整理します。
+            </p>
+
+            <p class="step-section-title">2 つのサービスの比較</p>
+            <table class="compare-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Google AI Studio</th>
+                  <th>Google Cloud Platform（GCP）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>目的</strong></td>
+                  <td>AI モデルを試す・API キーを発行する</td>
+                  <td>クラウドインフラ全般（サーバー・データベースなど）</td>
+                </tr>
+                <tr>
+                  <td><strong>対象</strong></td>
+                  <td>個人・開発者・初学者</td>
+                  <td>企業・本格的な開発チーム</td>
+                </tr>
+                <tr>
+                  <td><strong>料金</strong></td>
+                  <td><strong>API キーは無料で取得可能</strong></td>
+                  <td>プロジェクト作成は無料、使用量に応じて課金</td>
+                </tr>
+                <tr>
+                  <td><strong>受講者が触るのは？</strong></td>
+                  <td class="highlight-cell">これだけで OK</td>
+                  <td>触らなくていい</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h3>「内部的には GCP」だが意識しなくていい理由</h3>
+            <p>
+              Gemini API は技術的には GCP のサービスの一部として動いています。<br>
+              しかし <strong>Google AI Studio から API キーを発行すれば、GCP のコンソール画面を一切触らずに使えます。</strong>
+            </p>
+            <div class="dual-list">
+              <div class="status-good">
+                <strong style="display:block; margin-bottom:6px; color:var(--forest-deep);">受講者がやること</strong>
+                <ul style="margin:0; padding-left:1.3em; font-size:0.96rem; line-height:1.8;">
+                  <li>Google AI Studio にアクセス</li>
+                  <li>API キーを発行</li>
+                  <li>GAS のスクリプトプロパティに登録</li>
+                </ul>
+              </div>
+              <div class="status-caution">
+                <strong style="display:block; margin-bottom:6px; color:#92600f;">やらなくていいこと</strong>
+                <ul style="margin:0; padding-left:1.3em; font-size:0.96rem; line-height:1.8;">
+                  <li>GCP コンソール（console.cloud.google.com）</li>
+                  <li>請求先アカウントの設定</li>
+                  <li>プロジェクトの詳細設定</li>
+                </ul>
+              </div>
+            </div>
+            <div class="alert" style="margin-top:18px;">
+              <strong>覚えるのはこれだけ：</strong>Gemini API を使うには <strong>Google AI Studio</strong>（aistudio.google.com）だけ触ればよい。GCP は関係ない。
+            </div>
+          </div>
+        </section>
+
+        <!-- Part 3 -->
+        <section id="part3">
+          <div class="section-card">
+            <span class="part-label">Part 3</span>
+            <h2>Gemini の無料枠はどうなってるの？</h2>
+            <p>
+              「無料枠」という言葉があると、「いつか課金されるのでは？」と不安になる方もいると思います。<br>
+              仕組みを理解すれば心配する必要はありません。
+            </p>
+
+            <p class="step-section-title">主要モデルの無料枠（2025年時点）</p>
+            <table class="compare-table">
+              <thead>
+                <tr>
+                  <th>モデル</th>
+                  <th>1分あたり<br>リクエスト数</th>
+                  <th>1日あたり<br>リクエスト数</th>
+                  <th>月の入力<br>トークン</th>
+                  <th>用途</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>gemini-2.5-flash</strong><br><span style="font-size:0.85em; color:var(--forest-deep); font-weight:700;">★ 推奨</span></td>
+                  <td>10</td>
+                  <td>250</td>
+                  <td>1M</td>
+                  <td>STRATEGY-KIT デフォルト</td>
+                </tr>
+                <tr>
+                  <td><strong>gemini-2.5-flash-lite</strong></td>
+                  <td>15</td>
+                  <td>1,000</td>
+                  <td>1M</td>
+                  <td>より多く使いたい場合</td>
+                </tr>
+                <tr>
+                  <td><strong>gemini-2.5-pro</strong></td>
+                  <td>（少ない）</td>
+                  <td>（少ない）</td>
+                  <td>—</td>
+                  <td>高精度・無料枠は厳しい</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p style="font-size:0.9rem; color:var(--ink-soft); margin-top:4px;">
+              ※ 「トークン」とは AI が処理するテキストの単位。日本語は 1 文字 ≒ 1〜2 トークン。1M = 100万トークン。
+            </p>
+
+            <h3 style="margin-top:24px;">重要ポイント：クレカ未登録なら課金は物理的に不可能</h3>
+            <div class="dual-list">
+              <div class="status-good">
+                <strong style="display:block; margin-bottom:8px; color:var(--forest-deep);">クレカ未登録の場合（推奨）</strong>
+                <ul style="margin:0; padding-left:1.3em; font-size:0.96rem; line-height:1.85;">
+                  <li>請求先アカウントが存在しない</li>
+                  <li>物理的に課金できない</li>
+                  <li>上限超過時は「429 エラー」が出るだけ</li>
+                  <li>1 分待てば再び使える</li>
+                </ul>
+              </div>
+              <div class="status-caution">
+                <strong style="display:block; margin-bottom:8px; color:#92600f;">上限に当たった場合の症状</strong>
+                <ul style="margin:0; padding-left:1.3em; font-size:0.96rem; line-height:1.85;">
+                  <li>「429 RESOURCE_EXHAUSTED」エラー</li>
+                  <li>拡張機能が一時停止する</li>
+                  <li>データは消えない・損害なし</li>
+                  <li>1 分以上待ってリトライで解決</li>
+                </ul>
+              </div>
+            </div>
+
+            <h3 style="margin-top:22px;">半自動・全自動モードでの無料枠への影響</h3>
+            <table class="compare-table" style="margin-top:12px;">
+              <thead>
+                <tr>
+                  <th>モード</th>
+                  <th>無料枠との相性</th>
+                  <th>理由</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>半自動</strong></td>
+                  <td class="highlight-cell">問題なし（推奨）</td>
+                  <td>1 フェーズごとに確認待ちが入るため、分単位制限に当たりにくい</td>
+                </tr>
+                <tr>
+                  <td><strong>全自動</strong></td>
+                  <td>可能だが注意</td>
+                  <td>9〜10 フェーズを連続実行するため、10 RPM 制限に当たる可能性あり</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="step-tip">
+              <strong>当面の推奨：半自動モードを使う。</strong>1 フェーズずつ AI の出力を確認しながら進められる上、無料枠の制限にも当たりにくいため、初めての方に最適です。
+            </div>
+          </div>
+        </section>
+
+        <!-- Part 4 -->
+        <section id="part4">
+          <div class="section-card">
+            <span class="part-label">Part 4</span>
+            <h2>API キーの取得手順</h2>
+            <p>
+              ここからは実際に手を動かします。<br>
+              所要時間は 5〜10 分です。順番通りに進めれば必ず取得できます。
+            </p>
+
+            <div class="alert">
+              <strong>始める前に確認：</strong>Google アカウントでログインできる Chrome ブラウザを開いておいてください。
+            </div>
+
+            <!-- Step 1 -->
+            <p class="step-section-title" style="margin-top:24px;">Step 1 — Google AI Studio にアクセス</p>
+            <ol class="detail-steps">
+              <li>
+                Chrome で <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener"><strong>https://aistudio.google.com/app/apikey</strong></a> を開きます。
+              </li>
+              <li>
+                Google アカウントのログイン画面が出たら、普段使っている Gmail アドレスでログインしてください。
+              </li>
+              <li>
+                ログイン後、「API keys」または「API キー」という画面が表示されれば OK です。
+              </li>
+            </ol>
+            <div class="screenshot-placeholder">
+              [スクショ: aistudio.google.com/app/apikey にアクセスした直後の「API keys」一覧画面]
+            </div>
+            <div class="step-tip">
+              <strong>URL を直接入力するのが確実です。</strong>「Google AI Studio」で検索すると別のページに飛ぶことがあります。
+            </div>
+
+            <!-- Step 2 -->
+            <p class="step-section-title">Step 2 — 「API キーを作成」をクリック</p>
+            <ol class="detail-steps">
+              <li>
+                画面上部にある「<strong>Create API key</strong>」（または「API キーを作成」）ボタンをクリックします。
+              </li>
+              <li>
+                ダイアログ（小さなウィンドウ）が表示されます。
+              </li>
+            </ol>
+            <div class="screenshot-placeholder">
+              [スクショ: 「Create API key」ボタンの位置（画面上部・緑色のボタン）]
+            </div>
+
+            <!-- Step 3 -->
+            <p class="step-section-title">Step 3 — 「新しいプロジェクトで API キーを作成」を選ぶ</p>
+            <ol class="detail-steps">
+              <li>
+                ダイアログに「既存のプロジェクトで作成」と「新しいプロジェクトで作成」の 2 択が表示されます。
+              </li>
+              <li>
+                <strong>「新しいプロジェクトで作成」</strong>を選択します（既存のプロジェクトで作成は使いません）。
+              </li>
+              <li>
+                ボタンをクリックすると、数秒でキーが生成されます。
+              </li>
+            </ol>
+            <div class="screenshot-placeholder">
+              [スクショ: 「新しいプロジェクトで API キーを作成」ダイアログ。2 択のどちらを選ぶか矢印で示す]
+            </div>
+            <div class="step-warn">
+              <strong>「請求先アカウントを設定してください」と出た場合は設定しないでください。</strong><br>
+              無料枠のまま使うには請求先アカウントを設定しないことが重要です。このメッセージが出ても「閉じる」または「後で」を選んで先に進めてください。
+            </div>
+
+            <!-- Step 4 -->
+            <p class="step-section-title">Step 4 — API キーをコピーする</p>
+            <ol class="detail-steps">
+              <li>
+                画面に長い文字列が表示されます。<br>
+                先頭が <code>AIzaSy</code> で始まる、40 文字程度の英数字の羅列が API キーです。
+              </li>
+              <li>
+                「コピー」ボタン（クリップボードのアイコン）をクリックしてコピーします。
+              </li>
+              <li>
+                コピーしたキーは次の Part 5 で使います。メモ帳などに一時保管しておいてください。
+              </li>
+            </ol>
+            <div class="screenshot-placeholder">
+              [スクショ: 発行された API キー（一部マスク）とコピーボタンの位置]
+            </div>
+            <div class="step-warn">
+              <strong>この API キーは秘密情報です。</strong><br>
+              他人に見せない・SNS に投稿しない・GitHub などにアップロードしない。<br>
+              もし漏れてしまった場合は、Part 7 の Q6 を参照してすぐに無効化してください。
+            </div>
+
+            <p class="step-section-title">Step 4 完了チェックリスト</p>
+            <ul class="check-list">
+              <li>Google AI Studio（aistudio.google.com）にログインできた</li>
+              <li><code>AIzaSy</code> で始まる API キーを取得した</li>
+              <li>API キーをコピーしてメモ帳に一時保存した</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- Part 5 -->
+        <section id="part5">
+          <div class="section-card">
+            <span class="part-label">Part 5</span>
+            <h2>GAS の「スクリプトプロパティ」に登録する</h2>
+            <p>
+              取得した API キーを、STRATEGY-KIT が読み取れる場所（スクリプトプロパティ）に保存します。<br>
+              スクリプトプロパティ（Script Properties）とは、GAS プロジェクト内に安全にデータを保存できる「金庫」のような場所です。コードを共有しても、ここに保存した値は他人に見えません。
+            </p>
+
+            <!-- Step 1 -->
+            <p class="step-section-title">Step 1 — GAS プロジェクトを開く</p>
+            <ol class="detail-steps">
+              <li>
+                セットアップガイドの Step 2 で作った Apps Script プロジェクトを開きます。
+              </li>
+              <li>
+                まだ開いていない場合：Google スプレッドシートのメニュー「<strong>拡張機能 → Apps Script</strong>」から開けます。
+              </li>
+            </ol>
+            <div class="screenshot-placeholder">
+              [スクショ: Google スプレッドシートのメニューバーで「拡張機能 → Apps Script」を選択した状態]
+            </div>
+
+            <!-- Step 2 -->
+            <p class="step-section-title">Step 2 — プロジェクトの設定を開く</p>
+            <ol class="detail-steps">
+              <li>
+                Apps Script のエディタが開きます。
+              </li>
+              <li>
+                左側のサイドバーにある歯車アイコン「<strong>プロジェクトの設定</strong>」をクリックします（サイドバーの一番下付近にあります）。
+              </li>
+            </ol>
+            <div class="screenshot-placeholder">
+              [スクショ: Apps Script 左サイドバーの歯車アイコン「プロジェクトの設定」の位置]
+            </div>
+
+            <!-- Step 3 -->
+            <p class="step-section-title">Step 3 — スクリプトプロパティを追加する</p>
+            <ol class="detail-steps">
+              <li>
+                「プロジェクトの設定」画面を下にスクロールして「<strong>スクリプト プロパティ</strong>」セクションを見つけます。
+              </li>
+              <li>
+                「<strong>スクリプト プロパティを追加</strong>」ボタンをクリックします。
+              </li>
+              <li>
+                「プロパティ」の入力欄に <span class="key-chip">GEMINI_API_KEY</span> と入力します。
+              </li>
+              <li>
+                「値」の入力欄に Part 4 でコピーした API キー（<code>AIzaSy...</code>）を貼り付けます。
+              </li>
+              <li>
+                「<strong>スクリプト プロパティを保存</strong>」ボタンをクリックします。
+              </li>
+            </ol>
+            <div class="screenshot-placeholder">
+              [スクショ: 「スクリプト プロパティ」セクションで「GEMINI_API_KEY」を入力した状態]
+            </div>
+            <div class="step-warn">
+              <strong>プロパティ名の綴りは完全一致が必須です。</strong><br>
+              <code>GEMINI_API_KEY</code> ← この通り、すべて大文字・アンダースコアで区切る。<br>
+              <code>gemini_api_key</code>（小文字）や <code>GEMINIAPI_KEY</code>（アンダースコアなし）では動きません。
+            </div>
+            <div class="step-tip">
+              値の前後に不要なスペースが入っていないか確認してください。コピーペーストすると末尾にスペースが紛れることがあります。
+            </div>
+
+            <!-- Step 4 -->
+            <p class="step-section-title">Step 4 — 動作確認</p>
+            <ol class="detail-steps">
+              <li>
+                スプレッドシートに戻り、STRATEGY-KIT メニュー →「<strong>テンプレート原本セットアップ</strong>」を実行します（すでに実行済みでも問題ありません）。
+              </li>
+              <li>
+                STRATEGY-KIT メニュー →「<strong>自動化タブを開く</strong>」をクリックします（または拡張機能のサイドパネルを開いて「自動化」タブを選択）。
+              </li>
+              <li>
+                「<strong>接続テスト</strong>」ボタンをクリックします。
+              </li>
+              <li>
+                <strong>「✓ 接続成功（Gemini OK）」</strong> と表示されれば設定完了です。
+              </li>
+            </ol>
+            <div class="screenshot-placeholder">
+              [スクショ: 拡張機能サイドパネルの「自動化」タブで「✓ 接続成功（Gemini OK）」が表示された状態]
+            </div>
+
+            <p class="step-section-title">Part 5 完了チェックリスト</p>
+            <ul class="check-list">
+              <li>GAS プロジェクトの「プロジェクトの設定」を開けた</li>
+              <li>スクリプトプロパティに <code>GEMINI_API_KEY</code>（大文字・完全一致）を追加した</li>
+              <li>値として API キーを貼り付けて保存した</li>
+              <li>接続テストで「✓ 接続成功（Gemini OK）」を確認した</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- Part 6 -->
+        <section id="part6">
+          <div class="section-card">
+            <span class="part-label">Part 6</span>
+            <h2>半自動モード／全自動モードの使い方</h2>
+            <p>
+              API キーの登録が完了したら、いよいよ半自動・全自動モードを使えます。<br>
+              初めての方は必ず半自動から試してください。
+            </p>
+
+            <div class="mode-grid">
+              <div class="mode-card">
+                <span class="mode-badge mode-badge-recommend">推奨</span>
+                <h3 style="margin-top:10px;">半自動モード</h3>
+                <p>1 フェーズごとに AI の出力を確認してから次に進む。無料枠でも安心して使える。</p>
+              </div>
+              <div class="mode-card">
+                <span class="mode-badge mode-badge-caution">上級者向け</span>
+                <h3 style="margin-top:10px;">全自動モード</h3>
+                <p>9〜10 フェーズを連続実行。無料枠の分単位制限に当たる可能性あり。</p>
+              </div>
+            </div>
+
+            <h3 style="margin-top:24px;">半自動モードの操作手順</h3>
+            <ol class="detail-steps">
+              <li>
+                拡張機能のサイドパネルを開き、「<strong>自動化</strong>」タブを選択します。
+              </li>
+              <li>
+                「使用モデル」が <strong>gemini-2.5-flash</strong>（デフォルト）になっていることを確認します。
+              </li>
+              <li>
+                「開始フェーズ」を選びます。最初は「§0 から」でよいです。途中から再開する場合は該当フェーズを選びます。
+              </li>
+              <li>
+                「<strong>半自動を開始</strong>」ボタンをクリックします。
+              </li>
+              <li>
+                1 フェーズ分の処理が完了すると、結果がスプレッドシートに書き込まれ、拡張機能が一時停止します。
+              </li>
+              <li>
+                AI の出力内容を確認して問題なければ「<strong>次のフェーズへ進む</strong>」をクリックします。
+              </li>
+              <li>
+                これを繰り返して全 10 フェーズを完了させます（所要 30〜60 分）。
+              </li>
+            </ol>
+
+            <div class="step-tip">
+              <strong>途中でやめても大丈夫です。</strong>進行状況は保存されるので、次回は続きのフェーズから再開できます。
+            </div>
+
+            <h3 style="margin-top:24px;">全自動モードについての注意</h3>
+            <ol class="detail-steps">
+              <li>
+                手順は半自動と同じですが、最後に「<strong>全自動</strong>」を選びます。
+              </li>
+              <li>
+                9〜10 フェーズが連続で実行されます。
+              </li>
+              <li>
+                Gemini 無料枠の分単位制限（10 RPM）に当たった場合、途中で止まる可能性があります。
+              </li>
+              <li>
+                v0.11 ではフェーズ間に 7 秒以上の待機を入れる設定を実装予定です。
+              </li>
+            </ol>
+
+            <div class="step-warn">
+              <strong>全自動が途中で止まっても焦らないでください。</strong><br>
+              エラーが出た箇所のフェーズ番号を確認し、半自動モードで続きから再開できます。
+            </div>
+          </div>
+        </section>
+
+        <!-- Part 7 -->
+        <section id="part7">
+          <div class="section-card">
+            <span class="part-label">Part 7</span>
+            <h2>トラブルシュート（FAQ）</h2>
+            <p>困ったときはここを確認してください。</p>
+
+            <div class="faq-block">
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q1</span>「GEMINI_API_KEY 未設定」と出る</div>
+                <div class="faq-a">
+                  <strong>確認すること：</strong>
+                  <ul style="margin:8px 0 0; padding-left:1.3em; line-height:1.8;">
+                    <li>スクリプトプロパティのプロパティ名が <code>GEMINI_API_KEY</code>（全大文字・アンダースコア区切り）になっているか</li>
+                    <li>値の前後に余分なスペースが入っていないか</li>
+                    <li>「スクリプト プロパティを保存」ボタンを押して保存を完了させたか</li>
+                  </ul>
+                  保存後はスプレッドシートのページを一度リロード（F5 キー）してから再試行してください。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q2</span>「API key not valid. Please pass a valid API key.」と出る</div>
+                <div class="faq-a">
+                  <strong>原因：</strong>API キーが正しくコピーできていない、またはキーが無効化されています。<br>
+                  <strong>対処：</strong>
+                  <ol style="margin:8px 0 0; padding-left:1.3em; line-height:1.8;">
+                    <li>Google AI Studio（aistudio.google.com/app/apikey）を開く</li>
+                    <li>一覧に表示されているキーの「コピー」ボタンを使って再コピー</li>
+                    <li>スクリプトプロパティの値を貼り直して保存</li>
+                  </ol>
+                  キーが一覧に表示されていない場合は、「Create API key」から新しく発行してください。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q3</span>「429 RESOURCE_EXHAUSTED」と出る</div>
+                <div class="faq-a">
+                  <strong>原因：</strong>Gemini 無料枠の分単位制限（10 RPM）に達しました。<br>
+                  <strong>対処：</strong>
+                  <ul style="margin:8px 0 0; padding-left:1.3em; line-height:1.8;">
+                    <li>1 分間待ってから「リトライ」または同じフェーズを再実行</li>
+                    <li>全自動モードを使っている場合は、半自動モードに切り替えて続きから再開</li>
+                    <li>使用モデルを <code>gemini-2.5-flash-lite</code> に変更すると上限が緩くなる（RPM 15）</li>
+                  </ul>
+                  課金は発生しません。制限に当たって止まるだけです。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q4</span>全自動モードが途中で止まってしまう</div>
+                <div class="faq-a">
+                  ほとんどの場合、Q3 と同じ原因（分単位制限）です。<br>
+                  <strong>推奨対処：</strong>
+                  <ul style="margin:8px 0 0; padding-left:1.3em; line-height:1.8;">
+                    <li>全自動ではなく半自動モードを使う（根本的な解決）</li>
+                    <li>どのフェーズで止まったかを確認して、そのフェーズから半自動で再開する</li>
+                  </ul>
+                  v0.11 でフェーズ間の待機時間設定を実装予定です。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q5</span>課金されないか不安</div>
+                <div class="faq-a">
+                  <strong>クレジットカードを登録していなければ、物理的に課金できません。</strong><br>
+                  Google AI Studio での API キー発行に、クレジットカードの入力画面は一切出ません。<br>
+                  請求先アカウントが存在しない状態では、Google 側のシステムが請求を送ることができない仕組みになっています。<br><br>
+                  万が一「請求先アカウントを設定してください」というメッセージが出ても、設定せず無視してください。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q6</span>API キーを誰かに見られてしまった</div>
+                <div class="faq-a">
+                  <strong>すぐに以下を実施してください：</strong>
+                  <ol style="margin:8px 0 0; padding-left:1.3em; line-height:1.8;">
+                    <li>Google AI Studio（aistudio.google.com/app/apikey）を開く</li>
+                    <li>該当するキーの行の「削除」ボタンをクリックして無効化する</li>
+                    <li>「Create API key」から新しいキーを発行する</li>
+                    <li>GAS のスクリプトプロパティの <code>GEMINI_API_KEY</code> の値を新しいキーで上書き保存する</li>
+                  </ol>
+                  クレカ未登録であれば金銭的な被害は発生しませんが、無料枠を他人に使われてしまう可能性があります。早めに対処してください。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q7</span>拡張機能を使わずスプレッドシートで Gemini を使いたい</div>
+                <div class="faq-a">
+                  API キーが登録されたプロジェクトでは、スプレッドシートのセルでカスタム関数 <code>=GEMINI("プロンプト")</code> が使えます。<br>
+                  ただしこの機能は GAS プロジェクトに対応する関数が実装されている場合のみ動作します。<br>
+                  詳しくは講師（山口さん）に確認してください。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q8</span>Gemini と ChatGPT、どっちを使うべき？</div>
+                <div class="faq-a">
+                  <strong>半自動／全自動モードは Gemini API のみ対応しています。</strong><br>
+                  一方、各フェーズには「Claude で開く」「ChatGPT で開く」ボタンがあり、クリックするとそれぞれの AI のブラウザ画面にプロンプトを貼り付けた状態で開きます（API キー不要）。<br><br>
+                  <strong>推奨の使い分け：</strong>
+                  <ul style="margin:8px 0 0; padding-left:1.3em; line-height:1.8;">
+                    <li>自動化したい・時間を節約したい → Gemini API（半自動モード）</li>
+                    <li>出力を細かく調整したい・別の AI と比較したい → 各 AI のブラウザ版ボタンを使う</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q9</span>Google Cloud Platform（GCP）を触ってしまった場合は？</div>
+                <div class="faq-a">
+                  触ること自体は問題ありません。ただし触る必要はありません。<br>
+                  <strong>注意が必要なのは以下の場合です：</strong>
+                  <ul style="margin:8px 0 0; padding-left:1.3em; line-height:1.8;">
+                    <li>GCP コンソールで「課金を有効にする」「請求先アカウントを作成・接続する」という操作をした場合</li>
+                    <li>→ 課金の可能性が生まれるため、すぐに「プロジェクトをシャットダウン」するか請求先アカウントの接続を解除してください</li>
+                  </ul>
+                  GCP のプロジェクトを作成しただけ（課金を有効化していない）なら課金は発生しません。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q10</span>将来的に課金に切り替えた場合、月いくらかかる？</div>
+                <div class="faq-a">
+                  受講者レベルの使い方であれば、月 <strong>数百円〜数千円</strong> が目安です。<br>
+                  具体的な金額は使用量（リクエスト数・トークン数）によって変わります。<br><br>
+                  <strong>参考：</strong>gemini-2.5-flash の有料プランは入力トークン 100万あたり $0.15〜$0.60（コンテキスト長による）。<br>
+                  月 100 回の戦略立案（1 回あたり 5 万トークン消費）なら 月 500 万トークン ≒ 月 $0.75〜$3（約 100〜450 円）程度です。<br>
+                  ただし、受講期間中はクレカ登録なし・無料枠での利用を推奨します。
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- Part 8 -->
+        <section id="part8">
+          <div class="section-card">
+            <span class="part-label">Part 8</span>
+            <h2>セキュリティについて知っておくべきこと</h2>
+            <p>
+              「セキュリティ」という言葉は難しく聞こえますが、要点は 3 つだけです。
+            </p>
+
+            <div class="alert">
+              <strong>API キーは「あなたが Google に料金を払うためのチケット」と同じです。</strong><br>
+              クレカ未登録でも、漏れると他人が無料枠を使い切ってしまう可能性があります。
+            </div>
+
+            <div class="security-grid">
+              <div class="security-item">
+                <strong>API キーの安全な保管場所</strong>
+                GAS のスクリプトプロパティに保存する限り、コードを共有しても他人にキーは見えません。スクリプトプロパティは暗号化されて保存されます。
+              </div>
+              <div class="security-item">
+                <strong>コードを共有するときの注意</strong>
+                GAS プロジェクトを誰かと共有する場合も、スクリプトプロパティの値は共有されません。安全です。
+              </div>
+              <div class="security-item">
+                <strong>Web App URL の取り扱い</strong>
+                GAS を「ウェブアプリ」として公開した場合、その URL を知っている人は「あなたの代わりに Gemini を呼び出す」ことができます。URL を Slack・LINE などに公開リンクで貼らないようにしてください。
+              </div>
+              <div class="security-item">
+                <strong>クレカ未登録の場合の金銭リスク</strong>
+                クレジットカードを登録していなければ金銭的リスクはゼロです。無料枠を使い切られる可能性はありますが、お金は一切かかりません。
+              </div>
+            </div>
+
+            <h3 style="margin-top:22px;">やってはいけないこと・まとめ</h3>
+            <table class="compare-table">
+              <thead>
+                <tr>
+                  <th>やってはいけないこと</th>
+                  <th>理由</th>
+                  <th>やってしまった場合の対処</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>API キーを SNS・チャットに貼る</td>
+                  <td>第三者が無料枠を使える</td>
+                  <td>AI Studio でキーを削除して再発行（Q6 参照）</td>
+                </tr>
+                <tr>
+                  <td>API キーを GitHub などにアップロード</td>
+                  <td>クロールで自動収集されることがある</td>
+                  <td>同上。GitHub は履歴も残るため特に注意</td>
+                </tr>
+                <tr>
+                  <td>GCP で請求先アカウントを作成・接続する</td>
+                  <td>課金の可能性が生まれる</td>
+                  <td>すぐにプロジェクトをシャットダウン</td>
+                </tr>
+                <tr>
+                  <td>Web App URL を公開リンクで共有</td>
+                  <td>他者があなたの Gemini 枠を使える</td>
+                  <td>GAS の Web App を再デプロイしてアクセス権を制限</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="step-tip">
+              <strong>まとめ：</strong>スクリプトプロパティに保存して、キーをコードやチャットに直接書かない。これだけ守れば十分です。
+            </div>
+          </div>
+        </section>
+
+        <!-- 完了まとめ -->
+        <section>
+          <div class="section-card">
+            <h2>セットアップ完了おめでとうございます</h2>
+            <p>このガイドを読み終えた方は、以下が全て完了しているはずです。</p>
+            <ul class="check-list">
+              <li>API とは何かを理解した</li>
+              <li>Google AI Studio と GCP の違いを理解した</li>
+              <li>Gemini の無料枠の仕組みを理解した</li>
+              <li>Google AI Studio で API キーを取得した</li>
+              <li>GAS スクリプトプロパティに <code>GEMINI_API_KEY</code> を登録した</li>
+              <li>接続テストで「✓ 接続成功（Gemini OK）」を確認した</li>
+              <li>半自動モードで 1 フェーズ実行してみた</li>
+            </ul>
+
+            <div class="step-tip" style="margin-top:18px;">
+              <strong>次のステップ：</strong>セットアップガイドに戻り、実際に半自動モードで戦略立案を進めてみましょう。困ったときはこのガイドの Part 7（FAQ）に戻ってください。
+            </div>
+
+            <div style="margin-top:20px; display:flex; flex-wrap:wrap; gap:12px;">
+              <a href="setup-guide-v0.11.html" class="button-secondary">セットアップガイドへ戻る</a>
+              <a href="strategy-kit-hub.html" class="button-secondary">配布ページへ戻る</a>
+            </div>
+          </div>
+        </section>
+
+        <div class="version-note">
+          STRATEGY-KIT v0.11 — Gemini API 完全ガイド<br>
+          対象：AI 活用マーケター養成科 受講者<br>
+          Google AI Studio の UI は予告なく変更される場合があります。最新情報は
+          <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a> を参照してください。
+        </div>
+
+      </main>
+    </div>
+  </body>
+</html>

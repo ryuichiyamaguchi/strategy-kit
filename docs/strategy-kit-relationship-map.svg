@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1260" viewBox="0 0 1800 1260" role="img" aria-labelledby="title desc">
+  <title id="title">STRATEGY-KIT 最新版の関係図</title>
+  <desc id="desc">テンプレート原本、作業用Googleドキュメント、GASシム、StrategyKitLib、Chrome拡張機能、Google DocsとDriveへの書き込み先の関係を示す図。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#24364f"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f6c81"/>
+    </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9a5b00"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#24364f" flood-opacity="0.16"/>
+    </filter>
+    <style>
+      .bg { fill: #f5f0e6; }
+      .title { font: 700 48px "Hiragino Sans", "Yu Gothic", "BIZ UDPGothic", sans-serif; fill: #17233a; letter-spacing: 0; }
+      .subtitle { font: 500 24px "Hiragino Sans", "Yu Gothic", "BIZ UDPGothic", sans-serif; fill: #42526b; letter-spacing: 0; }
+      .box-title { font: 700 28px "Hiragino Sans", "Yu Gothic", "BIZ UDPGothic", sans-serif; fill: #152238; letter-spacing: 0; }
+      .box-sub { font: 600 18px "Hiragino Sans", "Yu Gothic", "BIZ UDPGothic", sans-serif; fill: #4a5871; letter-spacing: 0; }
+      .text { font: 500 20px "Hiragino Sans", "Yu Gothic", "BIZ UDPGothic", sans-serif; fill: #24364f; letter-spacing: 0; }
+      .small { font: 500 17px "Hiragino Sans", "Yu Gothic", "BIZ UDPGothic", sans-serif; fill: #4a5871; letter-spacing: 0; }
+      .tag { font: 700 15px "Hiragino Sans", "Yu Gothic", "BIZ UDPGothic", sans-serif; fill: #fffaf0; letter-spacing: 0; }
+      .callout { font: 700 20px "Hiragino Sans", "Yu Gothic", "BIZ UDPGothic", sans-serif; fill: #7a1f33; letter-spacing: 0; }
+      .label { font: 700 18px "Hiragino Sans", "Yu Gothic", "BIZ UDPGothic", sans-serif; fill: #24364f; letter-spacing: 0; }
+      .arrowText { font: 700 18px "Hiragino Sans", "Yu Gothic", "BIZ UDPGothic", sans-serif; fill: #24364f; letter-spacing: 0; }
+      .arrowBlue { font: 700 18px "Hiragino Sans", "Yu Gothic", "BIZ UDPGothic", sans-serif; fill: #0f6c81; letter-spacing: 0; }
+      .arrowAmber { font: 700 18px "Hiragino Sans", "Yu Gothic", "BIZ UDPGothic", sans-serif; fill: #9a5b00; letter-spacing: 0; }
+      .card { fill: #fffdf7; stroke: #24364f; stroke-width: 2.5; rx: 8; filter: url(#shadow); }
+      .cardSoft { fill: #fffdf7; stroke: #d9cbb4; stroke-width: 2; rx: 8; }
+      .chip { fill: #24364f; rx: 4; }
+      .chipBlue { fill: #0f6c81; rx: 4; }
+      .chipAmber { fill: #9a5b00; rx: 4; }
+      .chipRose { fill: #9d2f4d; rx: 4; }
+      .mutedLine { stroke: #aab3c2; stroke-width: 2; stroke-dasharray: 8 8; fill: none; marker-end: url(#arrow); }
+      .solidLine { stroke: #24364f; stroke-width: 4; fill: none; marker-end: url(#arrow); }
+      .blueLine { stroke: #0f6c81; stroke-width: 4; fill: none; marker-end: url(#arrowBlue); }
+      .amberLine { stroke: #9a5b00; stroke-width: 4; fill: none; marker-end: url(#arrowAmber); }
+      .danger { fill: #fff2f4; stroke: #c84a65; stroke-width: 2; rx: 8; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1800" height="1260"/>
+  <rect x="42" y="38" width="1716" height="1184" rx="18" fill="#fffaf0" stroke="#e0d1bb" stroke-width="2"/>
+
+  <text class="title" x="90" y="104">STRATEGY-KIT 最新版の関係図</text>
+  <text class="subtitle" x="92" y="146">拡張機能は「GASのURL」を呼び、実際の書き込みは GAS + StrategyKitLib が Google Docs / Drive に行います。</text>
+
+  <rect class="chip" x="92" y="174" width="168" height="36"/>
+  <text class="tag" x="112" y="198">最新版の実体</text>
+  <text class="small" x="280" y="198">Helper拡張 v0.11.3 / StrategyKitLib v0.11.2 / shim v0.11.0 / template_v3.0.md</text>
+
+  <!-- Top row: documents and GAS -->
+  <rect class="card" x="90" y="270" width="360" height="230"/>
+  <rect class="chipAmber" x="116" y="294" width="138" height="32"/>
+  <text class="tag" x="135" y="316">コピー元</text>
+  <text class="box-title" x="116" y="365">テンプレート原本 Doc</text>
+  <text class="box-sub" x="116" y="398">章構造の正本</text>
+  <text class="text" x="116" y="438">template_v3.0.md を</text>
+  <text class="text" x="116" y="467">Google Docs化したもの</text>
+  <text class="small" x="116" y="492">保存ID: SK_TEMPLATE_DOC_ID</text>
+  <rect class="danger" x="112" y="524" width="315" height="54"/>
+  <text class="callout" x="132" y="558">基本は直接いじらない</text>
+
+  <path class="amberLine" d="M 462 382 C 520 382, 536 382, 590 382"/>
+  <text class="arrowAmber" x="480" y="352">makeCopy()</text>
+  <text class="arrowAmber" x="480" y="376">案件ごとに複製</text>
+
+  <rect class="card" x="600" y="248" width="390" height="272"/>
+  <rect class="chipBlue" x="626" y="272" width="170" height="32"/>
+  <text class="tag" x="645" y="294">操作の入口</text>
+  <text class="box-title" x="626" y="342">テンプレート作業用</text>
+  <text class="box-title" x="626" y="378">/ マスター Doc</text>
+  <text class="box-sub" x="626" y="412">受講者が開いて操作するDoc</text>
+  <text class="text" x="626" y="452">ここに GAS シムを紐づける</text>
+  <text class="small" x="626" y="484">保存ID: SK_DOC_ID</text>
+  <text class="small" x="626" y="512">新規マスター作成後は書き込み先を切替</text>
+
+  <rect class="cardSoft" x="620" y="558" width="350" height="168"/>
+  <text class="box-title" x="646" y="604">GAS シム</text>
+  <text class="box-sub" x="646" y="636">Code.gs（受講者が貼る薄い窓口）</text>
+  <text class="text" x="646" y="674">onOpen / doPost / doGet</text>
+  <text class="small" x="646" y="706">メニューとWeb App入口だけ担当</text>
+
+  <path class="solidLine" d="M 990 632 C 1038 632, 1062 632, 1114 632"/>
+  <text class="arrowText" x="1006" y="596">処理を委譲</text>
+  <text class="arrowText" x="1006" y="620">StrategyKitLib.*</text>
+
+  <rect class="card" x="1130" y="520" width="390" height="252"/>
+  <rect class="chip" x="1156" y="544" width="178" height="32"/>
+  <text class="tag" x="1175" y="566">ロジック本体</text>
+  <text class="box-title" x="1156" y="614">StrategyKitLib</text>
+  <text class="box-sub" x="1156" y="648">山口さん管理のGASライブラリ</text>
+  <text class="text" x="1156" y="688">章操作・Doc作成・Drive保存</text>
+  <text class="text" x="1156" y="718">Gemini呼び出しを実行</text>
+  <text class="small" x="1156" y="750">developmentMode: true で自動反映</text>
+
+  <rect class="cardSoft" x="1560" y="312" width="170" height="430"/>
+  <text class="box-title" x="1584" y="360">Google</text>
+  <text class="box-title" x="1584" y="396">Docs / Drive</text>
+  <text class="small" x="1584" y="446">マスターDoc</text>
+  <text class="small" x="1584" y="480">[DRAFT] Doc</text>
+  <text class="small" x="1584" y="514">[CLEAN] Doc</text>
+  <text class="small" x="1584" y="548">[SUMMARY] Doc</text>
+  <text class="small" x="1584" y="582">research/*.md</text>
+  <text class="small" x="1584" y="632">ScriptProperties</text>
+  <text class="small" x="1584" y="666">GEMINI_API_KEY</text>
+
+  <path class="solidLine" d="M 1522 626 C 1540 626, 1546 626, 1552 626"/>
+  <text class="arrowText" x="1394" y="466">DocumentApp</text>
+  <text class="arrowText" x="1394" y="492">DriveApp</text>
+
+  <!-- Bottom row: extension and AI -->
+  <rect class="card" x="96" y="800" width="500" height="278"/>
+  <rect class="chipBlue" x="126" y="824" width="220" height="32"/>
+  <text class="tag" x="146" y="846">ブラウザ側の道具</text>
+  <text class="box-title" x="126" y="895">STRATEGY-KIT Helper</text>
+  <text class="box-sub" x="126" y="929">Chrome拡張 v0.11.3</text>
+  <text class="text" x="126" y="970">sidepanel / options / prompts.json</text>
+  <text class="text" x="126" y="1002">AIサイトへプロンプトを挿入</text>
+  <text class="small" x="126" y="1042">保存: gasWebAppUrl_v10 / gasApiToken_v10</text>
+
+  <path class="blueLine" d="M 598 896 C 690 896, 746 794, 792 730"/>
+  <text class="arrowBlue" x="650" y="850">Web App URLへPOST</text>
+  <text class="arrowBlue" x="650" y="876">action名で依頼</text>
+
+  <rect class="cardSoft" x="690" y="846" width="330" height="188"/>
+  <text class="box-title" x="720" y="894">AIサイト</text>
+  <text class="box-sub" x="720" y="928">Claude / ChatGPT / Gemini など</text>
+  <text class="text" x="720" y="968">拡張は入力欄へ挿入するだけ</text>
+  <text class="small" x="720" y="1002">自動送信ではなく人が確認</text>
+
+  <path class="mutedLine" d="M 596 966 C 634 966, 646 966, 682 966"/>
+  <text class="arrowText" x="612" y="944">プロンプト挿入</text>
+
+  <rect class="cardSoft" x="1130" y="844" width="390" height="204"/>
+  <text class="box-title" x="1158" y="892">Gemini API</text>
+  <text class="box-sub" x="1158" y="926">Gemini.gs 経由</text>
+  <text class="text" x="1158" y="966">geminiProxy / CLEAN / SUMMARY</text>
+  <text class="small" x="1158" y="1000">APIキーは受講者のScriptProperties</text>
+
+  <path class="solidLine" d="M 1325 774 C 1325 802, 1325 816, 1325 836"/>
+  <text class="arrowText" x="1344" y="818">必要時だけ呼ぶ</text>
+
+  <!-- Script property mini panel -->
+  <rect class="cardSoft" x="1044" y="248" width="424" height="218"/>
+  <text class="box-title" x="1070" y="296">GASが覚えているID</text>
+  <text class="text" x="1070" y="340">SK_TEMPLATE_DOC_ID → 原本</text>
+  <text class="text" x="1070" y="374">SK_DOC_ID → 書き込み先マスター</text>
+  <text class="text" x="1070" y="408">SK_DRAFT_DOC_ID → DRAFT</text>
+  <text class="small" x="1070" y="442">SK_API_TOKEN / GEMINI_API_KEY もここ</text>
+
+  <path class="mutedLine" d="M 990 350 C 1012 350, 1022 350, 1036 350"/>
+  <text class="arrowText" x="1004" y="330">IDを保存</text>
+
+  <!-- Bottom legend -->
+  <rect x="90" y="1108" width="1640" height="58" rx="8" fill="#f0e3cf" stroke="#d9cbb4" stroke-width="2"/>
+  <line x1="126" y1="1137" x2="210" y2="1137" class="solidLine"/>
+  <text class="small" x="228" y="1143">書き込み・作成</text>
+  <line x1="430" y1="1137" x2="514" y2="1137" class="blueLine"/>
+  <text class="small" x="532" y="1143">拡張機能からGAS呼び出し</text>
+  <line x1="820" y1="1137" x2="904" y2="1137" class="mutedLine"/>
+  <text class="small" x="922" y="1143">ID保存・参照・プロンプト挿入</text>
+  <text class="small" x="1220" y="1131">ポイント: 原本はコピー元。</text>
+  <text class="small" x="1220" y="1153">作業結果はマスター / DRAFT / research に残る。</text>
+</svg>

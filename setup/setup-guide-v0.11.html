@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>STRATEGY-KIT v0.11 セットアップガイド</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <style>
+      .prereq-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .prereq-item {
+        padding: 16px 18px;
+        border: 1px solid rgba(40, 89, 67, 0.15);
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.7);
+        font-size: 0.96rem;
+        line-height: 1.6;
+      }
+      .prereq-item strong {
+        display: block;
+        color: var(--forest-deep);
+        font-family: 'Manrope', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .check-list {
+        list-style: none;
+        padding-left: 0;
+        margin: 12px 0 0;
+      }
+      .check-list li {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(40, 89, 67, 0.08);
+        font-size: 0.97rem;
+      }
+      .check-list li:last-child {
+        border-bottom: none;
+      }
+      .check-list li::before {
+        content: '□';
+        flex-shrink: 0;
+        color: var(--marigold);
+        font-weight: 700;
+        font-size: 1rem;
+        margin-top: 1px;
+      }
+      .faq-block {
+        margin-top: 14px;
+      }
+      .faq-item {
+        border: 1px solid rgba(40, 89, 67, 0.13);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        margin-bottom: 10px;
+      }
+      .faq-q {
+        padding: 14px 16px;
+        background: rgba(40, 89, 67, 0.06);
+        font-weight: 700;
+        font-size: 0.97rem;
+        color: var(--forest-deep);
+        cursor: default;
+      }
+      .faq-a {
+        padding: 14px 16px;
+        font-size: 0.97rem;
+        line-height: 1.7;
+        background: rgba(255, 255, 255, 0.6);
+      }
+      .faq-a code {
+        background: rgba(40, 89, 67, 0.09);
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 0.92em;
+      }
+      .step-done {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: var(--radius-sm);
+        background: rgba(40, 89, 67, 0.09);
+        font-size: 0.96rem;
+        line-height: 1.6;
+      }
+      .step-done strong {
+        color: var(--forest-deep);
+      }
+      .step-warn {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-left: 4px solid var(--marigold);
+        border-radius: var(--radius-sm);
+        background: var(--alert-bg);
+        font-size: 0.96rem;
+        line-height: 1.7;
+      }
+      .step-warn strong {
+        color: #92600f;
+      }
+      .step-tip {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-left: 4px solid rgba(40, 89, 67, 0.5);
+        border-radius: var(--radius-sm);
+        background: rgba(40, 89, 67, 0.07);
+        font-size: 0.96rem;
+        line-height: 1.7;
+      }
+      .screenshot-placeholder {
+        margin: 16px 0;
+        padding: 20px 18px;
+        border: 2px dashed rgba(40, 89, 67, 0.25);
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.55);
+        color: var(--ink-soft);
+        font-size: 0.93rem;
+        text-align: center;
+      }
+      .step-summary {
+        display: inline-flex;
+        padding: 5px 12px;
+        border-radius: 999px;
+        background: var(--marigold-soft);
+        color: #7a4a0a;
+        font-size: 0.88rem;
+        font-weight: 700;
+        margin-bottom: 14px;
+      }
+      ol.detail-steps {
+        margin: 10px 0 0;
+        padding-left: 1.4em;
+      }
+      ol.detail-steps li {
+        margin-bottom: 8px;
+        line-height: 1.75;
+      }
+      ol.detail-steps code {
+        background: rgba(40, 89, 67, 0.09);
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 0.92em;
+      }
+      .step-section-title {
+        margin: 24px 0 8px;
+        font-family: 'Manrope', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+      .faq-label {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--marigold-soft);
+        color: #7a4a0a;
+        font-size: 0.84rem;
+        font-weight: 700;
+        margin-right: 6px;
+      }
+      .support-card {
+        padding: 24px;
+        border: 1px solid rgba(40, 89, 67, 0.13);
+        border-radius: var(--radius);
+        background: var(--card);
+        box-shadow: var(--shadow);
+      }
+      .version-note {
+        margin-top: 28px;
+        padding-top: 18px;
+        border-top: 1px solid rgba(40, 89, 67, 0.12);
+        color: var(--ink-soft);
+        font-size: 0.93rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <strong>STRATEGY-KIT v0.11 セットアップガイド</strong>
+        <a href="strategy-kit-hub.html">配布ページへ戻る</a>
+      </header>
+
+      <main>
+
+        <!-- ヒーロー -->
+        <section class="hero">
+          <span class="eyebrow">Day10 配布</span>
+          <h1>STRATEGY-KIT v0.11<br>セットアップガイド</h1>
+          <p class="lede">Day10 配布版・所要 30〜45 分。順番通りに進めれば必ず動きます。</p>
+          <div class="pill-row">
+            <span class="chip">Day10 配布</span>
+            <span class="chip">Unpacked 方式</span>
+            <span class="chip">無料枠OK</span>
+          </div>
+        </section>
+
+        <!-- 事前準備 -->
+        <section>
+          <div class="section-card">
+            <h2>セットアップを始める前に</h2>
+            <p>以下が全て揃っているか確認してください。一つでも欠けていると途中で詰まります。</p>
+
+            <div class="prereq-grid">
+              <div class="prereq-item">
+                <strong>Google アカウント</strong>
+                個人の Gmail アドレスで OK。Workspace アカウントでも可。
+              </div>
+              <div class="prereq-item">
+                <strong>Chrome ブラウザ</strong>
+                バージョン 116 以上。Chrome 右上メニュー → 「Chrome について」で確認できます。
+              </div>
+              <div class="prereq-item">
+                <strong>StrategyKitLib スクリプトID</strong>
+                講師（山口さん）から配布されます。<strong>これがないと動きません</strong>。手元に用意してください。
+              </div>
+            </div>
+
+            <p class="step-section-title" style="margin-top:20px;">配布物3点のダウンロード確認</p>
+            <ul class="check-list">
+              <li><code>strategy-kit-v0.11.0.zip</code>（拡張機能本体）— ダウンロード済み</li>
+              <li><code>strategy-kit-v0.11.0-gas-shim.zip</code>（GAS shim）— ダウンロード済み</li>
+              <li><code>template_v3.0.md</code>（マスター雛形）— ダウンロード済み</li>
+            </ul>
+
+            <div class="step-warn" style="margin-top:20px;">
+              <strong>ZIP は解凍してから使います。</strong> ダウンロードしたままの ZIP ファイルを Chrome に読み込んでも動きません。必ずデスクトップ等に解凍（展開）してください。
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 1 -->
+        <section>
+          <div class="step-card">
+            <div class="step-number">1</div>
+            <h2>マスター雛形を Google Docs に変換する</h2>
+            <span class="step-summary">テンプレート原本を Google ドキュメントに取り込む</span>
+
+            <div class="step-meta">
+              <span class="chip">Google ドキュメント</span>
+            </div>
+
+            <p class="step-section-title">操作手順</p>
+            <ol class="detail-steps">
+              <li>
+                ブラウザで
+                <a href="https://docs.google.com/document/u/0/create" target="_blank" rel="noopener">docs.google.com</a> を開き、空白のドキュメントを新規作成します（白紙の Doc が開けば OK）。
+              </li>
+              <li>
+                開いた Doc のメニューバーから「<strong>ファイル → 開く</strong>」をクリックします。
+              </li>
+              <li>
+                ダイアログ上部の「<strong>アップロード</strong>」タブをクリックします。
+              </li>
+              <li>
+                ダウンロードした <code>template_v3.0.md</code> をダイアログにドラッグ＆ドロップする（または「ブラウザでファイルを選択」から指定する）と、アップロードと同時に Google ドキュメントへ自動変換されて新しいタブで開きます。
+              </li>
+              <li>
+                開いた Doc のタイトル（左上）をクリックして<strong>「テンプレート原本」</strong>に変更します。これがマスター雛形の正本になります。
+              </li>
+              <li>
+                ブラウザのアドレスバーからこの Doc の URL をコピーし、どこかにメモしておきます（STEP 6 で使います）。最初に作った白紙の Doc は使わないので閉じて構いません。
+              </li>
+            </ol>
+
+            <div class="step-warn">
+              <strong>テンプレート原本 Doc は「正本」です。直接編集しないでください。</strong> 案件ごとに「新規マスタードキュメント作成」から別の Doc を生成して使います。STEP 7 で実際に試します。
+            </div>
+
+            <p class="step-section-title">よくある詰まりポイント</p>
+            <div class="faq-block">
+              <div class="faq-item">
+                <div class="faq-q">「ファイル → 開く」のダイアログに「アップロード」タブが見当たらない</div>
+                <div class="faq-a">ダイアログ上部のタブが「最近使用したアイテム / マイドライブ / スター付き / 共有アイテム / アップロード」の順で並んでいます。一番右までスクロールしてください。</div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q">アップロード後に開いた Doc の文字が崩れている / 表が崩れている</div>
+                <div class="faq-a">直接ダブルクリックでアップロードしたり、ブラウザを別ウィンドウで開いていると、別アプリ（Markdown プレビューなど）で開かれる場合があります。Google ドキュメントの「ファイル → 開く → アップロード」経路でやり直すと正しく変換されます。</div>
+              </div>
+            </div>
+
+            <div class="step-done">
+              <strong>完了の確認:</strong> Google ドライブに「テンプレート原本」という名前の Google ドキュメントが存在し、その URL をメモできていれば STEP 1 完了です。
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 2 -->
+        <section>
+          <div class="step-card">
+            <div class="step-number">2</div>
+            <h2>Apps Script で shim を準備する</h2>
+            <span class="step-summary">作業用 Doc に GAS スクリプトを貼る</span>
+
+            <div class="step-meta">
+              <span class="chip">Google ドキュメント</span>
+              <span class="chip">Apps Script</span>
+            </div>
+
+            <div class="step-tip">
+              STEP 1 で作った「テンプレート原本 Doc」ではなく、<strong>別の新しい Google ドキュメント</strong>を作成します。この Doc が日常の作業起点になります。
+            </div>
+
+            <p class="step-section-title">操作手順</p>
+            <ol class="detail-steps">
+              <li>
+                Google Drive で「<strong>+ 新規 → Google ドキュメント → 空白のドキュメント</strong>」を作成します。名前は「STRATEGY-KIT 作業用」など任意でOK。
+              </li>
+              <li>
+                新規 Doc を開いた状態で、メニューバーの「<strong>拡張機能 → Apps Script</strong>」をクリックします。新しいタブで Apps Script エディタが開きます。
+              </li>
+              <li>
+                <strong>ライブラリを追加します。</strong> 左サイドバーの「<strong>ライブラリ</strong>」の右にある「<strong>＋</strong>」ボタンをクリックします。
+              </li>
+              <li>
+                「スクリプト ID を入力」欄に、<strong>講師から配布された StrategyKitLib のスクリプトID</strong> を貼り付けて「検索」をクリックします。
+              </li>
+              <li>
+                「<strong>StrategyKitLib</strong>」が表示されたら、バージョン欄を「<strong>HEAD（開発モード）</strong>」に設定します（自動アップデートのため）。識別子は <code>StrategyKitLib</code> のまま変更しないでください。
+              </li>
+              <li>
+                「<strong>追加</strong>」をクリックします。左サイドバーの「ライブラリ」の下に「StrategyKitLib」が表示されれば成功です。
+              </li>
+              <li>
+                次に <strong>shim を貼ります。</strong> ダウンロードした <code>strategy-kit-v0.11.0-gas-shim.zip</code> を解凍し、中の <code>Code.gs</code> をテキストエディタ（メモ帳・TextEdit など）で開きます。中身を全部コピーします（Cmd+A → Cmd+C）。
+              </li>
+              <li>
+                Apps Script エディタ左サイドバーの「<strong>ファイル → Code.gs</strong>」をクリックして開きます。エディタ内を全選択（Cmd/Ctrl + A）して<strong>削除</strong>し、コピーした shim の中身を貼り付けます（Cmd/Ctrl + V）。
+              </li>
+              <li>
+                <strong>保存します（Cmd/Ctrl + S）。</strong> エディタ上部のフロッピーアイコンをクリックしても保存できます。
+              </li>
+            </ol>
+
+            <p class="step-section-title">よくある詰まりポイント</p>
+            <div class="faq-block">
+              <div class="faq-item">
+                <div class="faq-q">スクリプト ID を入力したが「StrategyKitLib」が出てこない</div>
+                <div class="faq-a">スクリプト ID のコピーミスが多いです。配布資料から再度コピーし直して試してください。ID の前後に空白が入っていないか確認します。</div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q">「拡張機能」メニューが見当たらない</div>
+                <div class="faq-a">Google ドキュメントのメニューバーは「ファイル・編集・表示・挿入・表示形式・ツール・<strong>拡張機能</strong>・ヘルプ」の順に並んでいます。スマートフォンからは表示されません。必ず PC の Chrome で操作してください。</div>
+              </div>
+            </div>
+
+            <div class="step-done">
+              <strong>完了の確認:</strong> Apps Script 左サイドバーに「StrategyKitLib」ライブラリが表示されており、Code.gs に shim のコードが貼られて保存されていれば STEP 2 完了です。
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 3 -->
+        <section>
+          <div class="step-card">
+            <div class="step-number">3</div>
+            <h2>ウェブアプリとしてデプロイする</h2>
+            <span class="step-summary">GAS に Web App URL を発行する</span>
+
+            <div class="step-meta">
+              <span class="chip">Apps Script</span>
+              <span class="chip">Web App URL 取得</span>
+            </div>
+
+            <p class="step-section-title">操作手順</p>
+            <ol class="detail-steps">
+              <li>Apps Script エディタ右上の「<strong>デプロイ</strong>」ボタンをクリック →「<strong>新しいデプロイ</strong>」を選びます。</li>
+              <li>「デプロイの種類を選択」が表示されます。左にある<strong>歯車アイコン</strong>をクリックし、「<strong>ウェブアプリ</strong>」を選びます。</li>
+              <li>各設定を以下の通り入力します:
+                <ul style="margin-top:8px;">
+                  <li><strong>説明:</strong> <code>STRATEGY-KIT v0.11</code>（任意ですが識別しやすくなります）</li>
+                  <li><strong>次のユーザーとして実行:</strong> 「<strong>自分</strong>（your@gmail.com）」</li>
+                  <li><strong>アクセスできるユーザー:</strong> 「<strong>Google アカウントを持っているユーザー全員</strong>」← <strong>ここが重要</strong></li>
+                </ul>
+              </li>
+              <li>「<strong>デプロイ</strong>」ボタンをクリックします。</li>
+              <li>権限承認の画面が表示されます（次項の警告を参照）。承認を最後まで通してください。</li>
+              <li>「デプロイが完了しました」画面が表示され、<strong>ウェブアプリ URL</strong>（<code>https://script.google.com/macros/s/...../exec</code> という形式）が表示されます。この URL を<strong>必ずコピーしてメモ</strong>してください（STEP 5 で使います）。</li>
+            </ol>
+
+            <div class="step-warn">
+              <strong>「Google で確認されていません」警告が表示されます。これは正常です。</strong><br>
+              自分でデプロイしたアプリは Google が審査していないため、この警告が必ず表示されます。以下の手順で承認します:
+              <ol class="detail-steps" style="margin-top:10px;">
+                <li>警告画面下部の「<strong>詳細</strong>」をクリックします。</li>
+                <li>「<strong>（自分のアカウント名）に移動（安全ではないページ）</strong>」というリンクが表示されます。これをクリックします。</li>
+                <li>「このアプリが Google アカウントへのアクセスを求めています」画面で「<strong>許可</strong>」をクリックします。</li>
+                <li>URL が表示されたらデプロイ完了です。</li>
+              </ol>
+            </div>
+
+            <p class="step-section-title">よくある詰まりポイント</p>
+            <div class="faq-block">
+              <div class="faq-item">
+                <div class="faq-q">「権限がありません」と表示される</div>
+                <div class="faq-a">OAuth 承認をスキップしたか、「詳細 → アカウントに移動」の手順を踏まなかった可能性があります。もう一度「デプロイ → デプロイを管理 → 最新バージョンを編集 → 再デプロイ」から承認をやり直してください。</div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q">「アクセスできるユーザー」で選択肢が少ない（Workspace アカウントの場合）</div>
+                <div class="faq-a">Workspace の管理者設定で制限されている場合があります。「自分のドメインのユーザー全員」でも動作します。個人 Gmail アカウントで試すのが最もトラブルが少ないです。</div>
+              </div>
+            </div>
+
+            <div class="step-done">
+              <strong>完了の確認:</strong> <code>https://script.google.com/macros/s/...../exec</code> の形式の URL をメモできていれば STEP 3 完了です。
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 4 -->
+        <section>
+          <div class="step-card">
+            <div class="step-number">4</div>
+            <h2>Chrome 拡張機能を Unpacked で読み込む</h2>
+            <span class="step-summary">Chrome に拡張機能をインストールする</span>
+
+            <div class="step-meta">
+              <span class="chip">Chrome</span>
+              <span class="chip">拡張機能</span>
+            </div>
+
+            <div class="step-tip">
+              現在 Chrome Web Store への審査申請中のため、Day10 時点では「<strong>パッケージ化されていない拡張機能</strong>（Unpacked）」として手動で読み込みます。通常のインストールより手順が多いですが、難しくはありません。
+            </div>
+
+            <p class="step-section-title">操作手順</p>
+            <ol class="detail-steps">
+              <li>
+                <strong>ZIP を解凍します。</strong> ダウンロードした <code>strategy-kit-v0.11.0.zip</code> をダブルクリックして解凍します（Mac は自動展開、Windows はファイルを右クリック →「すべて展開」）。デスクトップや「ダウンロード」フォルダに <code>strategy-kit-v0.11.0</code> というフォルダが作られます。
+              </li>
+              <li>
+                Chrome で新しいタブを開き、アドレスバーに以下を入力して Enter を押します:
+              </li>
+            </ol>
+
+            <div class="code-block">
+              <div class="code-head">
+                <strong>Chrome アドレスバーに入力</strong>
+                <button class="copy-button" data-copy="chrome://extensions/">コピー</button>
+              </div>
+              <pre><code>chrome://extensions/</code></pre>
+            </div>
+
+            <ol class="detail-steps" start="3">
+              <li>
+                拡張機能の管理ページが開きます。画面右上の「<strong>デベロッパーモード</strong>」のトグルを<strong>オン（青色）</strong>にします。
+              </li>
+              <li>
+                画面左上に「パッケージ化されていない拡張機能を読み込む」ボタンが表示されます。これをクリックします。
+              </li>
+              <li>
+                ファイル選択ダイアログが開きます。STEP 4-1 で解凍した <code>strategy-kit-v0.11.0</code> <strong>フォルダ</strong>を選択して「開く」（Mac: 「選択」）をクリックします。<strong>フォルダの中に入らず、フォルダ自体を選択してください。</strong>
+              </li>
+              <li>
+                拡張機能一覧に「<strong>STRATEGY-KIT Helper</strong>」が追加されれば成功です。
+              </li>
+            </ol>
+
+            <div class="step-warn">
+              <strong>Chrome 起動時に「デベロッパーモードの拡張機能を無効にしますか？」というポップアップが出ることがあります。</strong><br>
+              これは Chrome の仕様によるものです。「<strong>× でとじる</strong>（キャンセル）」をクリックしてください。「無効にする」を押すと拡張が停止してしまいます。毎回出る場合は、Chrome を起動するたびに × で閉じてください。
+            </div>
+
+            <p class="step-section-title">よくある詰まりポイント</p>
+            <div class="faq-block">
+              <div class="faq-item">
+                <div class="faq-q">「パッケージ化されていない拡張機能を読み込む」ボタンが表示されない</div>
+                <div class="faq-a">デベロッパーモードがオフになっています。画面右上のトグルを確認してオンにしてください。</div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q">フォルダを選択したがエラーになる</div>
+                <div class="faq-a">ZIP を解凍したフォルダではなく、ZIP ファイルそのものを選んでいる可能性があります。必ず解凍後のフォルダを選択してください。フォルダ内に <code>manifest.json</code> というファイルがあれば正しいフォルダです。</div>
+              </div>
+            </div>
+
+            <div class="step-done">
+              <strong>完了の確認:</strong> <code>chrome://extensions/</code> の拡張機能一覧に「STRATEGY-KIT Helper」が表示され、エラーなく有効になっていれば STEP 4 完了です。
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 5 -->
+        <section>
+          <div class="step-card">
+            <div class="step-number">5</div>
+            <h2>拡張機能のオプションに GAS URL を登録する</h2>
+            <span class="step-summary">拡張と GAS をつなぐ設定を行う</span>
+
+            <div class="step-meta">
+              <span class="chip">Chrome 拡張</span>
+              <span class="chip">オプション設定</span>
+            </div>
+
+            <p class="step-section-title">操作手順</p>
+            <ol class="detail-steps">
+              <li>
+                Chrome の右上にあるパズルピースのアイコン（拡張機能メニュー）をクリックします。一覧に「STRATEGY-KIT Helper」が表示されます。
+              </li>
+              <li>
+                使いやすくするために、STRATEGY-KIT Helper の横にある<strong>ピンアイコン</strong>をクリックしてツールバーに固定しておくと便利です（任意）。
+              </li>
+              <li>
+                ツールバーの STRATEGY-KIT アイコン（またはパズルメニューの STRATEGY-KIT Helper）を<strong>右クリック</strong>→「<strong>オプション</strong>」をクリックします。
+              </li>
+              <li>
+                オプション画面の「<strong>GAS Web App URL</strong>」欄に、STEP 3 でコピーした URL を<strong>貼り付けます</strong>（Cmd/Ctrl + V）。
+              </li>
+              <li>
+                「<strong>保存</strong>」ボタンをクリックします。「保存しました」などの表示が出れば成功です。
+              </li>
+            </ol>
+
+            <p class="step-section-title">よくある詰まりポイント</p>
+            <div class="faq-block">
+              <div class="faq-item">
+                <div class="faq-q">右クリックしても「オプション」が表示されない</div>
+                <div class="faq-a"><code>chrome://extensions/</code> を開き、STRATEGY-KIT Helper の「詳細」をクリック → 「拡張機能のオプション」リンクから開けます。</div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q">URL を貼り付けて保存したが接続できない</div>
+                <div class="faq-a">URL の末尾が <code>/exec</code> で終わっているか確認してください。<code>/dev</code> 末尾の URL は開発用で受講者環境では動作しません。STEP 3 で「新しいデプロイ」から取得した URL を使ってください。</div>
+              </div>
+            </div>
+
+            <div class="step-done">
+              <strong>完了の確認:</strong> オプション画面の URL 欄に <code>https://script.google.com/macros/s/...../exec</code> が入力されて保存できていれば STEP 5 完了です。
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 6 -->
+        <section>
+          <div class="step-card">
+            <div class="step-number">6</div>
+            <h2>テンプレート原本を登録する（初回のみ）</h2>
+            <span class="step-summary">コピー元の Doc を STRATEGY-KIT に記憶させる</span>
+
+            <div class="step-meta">
+              <span class="chip">Google ドキュメント</span>
+              <span class="chip">初回設定</span>
+            </div>
+
+            <p class="step-section-title">操作手順</p>
+            <ol class="detail-steps">
+              <li>
+                STEP 2 で作成した「<strong>STRATEGY-KIT 作業用</strong>」の Google ドキュメントを開きます（Google Drive から開く）。
+              </li>
+              <li>
+                ドキュメントを開いたら、<strong>ブラウザのタブを一度閉じて開き直します</strong>（または F5 / Cmd+R でリロード）。これをしないとメニューが反映されません。
+              </li>
+              <li>
+                メニューバーを確認します。「ファイル」「編集」... の右側に「<strong>STRATEGY-KIT</strong>」というメニューが追加されているはずです。
+              </li>
+              <li>
+                「<strong>STRATEGY-KIT → テンプレート原本セットアップ（初回のみ）</strong>」をクリックします。
+              </li>
+              <li>
+                ダイアログが表示されます。STEP 1 でメモしておいた「テンプレート原本 Doc の URL」を貼り付けて「OK」をクリックします。
+              </li>
+              <li>
+                「テンプレート原本を登録しました」のようなメッセージが表示されれば成功です。
+              </li>
+            </ol>
+
+            <div class="step-warn">
+              <strong>テンプレート原本 Doc を直接開いた状態で「テンプレート原本セットアップ」以外のメニューを実行しないでください。</strong> テンプレートが上書きされるリスクがあります。日常の操作はすべて「作業用 Doc」から行います。
+            </div>
+
+            <p class="step-section-title">よくある詰まりポイント</p>
+            <div class="faq-block">
+              <div class="faq-item">
+                <div class="faq-q">メニューバーに「STRATEGY-KIT」が表示されない</div>
+                <div class="faq-a">ブラウザのタブを完全に閉じて開き直してください。リロードだけでは反映されないことがあります。それでも出ない場合は、STEP 2 で shim が正しく保存されているか確認してください（Apps Script エディタを開いて Code.gs の中身を確認）。</div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q">メニューはあるが「テンプレート原本セットアップ」を実行するとエラーになる</div>
+                <div class="faq-a">「StrategyKitLib is not defined」の場合は STEP 2 のライブラリ追加に戻ってください。「権限がありません」の場合は STEP 3 のデプロイで OAuth 承認が完了しているか確認してください。</div>
+              </div>
+            </div>
+
+            <div class="step-done">
+              <strong>完了の確認:</strong> 「テンプレート原本セットアップ（初回のみ）」が正常に実行され、成功メッセージが表示されれば STEP 6 完了です。
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 7 -->
+        <section>
+          <div class="step-card">
+            <div class="step-number">7</div>
+            <h2>新規案件を作成して動作確認する</h2>
+            <span class="step-summary">実際に戦略マスター Doc を自動生成する</span>
+
+            <div class="step-meta">
+              <span class="chip">動作確認</span>
+              <span class="chip">完了</span>
+            </div>
+
+            <p class="step-section-title">操作手順</p>
+            <ol class="detail-steps">
+              <li>
+                「STRATEGY-KIT 作業用」Doc のメニューから「<strong>STRATEGY-KIT → 新規マスタードキュメント作成 → 業種を選択</strong>」をクリックします。
+              </li>
+              <li>
+                業種選択ダイアログが表示されます。「B2C（一般消費者向け）」または「B2B（法人向け）」を選択して「OK」。
+              </li>
+              <li>
+                案件メタ情報の入力ダイアログが表示されます。店舗名・案件名などを入力して「OK」。（テスト用なので適当な名前で構いません）
+              </li>
+              <li>
+                処理が完了すると、<strong>新しい Google ドキュメントが自動生成</strong>され、テンプレート原本がコピーされた状態で開きます。
+              </li>
+              <li>
+                このドキュメントが「戦略マスター文書」です。ここから案件ごとの戦略立案を進めます。
+              </li>
+            </ol>
+
+            <div class="step-tip">
+              新規案件のたびに「新規マスタードキュメント作成」から実行します。テンプレート原本は毎回コピーされるため、原本が崩れることはありません。
+            </div>
+
+            <div class="step-done">
+              <strong>完了の確認:</strong> 新しい Google ドキュメントが自動生成され、テンプレートの内容がコピーされていれば<strong>セットアップ完了</strong>です。
+            </div>
+          </div>
+        </section>
+
+        <!-- Gemini API 設定（任意） -->
+        <section>
+          <div class="section-card">
+            <h2>Gemini API 設定（任意）</h2>
+            <p>全自動・半自動モードで AI に文章を書かせる場合のみ必要です。手動で使う場合はスキップできます。</p>
+
+            <div class="alert" style="background:#dbeafe;border-left:4px solid #3b82f6;">
+              <strong>📘 初めての方は完全ガイドを推奨</strong><br>
+              「API って何？」「Google AI Studio と Google Cloud の違いは？」など、IT 用語ゼロから理解できる詳細ガイドを用意しています。
+              <div style="margin-top:8px;">
+                <a class="button" href="gemini-api-guide-v0.11.html">Gemini API 完全ガイドを開く</a>
+              </div>
+            </div>
+
+            <p class="step-section-title">API キーの取得（簡略版）</p>
+            <ol class="detail-steps">
+              <li>
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio（aistudio.google.com/app/apikey）</a> を開き、Google アカウントでログインします。
+              </li>
+              <li>
+                「<strong>API キーを作成</strong>」をクリックすると、<strong>Google Cloud プロジェクトの選択画面</strong>が表示されます（API キーは Google Cloud プロジェクトに紐付けて発行される仕組みのため）。
+              </li>
+              <li>
+                <strong>初めての場合</strong>は「<strong>新しいプロジェクトで API キーを作成</strong>」を選びます。プロジェクト名は自動入力のままで構いません。「<strong>API キーを作成</strong>」を押すと、<strong>Google Cloud プロジェクトが自動的に作成され、続けて API キーが発行されます</strong>（Google Cloud Console に別途行ってプロジェクトを作る必要はありません）。
+                <br>
+                <span class="muted" style="font-size:0.9em;">※ すでに Google Cloud のプロジェクトをお持ちの方は「既存のプロジェクトから作成」を選んで該当プロジェクトを指定してください。</span>
+              </li>
+              <li>
+                発行されたキー（<code>AIza...</code> で始まる文字列）をコピーして安全な場所にメモします。
+                <br>
+                <span class="muted" style="font-size:0.9em;">※ このキーはパスワードと同じ扱いです。他人に教えたり GitHub などに公開したりしないでください。</span>
+              </li>
+            </ol>
+
+            <p class="step-section-title">Apps Script へのキー登録</p>
+            <ol class="detail-steps">
+              <li>STEP 2 で開いた Apps Script エディタを開きます（作業用 Doc →「拡張機能 → Apps Script」）。</li>
+              <li>左サイドバーの「<strong>プロジェクトの設定</strong>」（歯車アイコン）をクリックします。</li>
+              <li>「<strong>スクリプト プロパティ</strong>」セクションまでスクロールし、「<strong>スクリプト プロパティを追加</strong>」をクリックします。</li>
+              <li>プロパティ名に <code>GEMINI_API_KEY</code>、値に取得した API キーを貼り付けて「保存」します。</li>
+            </ol>
+
+            <div class="alert">
+              <strong>無料枠の制限について</strong><br>
+              Gemini 2.5 Flash の無料枠は <strong>分あたり 10 リクエスト・1日 250 リクエスト</strong>。半自動モードは問題なく動作しますが、全自動モードで連続実行すると分あたり制限に引っかかる場合があります。その場合はフェーズ間に時間を置くか、半自動モードをお使いください。クレジットカード未登録であれば課金は発生しません。
+            </div>
+          </div>
+        </section>
+
+        <!-- セキュリティ強化（任意・v0.11.2 から） -->
+        <section>
+          <div class="section-card">
+            <h2>セキュリティ強化：API トークン（任意）</h2>
+            <p>
+              GAS のデプロイ設定は「全員（匿名）」にする必要があります（Chrome 拡張から fetch する制約のため）。
+              ただし、Web App URL が漏れた場合に第三者が自分の Doc に書き込めてしまうリスクがあるので、
+              受講者ごとに「合言葉（API トークン）」を設定して鍵を掛けることができます。<strong>任意機能</strong>です。設定しなくても動作には問題ありません。
+            </p>
+
+            <div class="alert" style="background:#dbeafe;border-left:4px solid #3b82f6;">
+              <strong>仕組み</strong><br>
+              ① GAS 側のスクリプトプロパティに <code>SK_API_TOKEN</code> を任意の文字列で登録<br>
+              ② 拡張機能のオプション画面の「API トークン」欄に同じ文字列を入力<br>
+              → 拡張機能はリクエストごとに自動でトークンを送信。一致しないリクエストは <code>UNAUTHORIZED</code> で弾かれます。
+            </div>
+
+            <p class="step-section-title">設定手順</p>
+            <ol class="detail-steps">
+              <li>
+                <strong>合言葉を決める</strong>。20 文字以上のランダムな文字列を推奨（例: <code>nrg-2026-spring-7x9k</code>）。パスワードと同じ扱いで、他人と共有しないでください。
+              </li>
+              <li>
+                <strong>GAS 側に登録</strong>。STEP 2 で作った作業用 Doc を開き「拡張機能 → Apps Script」→ 左サイドバーの「<strong>プロジェクトの設定</strong>」（歯車）→「<strong>スクリプト プロパティ</strong>」へ。
+              </li>
+              <li>
+                「<strong>スクリプト プロパティを追加</strong>」をクリック → プロパティ名 <code>SK_API_TOKEN</code>、値に手順 1 で決めた合言葉を入れて「<strong>保存</strong>」。
+              </li>
+              <li>
+                <strong>拡張機能側に登録</strong>。Chrome のツールバーから STRATEGY-KIT のオプション画面を開き、「<strong>API トークン（任意）</strong>」欄に手順 1 と同じ合言葉を入力。
+              </li>
+              <li>
+                「<strong>接続テスト</strong>」を実行。成功すれば認証付きで動いています。失敗した場合は GAS 側と拡張機能側のトークンが完全一致しているか確認（前後の空白・全角半角に注意）。
+              </li>
+            </ol>
+
+            <div class="step-warn">
+              <strong>注意：</strong> トークンを忘れた・無効化したい場合は GAS 側のスクリプトプロパティから <code>SK_API_TOKEN</code> を削除すれば認証なしの動作に戻ります（拡張機能側の入力欄も空にしてください）。
+            </div>
+
+            <p class="step-section-title">よくある詰まりポイント</p>
+            <div class="faq-block">
+              <div class="faq-item">
+                <div class="faq-q">トークンを設定したら接続テストが通らなくなった</div>
+                <div class="faq-a">GAS 側と拡張機能側のトークンが完全一致しているか再確認。前後の空白、全角／半角、コピペ時の改行混入が原因のことがほとんどです。両方を一度クリアして、同じ値を再貼付するのが確実。</div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q">トークンを設定すべき？スキップしてもいい？</div>
+                <div class="faq-a">受講者数十名の限定配布で実害は低いのでスキップして OK。ただし Web App URL を Slack や LINE で共有してしまった経験がある／心配性の方は設定推奨です。</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 困ったら（FAQ） -->
+        <section>
+          <div class="section-card">
+            <h2>困ったら（よくある質問）</h2>
+
+            <div class="faq-block">
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q1</span>「STRATEGY-KIT」メニューが表示されない</div>
+                <div class="faq-a">
+                  以下の順で確認してください:
+                  <ol class="detail-steps" style="margin-top:8px;">
+                    <li>ブラウザのタブを<strong>完全に閉じて開き直す</strong>（再読み込みだけでは不足な場合があります）</li>
+                    <li>Apps Script エディタで Code.gs に shim が保存されているか確認（STEP 2 を再確認）</li>
+                    <li>左サイドバーに StrategyKitLib ライブラリが表示されているか確認</li>
+                  </ol>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q2</span>「StrategyKitLib is not defined」というエラーが出る</div>
+                <div class="faq-a">
+                  ライブラリの追加が正しく完了していません。STEP 2 に戻り、Apps Script エディタ左サイドバーの「ライブラリ」欄に StrategyKitLib が表示されているか確認してください。表示されていなければライブラリ追加をやり直します。スクリプト ID のコピーミスが最多原因です。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q3</span>「権限がありません」と表示される</div>
+                <div class="faq-a">
+                  Web App デプロイ時の OAuth 承認が完了していない可能性があります。STEP 3 に戻り、「デプロイ → デプロイを管理」から最新のデプロイを選び、権限承認を最後まで通してください。「詳細 → （アカウント名）に移動」のリンクをクリックするところまで進む必要があります。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q4</span>「Google で確認されていません」警告が表示される（対処の詳細）</div>
+                <div class="faq-a">
+                  受講者自身がデプロイした自作アプリのため、この警告は必ず表示されます。正常な動作です。以下の手順で通過してください:
+                  <ol class="detail-steps" style="margin-top:8px;">
+                    <li>警告画面の下部「<strong>詳細</strong>」をクリック（小さい文字のリンクです）</li>
+                    <li>「<strong>（自分のアカウント名）に移動（安全ではないページ）</strong>」をクリック</li>
+                    <li>「アクセスを許可」をクリックして承認を完了</li>
+                  </ol>
+                  「キャンセル」や「戻る」を押すと承認が通らず、ツールが動作しません。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q5</span>全自動モードが途中で止まる</div>
+                <div class="faq-a">
+                  Gemini 無料枠の「分あたり 10 リクエスト」制限に引っかかっています。フェーズとフェーズの間に 1〜2 分待ってから再実行してください。または<strong>半自動モードに切り替え</strong>ると1プロンプトずつ手動実行になるため制限に引っかかりません。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q6</span>テンプレート Doc が壊れた（編集してしまった）</div>
+                <div class="faq-a">
+                  テンプレート原本 Doc を直接編集してしまった場合は、配布物の <code>template_v3.0.md</code> から再度 STEP 1 の手順でテンプレート原本 Doc を作り直し、STEP 6 の「テンプレート原本セットアップ（初回のみ）」を再実行してください。これまでの既存の案件 Doc には影響しません。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q7</span>Chrome 拡張のアイコンがグレーアウトしている</div>
+                <div class="faq-a">
+                  <code>chrome://extensions/</code> を開いて STRATEGY-KIT Helper が「有効」になっているか確認してください。「デベロッパーモードの拡張機能を無効にしますか？」のポップアップで「無効にする」を押してしまった場合は、ここで再度有効化できます。
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- サポート -->
+        <section>
+          <div class="support-card">
+            <h2>サポート・お問い合わせ</h2>
+            <p>このガイドを見ても解決しない場合は、<strong>職業訓練校の窓口（山口さん）</strong>までご連絡ください。</p>
+            <p>質問の際は以下を合わせてお伝えいただくとスムーズです:</p>
+            <ul>
+              <li>どのステップで詰まっているか（例: STEP 3 のデプロイで）</li>
+              <li>表示されているエラーメッセージ（スクリーンショット推奨）</li>
+              <li>使用している OS と Chrome のバージョン</li>
+            </ul>
+
+            <p class="version-note">
+              バージョン: v0.11.0 &nbsp;/&nbsp; 2026-05-02 配布 &nbsp;/&nbsp; Day10（5/7）配布版
+            </p>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <script>
+      document.querySelectorAll('[data-copy]').forEach(function (button) {
+        button.addEventListener('click', async function () {
+          var text = button.getAttribute('data-copy');
+          try {
+            await navigator.clipboard.writeText(text);
+            button.textContent = 'コピー済み';
+            setTimeout(function () {
+              button.textContent = 'コピー';
+            }, 1600);
+          } catch (e) {
+            button.textContent = '失敗';
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

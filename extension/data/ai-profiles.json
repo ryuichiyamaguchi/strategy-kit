@@ -1,0 +1,148 @@
+{
+  "version": "1.0.0",
+  "updated": "2026-04-26",
+  "ais": [
+    {
+      "id": "claude",
+      "label": "Claude",
+      "url": "https://claude.ai/new",
+      "strengths": ["推論", "統合", "戦略立案", "一貫性チェック", "Workspaceコネクタ"],
+      "weaknesses": ["Web検索のリアルタイム性は中"],
+      "researchPower": "中（Workspaceコネクタで補強可）",
+      "freeLimit": "30〜100通/日（5h で15〜40）",
+      "categories": ["structuring", "brainstorming", "synthesis"],
+      "recommendedFor": ["1次リサーチの統合", "戦略立案", "整合性チェック"],
+      "comment": "200Kコンテキスト＋Sonnet 4.5の推論力。フェーズ3〜4のような統合・判断が必要な章で最強"
+    },
+    {
+      "id": "chatgpt",
+      "label": "ChatGPT",
+      "url": "https://chatgpt.com/",
+      "strengths": ["ヒアリング", "壁打ち", "ペルソナ生成", "STP"],
+      "weaknesses": ["Free10通/5h制限が厳しい", "Free版はDeep Research不可"],
+      "researchPower": "Free弱／Plus以上でDeep Research可",
+      "freeLimit": "10通/5h（GPT-5.3）",
+      "categories": ["brainstorming", "structuring"],
+      "recommendedFor": ["ヒアリングシート生成", "ペルソナ", "壁打ち"],
+      "comment": "雑談ヒアリング・ペルソナ生成が軽快。量産系ブレストにも強い"
+    },
+    {
+      "id": "gemini",
+      "label": "Gemini",
+      "url": "https://gemini.google.com/app",
+      "strengths": ["Workspace連携", "Deep Research（Free 5/月）", "Apps Script連携"],
+      "weaknesses": ["Deep Researchの信頼性は今ひとつ", "推論力Claude/ChatGPTには劣る"],
+      "researchPower": "Deep Research 5/月（信頼性中）",
+      "freeLimit": "30 prompts/日、Deep Research 5/月",
+      "categories": ["research", "structuring"],
+      "recommendedFor": ["業界構造リサーチ", "事実調査の補助"],
+      "comment": "Workspace 統合は最強。ChatGPT DR が使えない無料運用での次点候補"
+    },
+    {
+      "id": "manus",
+      "label": "Manus",
+      "url": "https://manus.im/",
+      "strengths": ["自律エージェント", "深掘りリサーチ", "一次情報収集"],
+      "weaknesses": ["クレジット制（300/日）", "構造化指示への対応はやや弱い"],
+      "researchPower": "強（多段DRが可能）",
+      "freeLimit": "1000 credits / 300 daily（2026春一般公開）",
+      "categories": ["research"],
+      "recommendedFor": ["プレリサーチ", "PEST/5Forcesの一次DR", "市場ズラし候補の検証"],
+      "comment": "一次情報の深掘りに強い。リサーチサイクルの1次DR最有力候補"
+    },
+    {
+      "id": "genspark",
+      "label": "Genspark",
+      "url": "https://www.genspark.ai/",
+      "strengths": ["並行ソース統合", "ファクトチェック", "事例収集"],
+      "weaknesses": ["構造化指示への対応は弱い", "個人無料枠が見えにくい"],
+      "researchPower": "中-強（複数ソース横断）",
+      "freeLimit": "個人無料枠（要確認）",
+      "categories": ["research", "factcheck"],
+      "recommendedFor": ["ファクトチェック", "施策事例収集", "リサーチ2次"],
+      "comment": "1次の裏取り＋反証探しに最適。施策**設計**より施策**事例調査**に向く"
+    },
+    {
+      "id": "perplexity",
+      "label": "Perplexity",
+      "url": "https://www.perplexity.ai/",
+      "strengths": ["事実確認", "出典付き即答", "Cometブラウザ"],
+      "weaknesses": ["深い分析より速い回答向き"],
+      "researchPower": "中（Comet ブラウザ無料化）",
+      "freeLimit": "無制限の通常検索",
+      "categories": ["research", "factcheck"],
+      "recommendedFor": ["事実裏取り", "数値の確認", "リサーチ2次補助"],
+      "comment": "「これホント？」の即時確認に最強。フェーズ0/2の補助として常時併用推奨"
+    },
+    {
+      "id": "grok",
+      "label": "Grok",
+      "url": "https://grok.com/",
+      "strengths": ["SNSリサーチ", "Xリアルタイム検索", "若年層トレンド"],
+      "weaknesses": ["X中心でX外の情報は弱い", "10通/2h制限"],
+      "researchPower": "X上での言及量・話題性に強い",
+      "freeLimit": "10 prompts/2h",
+      "categories": ["research", "factcheck"],
+      "recommendedFor": ["SNSリサーチ", "顧客の生の声", "流行・話題性チェック"],
+      "comment": "X上での言及量・口コミトレンドの確認に最適。フェーズ0顧客ニーズ把握で重宝"
+    },
+    {
+      "id": "notebooklm",
+      "label": "NotebookLM",
+      "url": "https://notebooklm.google.com/",
+      "strengths": ["ソース固定要約", "引用付き要約", "音声・動画解説生成"],
+      "weaknesses": ["自分で全ソース投入が必要", "推論は弱い"],
+      "researchPower": "弱（自分でソース投入）",
+      "freeLimit": "ソース上限内で実質無制限",
+      "categories": ["synthesis"],
+      "recommendedFor": ["マスタードキュメント自身の振り返り", "全章の整合性チェック"],
+      "comment": "完成後の振り返り・整合性検証に。リサーチ用途では使わない"
+    }
+  ],
+  "categories": {
+    "research": {
+      "label": "リサーチ系",
+      "description": "事実調査・市場情報収集に強い",
+      "members": ["manus", "genspark", "perplexity", "grok", "gemini"]
+    },
+    "structuring": {
+      "label": "構造化・統合系",
+      "description": "情報を整理・分析・構造化することに強い",
+      "members": ["claude", "chatgpt", "gemini"]
+    },
+    "factcheck": {
+      "label": "ファクトチェック系",
+      "description": "出典確認・反証探しに強い",
+      "members": ["perplexity", "genspark", "grok"]
+    },
+    "brainstorming": {
+      "label": "ブレスト・壁打ち系",
+      "description": "発散思考・ペルソナ・対話的展開に強い",
+      "members": ["chatgpt", "claude"]
+    },
+    "synthesis": {
+      "label": "統合・要約系",
+      "description": "複数ソースをまとめる・整合性検証",
+      "members": ["claude", "notebooklm"]
+    }
+  },
+  "idealFlow": {
+    "label": "理想のリサーチフロー",
+    "description": "完全無料運用での次善策（理想は ChatGPT Deep Research＋ファクトチェックだがFreeでは不可）",
+    "primary": {
+      "ideal": "claude",
+      "fallback": "manus",
+      "rationale": "Claudeで深い分析。FreeでDeep Researchが必要ならManus"
+    },
+    "secondary": {
+      "ideal": "chatgpt-deep-research",
+      "fallback": "gemini",
+      "rationale": "ChatGPT DRはFreeでは使えない。Gemini DRは信頼性中。Manusと交互運用が現実的"
+    },
+    "factcheck": {
+      "ideal": "genspark",
+      "alternatives": ["perplexity", "grok"],
+      "rationale": "Genspark／Perplexityで裏取り。SNS言及はGrok"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "//": "STRATEGY-KIT GAS ライブラリ用 clasp 設定テンプレート",
+  "//1": "使い方:",
+  "//2": "  1. https://script.google.com/home で新規プロジェクト作成 → 名前『StrategyKitLib』",
+  "//3": "  2. プロジェクト設定 → 『スクリプト ID』をコピー",
+  "//4": "  3. このファイルを `.clasp.json` にコピーし、scriptId と rootDir を実値に置換",
+  "//5": "  4. `clasp login` （初回のみ）",
+  "//6": "  5. `clasp push` で StrategyKitLib.gs / Gemini.gs / appsscript.json をアップロード",
+  "//7": "  6. GAS Web UI で『デプロイ → ライブラリ』を実行（CLI 化されていない手順）",
+
+  "scriptId": "{{REPLACE_WITH_LIBRARY_SCRIPT_ID}}",
+  "rootDir": "/Users/ryuichi/書類/yamaguchi-hub/02_職業訓練/03_マーケティング戦略/08_strategy-kit/v0.11.1/src/apps-script/library"
+}

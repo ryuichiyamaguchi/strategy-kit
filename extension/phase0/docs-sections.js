@@ -1,0 +1,176 @@
+const SECTION_MARKER_RE = /\[\[SK-SECTION:§(-?\d+)\]\]/g;
+
+export function collectSectionMarkers(doc) {
+  const markers = [];
+  const content = doc?.body?.content || [];
+
+  for (const block of content) {
+    const elements = block?.paragraph?.elements || [];
+    for (const elem of elements) {
+      const tr = elem?.textRun;
+      if (!tr || typeof elem.startIndex !== 'number') continue;
+
+      const text = tr.content || '';
+      let match;
+      SECTION_MARKER_RE.lastIndex = 0;
+      while ((match = SECTION_MARKER_RE.exec(text)) !== null) {
+        const no = parseInt(match[1], 10);
+        const startIndex = elem.startIndex + match.index;
+        markers.push({
+          no,
+          startIndex,
+          markerEndIndex: startIndex + match[0].length,
+        });
+      }
+    }
+  }
+
+  return markers.sort((a, b) => a.startIndex - b.startIndex);
+}
+
+export function computeEndIndex(doc) {
+  const content = doc?.body?.content || [];
+  if (!content.length) return 1;
+  const last = content[content.length - 1];
+  return Math.max(1, (last?.endIndex || 2) - 1);
+}
+
+export function findSectionRange(doc, sectionNo, { allowLastSectionNo = 99 } = {}) {
+  const markers = collectSectionMarkers(doc);
+  const current = markers.filter((m) => m.no === sectionNo);
+
+  if (current.length === 0) return { status: 'missing-current-marker', markers };
+  if (current.length > 1) return { status: 'duplicate-current-marker', markers };
+
+  const startIndex = current[0].markerEndIndex;
+  const later = markers.filter((m) => m.startIndex > current[0].startIndex);
+
+  if (later.length === 0) {
+    if (sectionNo === allowLastSectionNo) {
+      const endIndex = computeEndIndex(doc);
+      return { status: 'ok', startIndex, endIndex: Math.max(startIndex, endIndex), markers };
+    }
+    return { status: 'missing-next-marker', markers };
+  }
+
+  return { status: 'ok', startIndex, endIndex: later[0].startIndex, markers };
+}
+
+export function buildReplaceSectionRequests(range, replacementText) {
+  if (!range || range.status !== 'ok') {
+    throw new Error(`Cannot replace section for range status: ${range?.status || 'unknown'}`);
+  }
+
+  const requests = [];
+  if (range.endIndex > range.startIndex) {
+    requests.push({
+      deleteContentRange: {
+        range: {
+          startIndex: range.startIndex,
+          endIndex: range.endIndex,
+        },
+      },
+    });
+  }
+  requests.push({
+    insertText: {
+      location: { index: range.startIndex },
+      text: replacementText,
+    },
+  });
+  return requests;
+}
+
+export function buildAppendToDocumentEndRequests(doc, text) {
+  return [
+    {
+      insertText: {
+        location: { index: computeEndIndex(doc) },
+        text,
+      },
+    },
+  ];
+}
+
+export function getSectionText(doc, sectionNo, options = {}) {
+  const range = findSectionRange(doc, sectionNo, options);
+  if (range.status !== 'ok') {
+    return { status: range.status, text: '', range };
+  }
+  return {
+    status: 'ok',
+    text: getTextInRange(doc, range.startIndex, range.endIndex),
+    range,
+  };
+}
+
+export function buildSectionTextMap(doc, sectionNos, options = {}) {
+  const map = new Map();
+  for (const no of sectionNos || []) {
+    const result = getSectionText(doc, no, options);
+    if (result.status === 'ok') map.set(no, result.text.trim());
+  }
+  return map;
+}
+
+export function buildProgressSections(doc, phaseDefs = []) {
+  const sections = phaseDefs.map((phase) => {
+    const no = Number(phase.no);
+    const result = getSectionText(doc, no, { allowLastSectionNo: 99 });
+    const normalizedText = normalizeProgressText(result.text);
+    const charCount = normalizedText.length;
+    const filled = charCount >= 80;
+    const partial = !filled && charCount > 0;
+    return {
+      no,
+      title: phase.title || '',
+      filled,
+      partial,
+      charCount,
+      lastUpdated: '',
+    };
+  });
+
+  const filledCount = sections.filter((s) => s.filled).length;
+  const partialCount = sections.filter((s) => s.partial).length;
+  const totalChapters = sections.length;
+  const progressRate = totalChapters
+    ? Math.round(((filledCount + partialCount) / totalChapters) * 100)
+    : 0;
+
+  return {
+    sections,
+    filledCount,
+    partialCount,
+    totalChapters,
+    completionRate: totalChapters ? Math.round((filledCount / totalChapters) * 100) : 0,
+    progressRate,
+  };
+}
+
+export function getTextInRange(doc, startIndex, endIndex) {
+  const chunks = [];
+  const content = doc?.body?.content || [];
+
+  for (const block of content) {
+    const elements = block?.paragraph?.elements || [];
+    for (const elem of elements) {
+      const tr = elem?.textRun;
+      if (!tr || typeof elem.startIndex !== 'number' || typeof elem.endIndex !== 'number') continue;
+      if (elem.endIndex <= startIndex || elem.startIndex >= endIndex) continue;
+
+      const text = tr.content || '';
+      const sliceStart = Math.max(0, startIndex - elem.startIndex);
+      const sliceEnd = Math.min(text.length, endIndex - elem.startIndex);
+      chunks.push(text.slice(sliceStart, sliceEnd));
+    }
+  }
+
+  return chunks.join('');
+}
+
+function normalizeProgressText(text) {
+  const trimmed = String(text || '').trim();
+  if (!trimmed || trimmed === '（未保存）') return '';
+  return trimmed;
+}

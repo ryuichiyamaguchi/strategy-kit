@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>STRATEGY-KIT 全体構造 図解（v0.11.1）</title>
+<style>
+  /* Japanese text layout fix */
+  h1, h2, h3, h4 { word-break: keep-all; overflow-wrap: break-word; }
+  p, span, li, a, td, th { overflow-wrap: break-word; }
+  .phrase { display: inline; }
+  @media (min-width: 768px) {
+    .phrase { display: inline-block; }
+  }
+
+  :root {
+    --c-template: #e0c168;        /* 原本: ロックされた金色 */
+    --c-template-bg: #fff8e1;
+    --c-working: #4caf80;         /* 作業用: 編集する緑 */
+    --c-working-bg: #e8f5ec;
+    --c-shim: #f0b840;            /* shim: のり役の黄色 */
+    --c-shim-bg: #fff4d6;
+    --c-lib: #8b5cf6;             /* ライブラリ: 中身の紫 */
+    --c-lib-bg: #f0e9ff;
+    --c-ext: #ff7a45;             /* 拡張機能: 入口のオレンジ */
+    --c-ext-bg: #ffe7d8;
+    --c-ai: #6b7280;              /* AI画面: グレー */
+    --c-ai-bg: #f3f4f6;
+    --c-text: #1f2937;
+    --c-muted: #6b7280;
+    --c-bg: #f9fafb;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    color: var(--c-text);
+    background: var(--c-bg);
+    line-height: 1.7;
+  }
+
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 20px 80px; }
+
+  header {
+    text-align: center;
+    padding: 40px 16px 28px;
+    background: linear-gradient(180deg, #ffffff 0%, var(--c-bg) 100%);
+    border-bottom: 1px solid #e5e7eb;
+  }
+  header h1 {
+    font-size: clamp(1.6rem, 4.5vw, 2.4rem);
+    margin: 0 0 8px;
+    line-height: 1.3;
+  }
+  header .sub {
+    color: var(--c-muted);
+    font-size: clamp(0.95rem, 2.2vw, 1.05rem);
+  }
+  header .ver {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 4px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    color: var(--c-muted);
+  }
+
+  section { margin-top: 56px; }
+  h2 {
+    font-size: clamp(1.3rem, 3vw, 1.7rem);
+    margin: 0 0 20px;
+    padding-bottom: 8px;
+    border-bottom: 3px solid var(--c-text);
+    line-height: 1.35;
+  }
+  h2 .num {
+    display: inline-block;
+    background: var(--c-text);
+    color: white;
+    width: 32px; height: 32px;
+    text-align: center;
+    border-radius: 50%;
+    margin-right: 10px;
+    font-size: 1rem;
+    line-height: 32px;
+    vertical-align: middle;
+  }
+  h3 {
+    font-size: clamp(1.05rem, 2.4vw, 1.2rem);
+    margin-top: 28px;
+  }
+
+  .lead {
+    background: white;
+    padding: 18px 22px;
+    border-left: 4px solid var(--c-text);
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+
+  /* ====== Hero diagram ====== */
+  .hero-img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    margin: 16px 0 32px;
+  }
+
+  /* ====== SVG container ====== */
+  .svg-frame {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .svg-frame svg { width: 100%; height: auto; display: block; }
+  .svg-caption {
+    text-align: center;
+    color: var(--c-muted);
+    font-size: 0.9rem;
+    margin-top: 10px;
+  }
+
+  /* ====== Component cards ====== */
+  .cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  @media (min-width: 720px) {
+    .cards { grid-template-columns: 1fr 1fr; }
+  }
+
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 22px;
+    border-top: 5px solid var(--card-color, var(--c-text));
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .card .badge {
+    display: inline-block;
+    background: var(--card-bg, #eee);
+    color: var(--card-color, var(--c-text));
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+  }
+  .card h3 {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+  }
+  .card .subtitle {
+    color: var(--c-muted);
+    font-size: 0.9rem;
+    margin-bottom: 14px;
+  }
+  .card dl { margin: 12px 0 0; }
+  .card dt {
+    font-weight: 700;
+    margin-top: 10px;
+    font-size: 0.9rem;
+    color: var(--card-color, var(--c-text));
+  }
+  .card dd {
+    margin: 4px 0 0;
+    font-size: 0.95rem;
+  }
+
+  /* color variants */
+  .card.template { --card-color: var(--c-template); --card-bg: var(--c-template-bg); }
+  .card.working  { --card-color: var(--c-working);  --card-bg: var(--c-working-bg); }
+  .card.shim     { --card-color: var(--c-shim);     --card-bg: var(--c-shim-bg); }
+  .card.lib      { --card-color: var(--c-lib);      --card-bg: var(--c-lib-bg); }
+  .card.ext      { --card-color: var(--c-ext);      --card-bg: var(--c-ext-bg); }
+
+  /* ====== Lookup table ====== */
+  .lookup {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid #e5e7eb;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    padding: 12px 14px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.95rem;
+    vertical-align: top;
+  }
+  th { background: #f3f4f6; font-weight: 700; }
+  tr:last-child td { border-bottom: none; }
+  td .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-right: 4px;
+  }
+  .pill.template { background: var(--c-template-bg); color: #8a6a16; }
+  .pill.working  { background: var(--c-working-bg);  color: #225f3c; }
+  .pill.shim     { background: var(--c-shim-bg);     color: #8a6116; }
+  .pill.lib      { background: var(--c-lib-bg);      color: #5a31c4; }
+  .pill.ext      { background: var(--c-ext-bg);      color: #b04415; }
+
+  /* ====== Q&A ====== */
+  .qa {
+    background: white;
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 14px;
+    border-left: 4px solid var(--c-template);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .qa h4 {
+    margin: 0 0 8px;
+    font-size: 1.02rem;
+    color: #b04415;
+  }
+  .qa p { margin: 0; font-size: 0.95rem; }
+
+  /* ====== Warning callout ====== */
+  .warn {
+    background: #fff3e0;
+    border: 1px solid #f0b840;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 20px 0;
+  }
+  .warn strong { color: #b04415; }
+
+  /* ====== Footer ====== */
+  footer {
+    text-align: center;
+    color: var(--c-muted);
+    font-size: 0.85rem;
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  /* SVG label baseline fix for Japanese */
+  svg text { font-family: inherit; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>STRATEGY-KIT は何で出来ているか</h1>
+  <p class="sub">5つの部品が、何を担当して、どう繋がっているか</p>
+  <span class="ver">v0.11.1 / 2026-05-07 時点</span>
+</header>
+
+<div class="wrap">
+
+<!-- ========================================================== -->
+<!-- 0. はじめに                                                -->
+<!-- ========================================================== -->
+<section>
+  <div class="lead">
+    <p>STRATEGY-KIT は <strong>5つの部品が連動して動く仕組み</strong> です。<br/>
+    エンジニアでなくても全体像が掴めるように、<br/>
+    「どれが何を担当しているか」「どこをいじるとどこに書き込まれるか」を順に見ていきます。</p>
+  </div>
+
+  <img class="hero-img"
+       src="assets/strategy-kit-architecture-overview.png"
+       alt="STRATEGY-KIT全体構造のイラスト：原本、作業用、shim、ライブラリ、拡張機能の関係図" />
+</section>
+
+<!-- ========================================================== -->
+<!-- 1. 5つの部品                                                -->
+<!-- ========================================================== -->
+<section>
+  <h2><span class="num">1</span>登場人物は5つだけ</h2>
+  <p>まず、STRATEGY-KIT に出てくる「部品」を5つに絞って整理します。色分けはこのページ全体で統一しています。</p>
+
+  <div class="cards">
+
+    <div class="card template">
+      <span class="badge">① 原本テンプレート</span>
+      <h3>テンプレート原本（マスター原本 Doc）</h3>
+      <p class="subtitle">🔒 触らない金庫。全案件のひな型。</p>
+      <dl>
+        <dt>正体</dt>
+        <dd>Google ドキュメント（1ファイル）。<code>{{店舗名}}</code> など差し替え用の目印が入った白紙のひな型。</dd>
+        <dt>誰が作る</dt>
+        <dd>山口さんが配布。受講者は最初に <strong>自分のドライブにコピー</strong>。</dd>
+        <dt>編集してよい？</dt>
+        <dd><strong>絶対に直接編集しない</strong>。新規案件のたびに、コピーして使う「金型」。</dd>
+      </dl>
+    </div>
+
+    <div class="card working">
+      <span class="badge">② 作業用 Doc</span>
+      <h3>テンプレート作業用（案件ごとのマスター Doc）</h3>
+      <p class="subtitle">📝 ここに戦略を書き込む。案件1件 = 1ファイル。</p>
+      <dl>
+        <dt>正体</dt>
+        <dd>原本をコピーして、<code>{{店舗名}}</code> が「エナジー柏店」などに置換された Doc。</dd>
+        <dt>いつ生まれる</dt>
+        <dd>メニュー <strong>「STRATEGY-KIT → 新規マスタードキュメント作成」</strong> を押した瞬間。</dd>
+        <dt>どこに書かれる</dt>
+        <dd>章本文・要点版・決定ログ・タイムスタンプ、ぜんぶ <strong>このファイルの中</strong>。</dd>
+      </dl>
+    </div>
+
+    <div class="card shim">
+      <span class="badge">③ shim（しむ）</span>
+      <h3>shim Code.gs（受講者が貼り付ける GAS）</h3>
+      <p class="subtitle">🩹 のり役。約100行の薄いファイル。</p>
+      <dl>
+        <dt>正体</dt>
+        <dd>「②作業用 Doc」に埋め込んだ Apps Script。中身は <strong>ほぼ転送だけ</strong>。</dd>
+        <dt>役割</dt>
+        <dd>① メニューを表示する  ② Chrome 拡張からのリクエストを受け取る  ③ 中身は全部「④ライブラリ」に投げる</dd>
+        <dt>誰がいじる</dt>
+        <dd>受講者が <strong>初回1回だけコピペ</strong>。それ以降ほぼ触らない。</dd>
+      </dl>
+    </div>
+
+    <div class="card lib">
+      <span class="badge">④ ライブラリ</span>
+      <h3>StrategyKitLib（山口さん管理の本体）</h3>
+      <p class="subtitle">🧠 全部の頭脳。約2,300行のロジック。</p>
+      <dl>
+        <dt>正体</dt>
+        <dd>山口さんの Google アカウントにある、別の Apps Script プロジェクト。受講者からは <strong>「ライブラリ」として呼び出される</strong>。</dd>
+        <dt>役割</dt>
+        <dd>章コピー・差し替え・要点版生成・Gemini API 呼び出し・進捗集計など、<strong>仕事の中身は全部ここ</strong>。</dd>
+        <dt>更新</dt>
+        <dd>山口さんが直すと、HEAD モードで繋いだ受講者全員に <strong>自動反映</strong>。</dd>
+      </dl>
+    </div>
+
+    <div class="card ext">
+      <span class="badge">⑤ Chrome 拡張</span>
+      <h3>STRATEGY-KIT Helper（拡張機能本体）</h3>
+      <p class="subtitle">🧩 ブラウザの右上にあるボタン。AI画面 → 作業用Doc の橋渡し。</p>
+      <dl>
+        <dt>正体</dt>
+        <dd>Chrome ウェブストア配布の拡張機能。サイドパネル UI を持つ。</dd>
+        <dt>役割（2つ）</dt>
+        <dd><strong>(A)</strong> Claude / ChatGPT / Gemini などの画面に <strong>プロンプトを差し込む</strong>。<br/>
+            <strong>(B)</strong> shim の Web App URL に <strong>HTTP 通信</strong> して、Doc を読み書きさせる。</dd>
+        <dt>つなぎ先</dt>
+        <dd>オプション画面で「GAS Web App URL」を1回登録するだけ。それが ③shim の URL。</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================== -->
+<!-- 2. 全体図                                                  -->
+<!-- ========================================================== -->
+<section>
+  <h2><span class="num">2</span>5つの部品の繋がり方</h2>
+  <p>5つの部品が、誰から誰へリクエストを送るかを矢印で表します。色は <strong>1の番号と同じ</strong> です。</p>
+
+  <div class="svg-frame">
+    <svg viewBox="0 0 1000 620" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#374151"/>
+        </marker>
+        <marker id="arrow-dash" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#9ca3af"/>
+        </marker>
+      </defs>
+
+      <!-- ① 原本テンプレート -->
+      <g transform="translate(40,40)">
+        <rect width="220" height="120" rx="14" fill="#fff8e1" stroke="#e0c168" stroke-width="3"/>
+        <text x="110" y="32" text-anchor="middle" font-size="14" font-weight="700" fill="#8a6a16">① テンプレート原本</text>
+        <text x="110" y="56" text-anchor="middle" font-size="12" fill="#6b7280">🔒 触らない金型</text>
+        <text x="110" y="80" text-anchor="middle" font-size="11" fill="#374151">{{店舗名}} {{案件ID}}</text>
+        <text x="110" y="100" text-anchor="middle" font-size="11" fill="#374151">の差し替え目印が入った Doc</text>
+      </g>
+
+      <!-- ② 作業用 Doc -->
+      <g transform="translate(390,40)">
+        <rect width="220" height="120" rx="14" fill="#e8f5ec" stroke="#4caf80" stroke-width="3"/>
+        <text x="110" y="32" text-anchor="middle" font-size="14" font-weight="700" fill="#225f3c">② 作業用 Doc</text>
+        <text x="110" y="56" text-anchor="middle" font-size="12" fill="#6b7280">📝 案件1件 = 1 Doc</text>
+        <text x="110" y="80" text-anchor="middle" font-size="11" fill="#374151">章本文・要点版・</text>
+        <text x="110" y="100" text-anchor="middle" font-size="11" fill="#374151">決定ログがここに溜まる</text>
+      </g>
+
+      <!-- ⑤ 拡張機能 -->
+      <g transform="translate(740,40)">
+        <rect width="220" height="120" rx="14" fill="#ffe7d8" stroke="#ff7a45" stroke-width="3"/>
+        <text x="110" y="32" text-anchor="middle" font-size="14" font-weight="700" fill="#b04415">⑤ Chrome 拡張</text>
+        <text x="110" y="56" text-anchor="middle" font-size="12" fill="#6b7280">🧩 サイドパネル UI</text>
+        <text x="110" y="80" text-anchor="middle" font-size="11" fill="#374151">prompts.json を持ち、</text>
+        <text x="110" y="100" text-anchor="middle" font-size="11" fill="#374151">GAS と AI 画面を仲介</text>
+      </g>
+
+      <!-- ③ shim -->
+      <g transform="translate(390,260)">
+        <rect width="220" height="100" rx="14" fill="#fff4d6" stroke="#f0b840" stroke-width="3"/>
+        <text x="110" y="32" text-anchor="middle" font-size="14" font-weight="700" fill="#8a6116">③ shim Code.gs</text>
+        <text x="110" y="56" text-anchor="middle" font-size="12" fill="#6b7280">🩹 100行の糊役</text>
+        <text x="110" y="80" text-anchor="middle" font-size="11" fill="#374151">作業用 Doc に貼り付ける GAS</text>
+      </g>
+
+      <!-- ④ ライブラリ -->
+      <g transform="translate(740,260)">
+        <rect width="220" height="100" rx="14" fill="#f0e9ff" stroke="#8b5cf6" stroke-width="3"/>
+        <text x="110" y="32" text-anchor="middle" font-size="14" font-weight="700" fill="#5a31c4">④ StrategyKitLib</text>
+        <text x="110" y="56" text-anchor="middle" font-size="12" fill="#6b7280">🧠 山口さん管理</text>
+        <text x="110" y="80" text-anchor="middle" font-size="11" fill="#374151">2,300行の本体ロジック</text>
+      </g>
+
+      <!-- AI画面 -->
+      <g transform="translate(40,460)">
+        <rect width="220" height="100" rx="14" fill="#f3f4f6" stroke="#9ca3af" stroke-width="2" stroke-dasharray="4 3"/>
+        <text x="110" y="32" text-anchor="middle" font-size="14" font-weight="700" fill="#374151">AI 画面（外部）</text>
+        <text x="110" y="56" text-anchor="middle" font-size="12" fill="#6b7280">🤖 Claude / ChatGPT</text>
+        <text x="110" y="80" text-anchor="middle" font-size="11" fill="#374151">Gemini / Manus / etc.</text>
+      </g>
+
+      <!-- 受講者 -->
+      <g transform="translate(390,460)">
+        <rect width="220" height="100" rx="14" fill="#ffffff" stroke="#374151" stroke-width="2"/>
+        <text x="110" y="32" text-anchor="middle" font-size="14" font-weight="700" fill="#374151">👤 受講者の操作</text>
+        <text x="110" y="56" text-anchor="middle" font-size="12" fill="#6b7280">クリック / 入力</text>
+        <text x="110" y="80" text-anchor="middle" font-size="11" fill="#374151">メニュー操作 / 拡張機能</text>
+      </g>
+
+      <!-- Gemini API -->
+      <g transform="translate(740,460)">
+        <rect width="220" height="100" rx="14" fill="#f3f4f6" stroke="#9ca3af" stroke-width="2" stroke-dasharray="4 3"/>
+        <text x="110" y="32" text-anchor="middle" font-size="14" font-weight="700" fill="#374151">Gemini API（外部）</text>
+        <text x="110" y="56" text-anchor="middle" font-size="12" fill="#6b7280">🌟 Google AI</text>
+        <text x="110" y="80" text-anchor="middle" font-size="11" fill="#374151">受講者の API キーで呼ぶ</text>
+      </g>
+
+      <!-- 矢印群 -->
+      <!-- ① → ② コピー -->
+      <line x1="260" y1="100" x2="390" y2="100" stroke="#4caf80" stroke-width="3" marker-end="url(#arrow)"/>
+      <text x="325" y="92" text-anchor="middle" font-size="11" fill="#225f3c" font-weight="700">コピー＆差し替え</text>
+
+      <!-- ② → ③ Doc に紐付き -->
+      <line x1="500" y1="160" x2="500" y2="260" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+      <text x="510" y="215" text-anchor="start" font-size="11" fill="#374151">埋め込み（Apps Script）</text>
+
+      <!-- ③ ↔ ④ 委譲 -->
+      <line x1="610" y1="310" x2="740" y2="310" stroke="#5a31c4" stroke-width="3" marker-end="url(#arrow)"/>
+      <text x="675" y="302" text-anchor="middle" font-size="11" fill="#5a31c4" font-weight="700">委譲（StrategyKitLib.ui*）</text>
+
+      <!-- ④ → ② 書き込む -->
+      <path d="M 850 260 Q 850 200 610 100" stroke="#5a31c4" stroke-width="2" fill="none" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+      <text x="780" y="180" text-anchor="middle" font-size="11" fill="#5a31c4">DocumentApp で書き込む</text>
+
+      <!-- ⑤ → ③ Web App URL -->
+      <path d="M 850 160 Q 700 220 610 290" stroke="#ff7a45" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+      <text x="730" y="245" text-anchor="middle" font-size="11" fill="#b04415" font-weight="700">Web App URL に POST</text>
+
+      <!-- ⑤ → AI画面 プロンプト挿入 -->
+      <path d="M 800 160 Q 600 350 220 460" stroke="#ff7a45" stroke-width="2" fill="none" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+      <text x="430" y="345" text-anchor="middle" font-size="11" fill="#b04415">プロンプト挿入</text>
+
+      <!-- ④ → Gemini API -->
+      <line x1="850" y1="360" x2="850" y2="460" stroke="#374151" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="6 4"/>
+      <text x="858" y="415" text-anchor="start" font-size="11" fill="#374151">geminiProxy</text>
+
+      <!-- 受講者 → ⑤ クリック -->
+      <line x1="610" y1="510" x2="800" y2="160" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow-dash)" stroke-dasharray="3 3"/>
+      <!-- 受講者 → ② 直接編集 -->
+      <line x1="500" y1="460" x2="500" y2="160" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow-dash)" stroke-dasharray="3 3"/>
+    </svg>
+    <p class="svg-caption">実線 = 主な流れ／点線 = 補助の流れ。色は各部品の番号に対応</p>
+  </div>
+</section>
+
+<!-- ========================================================== -->
+<!-- 3. ③ と ④ の関係を深掘り                                    -->
+<!-- ========================================================== -->
+<section>
+  <h2><span class="num">3</span>「shim」と「ライブラリ」の関係</h2>
+  <p>ここが一番分かりにくい部分です。<strong>shim（しむ）= 受付係 / ライブラリ = 厨房</strong> と思ってください。</p>
+
+  <div class="svg-frame">
+    <svg viewBox="0 0 1000 380" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#5a31c4"/>
+        </marker>
+      </defs>
+
+      <!-- 受講者 -->
+      <g transform="translate(40,140)">
+        <circle cx="50" cy="50" r="40" fill="#fff" stroke="#374151" stroke-width="2"/>
+        <text x="50" y="56" text-anchor="middle" font-size="28">👤</text>
+        <text x="50" y="115" text-anchor="middle" font-size="12" fill="#374151" font-weight="700">受講者</text>
+      </g>
+
+      <!-- shim（受付係） -->
+      <g transform="translate(220,80)">
+        <rect width="280" height="220" rx="14" fill="#fff4d6" stroke="#f0b840" stroke-width="3"/>
+        <text x="140" y="32" text-anchor="middle" font-size="15" font-weight="700" fill="#8a6116">③ shim Code.gs（受付係）</text>
+        <text x="140" y="52" text-anchor="middle" font-size="11" fill="#6b7280">作業用 Doc に貼り付けた約100行</text>
+
+        <line x1="20" y1="70" x2="260" y2="70" stroke="#e0c168" stroke-width="1"/>
+
+        <text x="140" y="95" text-anchor="middle" font-size="12" fill="#374151" font-weight="700">中身はほぼこれだけ：</text>
+
+        <rect x="20" y="110" width="240" height="32" rx="6" fill="#fff" stroke="#e5e7eb"/>
+        <text x="140" y="131" text-anchor="middle" font-size="11" fill="#374151">onOpen() — メニューを並べる</text>
+
+        <rect x="20" y="148" width="240" height="32" rx="6" fill="#fff" stroke="#e5e7eb"/>
+        <text x="140" y="169" text-anchor="middle" font-size="11" fill="#374151">doPost(e) — 拡張から受け取る</text>
+
+        <rect x="20" y="186" width="240" height="32" rx="6" fill="#fff" stroke="#e5e7eb"/>
+        <text x="140" y="207" text-anchor="middle" font-size="11" fill="#374151" font-weight="700">→ StrategyKitLib に丸投げ</text>
+      </g>
+
+      <!-- ライブラリ（厨房） -->
+      <g transform="translate(560,80)">
+        <rect width="380" height="220" rx="14" fill="#f0e9ff" stroke="#8b5cf6" stroke-width="3"/>
+        <text x="190" y="32" text-anchor="middle" font-size="15" font-weight="700" fill="#5a31c4">④ StrategyKitLib（厨房）</text>
+        <text x="190" y="52" text-anchor="middle" font-size="11" fill="#6b7280">山口さんのアカウントに置かれた本体</text>
+
+        <line x1="20" y1="70" x2="360" y2="70" stroke="#8b5cf6" stroke-width="1"/>
+
+        <text x="190" y="95" text-anchor="middle" font-size="12" fill="#374151" font-weight="700">仕事の中身は全部ここ：</text>
+
+        <g font-size="11" fill="#374151">
+          <rect x="20" y="110" width="160" height="32" rx="6" fill="#fff" stroke="#e5e7eb"/>
+          <text x="100" y="131" text-anchor="middle">章コピー・差し替え</text>
+
+          <rect x="190" y="110" width="170" height="32" rx="6" fill="#fff" stroke="#e5e7eb"/>
+          <text x="275" y="131" text-anchor="middle">要点版500字生成</text>
+
+          <rect x="20" y="148" width="160" height="32" rx="6" fill="#fff" stroke="#e5e7eb"/>
+          <text x="100" y="169" text-anchor="middle">進捗集計・診断</text>
+
+          <rect x="190" y="148" width="170" height="32" rx="6" fill="#fff" stroke="#e5e7eb"/>
+          <text x="275" y="169" text-anchor="middle">Gemini API プロキシ</text>
+
+          <rect x="20" y="186" width="340" height="32" rx="6" fill="#fff" stroke="#e5e7eb"/>
+          <text x="190" y="207" text-anchor="middle">Doc に書き込む（DocumentApp）</text>
+        </g>
+      </g>
+
+      <!-- 矢印 -->
+      <line x1="120" y1="190" x2="220" y2="190" stroke="#374151" stroke-width="2" marker-end="url(#arrow2)"/>
+      <text x="170" y="180" text-anchor="middle" font-size="11" fill="#374151">クリック</text>
+
+      <line x1="500" y1="190" x2="560" y2="190" stroke="#5a31c4" stroke-width="3" marker-end="url(#arrow2)"/>
+      <text x="530" y="178" text-anchor="middle" font-size="11" fill="#5a31c4" font-weight="700">委譲</text>
+
+      <!-- 補足 -->
+      <g transform="translate(220, 320)">
+        <text x="0" y="0" font-size="12" fill="#6b7280">💡 ライブラリを更新すると、HEAD モードで繋いだ受講者全員に自動反映される（再貼付不要）</text>
+      </g>
+    </svg>
+    <p class="svg-caption">shim は「受付係」、ライブラリは「厨房」。注文だけ受けて、料理はぜんぶ厨房</p>
+  </div>
+
+  <div class="warn">
+    <strong>なぜ2つに分けるのか？</strong><br/>
+    もしロジックを丸ごと受講者に貼らせると、改修するたびに「全員に貼り直してください」という案内が必要になります。<br/>
+    <strong>shim を「のり役」にして、本体を山口さん側に置く</strong> ことで、修正→保存だけで全員に反映できます。
+  </div>
+</section>
+
+<!-- ========================================================== -->
+<!-- 4. ② vs ① の違い                                            -->
+<!-- ========================================================== -->
+<section>
+  <h2><span class="num">4</span>「原本」と「作業用」の違い</h2>
+  <p>同じ Google ドキュメントなのに、なぜ2種類あるのか？ <strong>金型</strong> と <strong>その金型から打ち抜いた製品</strong> の関係です。</p>
+
+  <div class="svg-frame">
+    <svg viewBox="0 0 1000 380" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#4caf80"/>
+        </marker>
+      </defs>
+
+      <!-- 原本 -->
+      <g transform="translate(60,90)">
+        <rect width="280" height="200" rx="14" fill="#fff8e1" stroke="#e0c168" stroke-width="3"/>
+        <text x="140" y="32" text-anchor="middle" font-size="15" font-weight="700" fill="#8a6a16">① テンプレート原本</text>
+        <text x="140" y="50" text-anchor="middle" font-size="11" fill="#6b7280">SK_TEMPLATE_DOC_ID</text>
+
+        <rect x="20" y="70" width="240" height="22" rx="4" fill="#fff" stroke="#e5e7eb"/>
+        <text x="30" y="86" font-size="11" fill="#374151" font-family="monospace">店舗名: {{店舗名}}</text>
+
+        <rect x="20" y="98" width="240" height="22" rx="4" fill="#fff" stroke="#e5e7eb"/>
+        <text x="30" y="114" font-size="11" fill="#374151" font-family="monospace">案件ID: {{案件ID}}</text>
+
+        <rect x="20" y="126" width="240" height="22" rx="4" fill="#fff" stroke="#e5e7eb"/>
+        <text x="30" y="142" font-size="11" fill="#374151" font-family="monospace">所在地: {{所在地}}</text>
+
+        <text x="140" y="175" text-anchor="middle" font-size="12" fill="#8a6a16" font-weight="700">🔒 触らない</text>
+      </g>
+
+      <!-- 矢印 makeCopy -->
+      <line x1="350" y1="190" x2="490" y2="190" stroke="#4caf80" stroke-width="4" marker-end="url(#arrow3)"/>
+      <text x="420" y="178" text-anchor="middle" font-size="13" fill="#225f3c" font-weight="700">makeCopy()</text>
+      <text x="420" y="208" text-anchor="middle" font-size="11" fill="#225f3c">+ replaceText()</text>
+
+      <!-- 作業用 -->
+      <g transform="translate(500,90)">
+        <rect width="280" height="200" rx="14" fill="#e8f5ec" stroke="#4caf80" stroke-width="3"/>
+        <text x="140" y="32" text-anchor="middle" font-size="15" font-weight="700" fill="#225f3c">② 作業用 Doc</text>
+        <text x="140" y="50" text-anchor="middle" font-size="11" fill="#6b7280">SK_DOC_ID</text>
+
+        <rect x="20" y="70" width="240" height="22" rx="4" fill="#fff" stroke="#bfe1cc"/>
+        <text x="30" y="86" font-size="11" fill="#374151">店舗名: <tspan font-weight="700" fill="#225f3c">エナジー柏店</tspan></text>
+
+        <rect x="20" y="98" width="240" height="22" rx="4" fill="#fff" stroke="#bfe1cc"/>
+        <text x="30" y="114" font-size="11" fill="#374151">案件ID: <tspan font-weight="700" fill="#225f3c">case-2026-001</tspan></text>
+
+        <rect x="20" y="126" width="240" height="22" rx="4" fill="#fff" stroke="#bfe1cc"/>
+        <text x="30" y="142" font-size="11" fill="#374151">所在地: <tspan font-weight="700" fill="#225f3c">千葉県柏市</tspan></text>
+
+        <text x="140" y="175" text-anchor="middle" font-size="12" fill="#225f3c" font-weight="700">📝 ここに書き込む</text>
+      </g>
+
+      <!-- メニュー操作の説明 -->
+      <g transform="translate(60,310)">
+        <text x="0" y="0" font-size="12" fill="#374151">
+          <tspan font-weight="700">メニュー「STRATEGY-KIT → 新規マスタードキュメント作成 → 業種選択」</tspan> を押すと、
+        </text>
+        <text x="0" y="22" font-size="12" fill="#374151">
+          原本がコピーされて、店舗名等が差し替わった「作業用 Doc」が新しく生まれます。
+        </text>
+      </g>
+
+      <!-- 案件ごとに増える矢印 -->
+      <g transform="translate(820,80)" opacity="0.5">
+        <rect width="160" height="40" rx="8" fill="#e8f5ec" stroke="#4caf80" stroke-width="2"/>
+        <text x="80" y="25" text-anchor="middle" font-size="11" fill="#225f3c">案件 B（飲食店）</text>
+      </g>
+      <g transform="translate(820,140)" opacity="0.3">
+        <rect width="160" height="40" rx="8" fill="#e8f5ec" stroke="#4caf80" stroke-width="2"/>
+        <text x="80" y="25" text-anchor="middle" font-size="11" fill="#225f3c">案件 C（美容室）</text>
+      </g>
+      <g transform="translate(820,200)" opacity="0.2">
+        <rect width="160" height="40" rx="8" fill="#e8f5ec" stroke="#4caf80" stroke-width="2"/>
+        <text x="80" y="25" text-anchor="middle" font-size="11" fill="#225f3c">…案件ごとに増える</text>
+      </g>
+    </svg>
+    <p class="svg-caption">原本＝1ファイル固定／作業用＝案件ごとに増える</p>
+  </div>
+</section>
+
+<!-- ========================================================== -->
+<!-- 5. 拡張機能の流れ                                          -->
+<!-- ========================================================== -->
+<section>
+  <h2><span class="num">5</span>Chrome 拡張からのデータの流れ</h2>
+  <p>「Chrome 拡張のサイドパネルでボタンを押すと、最終的に作業用 Doc が更新される」までの流れを追います。</p>
+
+  <div class="svg-frame">
+    <svg viewBox="0 0 1000 460" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#374151"/>
+        </marker>
+      </defs>
+
+      <!-- Step 1 -->
+      <g transform="translate(20,40)">
+        <circle cx="20" cy="20" r="16" fill="#ff7a45"/>
+        <text x="20" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">1</text>
+        <rect x="50" y="0" width="200" height="80" rx="10" fill="#ffe7d8" stroke="#ff7a45" stroke-width="2"/>
+        <text x="150" y="22" text-anchor="middle" font-size="12" font-weight="700" fill="#b04415">⑤ Chrome 拡張</text>
+        <text x="150" y="42" text-anchor="middle" font-size="11" fill="#374151">サイドパネルでボタンを</text>
+        <text x="150" y="60" text-anchor="middle" font-size="11" fill="#374151">クリック（例: §3 章取得）</text>
+      </g>
+
+      <line x1="270" y1="80" x2="320" y2="80" stroke="#374151" stroke-width="2" marker-end="url(#arrow4)"/>
+
+      <!-- Step 2 -->
+      <g transform="translate(330,40)">
+        <circle cx="20" cy="20" r="16" fill="#ff7a45"/>
+        <text x="20" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">2</text>
+        <rect x="50" y="0" width="200" height="80" rx="10" fill="#fff" stroke="#374151" stroke-width="2"/>
+        <text x="150" y="22" text-anchor="middle" font-size="12" font-weight="700" fill="#374151">sk-gas-client.js</text>
+        <text x="150" y="42" text-anchor="middle" font-size="11" fill="#374151">{ action: "getSection",</text>
+        <text x="150" y="60" text-anchor="middle" font-size="11" fill="#374151">  payload: ... } を POST</text>
+      </g>
+
+      <line x1="580" y1="80" x2="630" y2="80" stroke="#374151" stroke-width="2" marker-end="url(#arrow4)"/>
+
+      <!-- Step 3 -->
+      <g transform="translate(640,40)">
+        <circle cx="20" cy="20" r="16" fill="#f0b840"/>
+        <text x="20" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">3</text>
+        <rect x="50" y="0" width="320" height="80" rx="10" fill="#fff4d6" stroke="#f0b840" stroke-width="2"/>
+        <text x="210" y="22" text-anchor="middle" font-size="12" font-weight="700" fill="#8a6116">③ shim Code.gs</text>
+        <text x="210" y="42" text-anchor="middle" font-size="11" fill="#374151">doPost(e) でリクエスト受領</text>
+        <text x="210" y="60" text-anchor="middle" font-size="11" fill="#374151">→ StrategyKitLib.route(e, props) に丸投げ</text>
+      </g>
+
+      <!-- 下段へ -->
+      <line x1="800" y1="120" x2="800" y2="170" stroke="#374151" stroke-width="2" marker-end="url(#arrow4)"/>
+
+      <!-- Step 4 -->
+      <g transform="translate(540,180)">
+        <circle cx="20" cy="20" r="16" fill="#8b5cf6"/>
+        <text x="20" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">4</text>
+        <rect x="50" y="0" width="370" height="100" rx="10" fill="#f0e9ff" stroke="#8b5cf6" stroke-width="2"/>
+        <text x="235" y="22" text-anchor="middle" font-size="12" font-weight="700" fill="#5a31c4">④ StrategyKitLib（本体）</text>
+        <text x="235" y="42" text-anchor="middle" font-size="11" fill="#374151">action 名でハンドラ振り分け：</text>
+        <text x="235" y="60" text-anchor="middle" font-size="11" fill="#374151">getSection / appendDecision /</text>
+        <text x="235" y="78" text-anchor="middle" font-size="11" fill="#374151">createMasterFromTemplate / geminiProxy / etc.</text>
+      </g>
+
+      <line x1="540" y1="230" x2="490" y2="230" stroke="#374151" stroke-width="2" marker-end="url(#arrow4)"/>
+
+      <!-- Step 5 -->
+      <g transform="translate(150,180)">
+        <circle cx="20" cy="20" r="16" fill="#4caf80"/>
+        <text x="20" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">5</text>
+        <rect x="50" y="0" width="320" height="100" rx="10" fill="#e8f5ec" stroke="#4caf80" stroke-width="2"/>
+        <text x="210" y="22" text-anchor="middle" font-size="12" font-weight="700" fill="#225f3c">② 作業用 Doc</text>
+        <text x="210" y="42" text-anchor="middle" font-size="11" fill="#374151">DocumentApp で本文を読む / 書く</text>
+        <text x="210" y="60" text-anchor="middle" font-size="11" fill="#374151">（章追記・差し替え・タイムスタンプ）</text>
+        <text x="210" y="78" text-anchor="middle" font-size="11" fill="#225f3c" font-weight="700">📝 ここが最終的な保存先</text>
+      </g>
+
+      <!-- 下段：レスポンス -->
+      <g transform="translate(140,330)">
+        <text x="0" y="0" font-size="12" font-weight="700" fill="#374151">⮌ 戻りの流れ</text>
+        <text x="0" y="22" font-size="11" fill="#374151">Doc から取得した結果 → ライブラリで JSON に整形 → shim → 拡張機能のサイドパネルへ表示</text>
+      </g>
+
+      <!-- 補足 -->
+      <g transform="translate(140,400)">
+        <rect width="720" height="44" rx="8" fill="#fef9e7" stroke="#f0b840" stroke-width="1"/>
+        <text x="20" y="20" font-size="11" fill="#374151" font-weight="700">💡 ポイント：</text>
+        <text x="20" y="36" font-size="11" fill="#374151">拡張機能は「shim の Web App URL」しか知らない。④ライブラリの存在を意識しなくて良い。</text>
+      </g>
+    </svg>
+    <p class="svg-caption">拡張機能 → shim → ライブラリ → 作業用 Doc の4段階を経由</p>
+  </div>
+</section>
+
+<!-- ========================================================== -->
+<!-- 6. どこをいじるとどこに書き込まれるか                       -->
+<!-- ========================================================== -->
+<section>
+  <h2><span class="num">6</span>「どこをいじると、どこに書き込まれるか」早見表</h2>
+  <p>受講者がよく行う操作と、その結果どこに何が書かれるかをまとめました。</p>
+
+  <div class="lookup">
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 35%;">受講者がやる操作</th>
+          <th style="width: 30%;">経由する部品</th>
+          <th>最終的に書き換わる場所</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>ドキュメントメニュー<br/><strong>「テンプレート原本セットアップ」</strong></td>
+          <td><span class="pill shim">③ shim</span> → <span class="pill lib">④ ライブラリ</span></td>
+          <td>作業用 Doc のスクリプトプロパティ <code>SK_TEMPLATE_DOC_ID</code> に原本の Doc ID を保存</td>
+        </tr>
+        <tr>
+          <td>ドキュメントメニュー<br/><strong>「新規マスタードキュメント作成 → 業種選択」</strong></td>
+          <td><span class="pill shim">③ shim</span> → <span class="pill lib">④ ライブラリ</span> → <span class="pill template">① 原本</span></td>
+          <td>原本を <code>makeCopy()</code> → 新しい <span class="pill working">② 作業用 Doc</span> が生成される<br/>（差し替え後の Doc ID が <code>SK_DOC_ID</code> に登録）</td>
+        </tr>
+        <tr>
+          <td>ドキュメントメニュー<br/><strong>「§99 決定ログに追記」</strong></td>
+          <td><span class="pill shim">③ shim</span> → <span class="pill lib">④ ライブラリ</span></td>
+          <td><span class="pill working">② 作業用 Doc</span> の §99 セクション末尾に1行追記</td>
+        </tr>
+        <tr>
+          <td>ドキュメントメニュー<br/><strong>「§N 要点版を生成・追記（手動）」</strong></td>
+          <td><span class="pill shim">③ shim</span> → <span class="pill lib">④ ライブラリ</span></td>
+          <td><span class="pill working">② 作業用 Doc</span> の §N 章末に「要点版（500字以内）」を挿入</td>
+        </tr>
+        <tr>
+          <td>Chrome 拡張サイドパネルで<br/><strong>「§3 を取得して貼付」</strong></td>
+          <td><span class="pill ext">⑤ 拡張</span> → <span class="pill shim">③ shim</span> → <span class="pill lib">④ ライブラリ</span></td>
+          <td><span class="pill working">② 作業用 Doc</span> から §3 本文を読み出し、AI 画面のプロンプト欄に挿入</td>
+        </tr>
+        <tr>
+          <td>Chrome 拡張で<br/><strong>「Gemini プロキシ実行」</strong></td>
+          <td><span class="pill ext">⑤ 拡張</span> → <span class="pill shim">③ shim</span> → <span class="pill lib">④ ライブラリ</span> → Gemini API</td>
+          <td>外部 Gemini API を呼び出し、結果を返す（受講者の <code>GEMINI_API_KEY</code> を使用）</td>
+        </tr>
+        <tr>
+          <td>Chrome 拡張オプションで<br/><strong>「GAS Web App URL を登録」</strong></td>
+          <td><span class="pill ext">⑤ 拡張</span> 内のみ</td>
+          <td>Chrome の <code>chrome.storage.sync</code> に <code>gasWebAppUrl_v10</code> として保存</td>
+        </tr>
+        <tr>
+          <td>原本 Doc を直接編集（<strong>禁止操作</strong>）</td>
+          <td>—</td>
+          <td><span class="pill template">① 原本</span> が破壊される。以後の新規案件すべてに影響。<br/><strong style="color: #b04415;">絶対にやらない</strong></td>
+        </tr>
+        <tr>
+          <td>山口さんが <code>StrategyKitLib.gs</code> を保存</td>
+          <td><span class="pill lib">④ ライブラリ</span></td>
+          <td>HEAD モードで繋いだ <strong>受講者全員の挙動が瞬時に更新</strong>（再貼付不要）</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ========================================================== -->
+<!-- 7. よくある誤解                                            -->
+<!-- ========================================================== -->
+<section>
+  <h2><span class="num">7</span>よくある誤解と正しい理解</h2>
+
+  <div class="qa">
+    <h4>❓ 「拡張機能をアップデートしたら作業用 Doc も自動で直るの？」</h4>
+    <p><strong>いいえ。</strong> 拡張機能は <strong>UI と通信ロジックだけ</strong>。Doc の中身を作るのは ④ライブラリの仕事です。Doc の挙動を変えたいときは、山口さんが <code>StrategyKitLib.gs</code> を更新します。</p>
+  </div>
+
+  <div class="qa">
+    <h4>❓ 「shim を貼り直さないと最新版が使えないんじゃ？」</h4>
+    <p><strong>原則、貼り直し不要です。</strong> shim は HEAD モードで ④ライブラリを参照しているので、ライブラリ側の更新は自動反映されます。<br/>
+    例外的に「新しいメニュー項目が増えた時」「破壊的変更で固定バージョンを使う指示があった時」だけ shim を貼り直します。</p>
+  </div>
+
+  <div class="qa">
+    <h4>❓ 「原本テンプレートに直接書き込んだらどうなる？」</h4>
+    <p><strong>原本が壊れます。</strong> 以後の新規案件で、おかしな状態のテンプレートがコピーされます。<br/>
+    shim には <code>onOpen</code> で <strong>原本を開いていても <code>SK_DOC_ID</code> は上書きしない</strong> ガードが入っていますが、メニューを実行した時にはまだ防げない場合があるため、<strong>原本では絶対にメニューを使わない</strong> のが鉄則です。</p>
+  </div>
+
+  <div class="qa">
+    <h4>❓ 「拡張機能と GAS は同じ Google アカウントじゃないとダメ？」</h4>
+    <p><strong>同じである必要はありません。</strong> 拡張機能は単に「shim が公開した Web App URL」に HTTP POST しているだけです。Web App は「自分（受講者）として実行・全員からアクセス可」設定なので、URL さえ持っていれば動きます。</p>
+  </div>
+
+  <div class="qa">
+    <h4>❓ 「拡張機能と作業用 Doc は直接繋がっているの？」</h4>
+    <p><strong>直接ではありません。</strong> 必ず ③shim を経由します。拡張機能 → shim の Web App URL → ライブラリ → 作業用 Doc、という4段階のリレーです。</p>
+  </div>
+
+  <div class="qa">
+    <h4>❓ 「prompts.json はどこにある？」</h4>
+    <p><strong>⑤拡張機能の中</strong> に同梱されています（<code>extension/data/prompts.json</code>）。各章のプロンプト本文・推奨AI・出力ルールはすべてここ。<br/>
+    プロンプトを直したいときは、<strong>拡張機能をアップデート</strong> する必要があります（GAS 側ではなく）。</p>
+  </div>
+</section>
+
+<!-- ========================================================== -->
+<!-- 8. 一行サマリ                                              -->
+<!-- ========================================================== -->
+<section>
+  <h2><span class="num">8</span>1行で覚えるなら</h2>
+
+  <div class="lead" style="font-size: 1.1rem; line-height: 2;">
+    <p style="margin: 0;">
+      <span class="pill ext">⑤ 拡張</span>が<strong>注文を出し</strong>、
+      <span class="pill shim">③ shim</span>が<strong>受け付け</strong>、
+      <span class="pill lib">④ ライブラリ</span>が<strong>料理し</strong>、
+      <span class="pill working">② 作業用 Doc</span>に<strong>盛り付ける</strong>。<br/>
+      <span class="pill template">① 原本</span>は<strong>金型</strong>として絶対に触らない。
+    </p>
+  </div>
+</section>
+
+<footer>
+  STRATEGY-KIT v0.11.1 アーキテクチャ図解 / 山口 / 2026-05-07<br/>
+  関連ドキュメント: <code>src/apps-script/library/README.md</code> / <code>src/apps-script/shim/README.md</code> / <code>src/extension/README.md</code>
+</footer>
+
+</div>
+</body>
+</html>

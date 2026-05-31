@@ -1,0 +1,49 @@
+// content script for notebooklm.google.com
+(function () {
+  const SELECTORS = [
+    'textarea[aria-label*="質問"]',
+    'textarea[aria-label*="Ask"]',
+    'div[contenteditable="true"][role="textbox"]',
+    'div[contenteditable="true"]',
+    'textarea',
+  ];
+
+  function locate() {
+    return window.STRATEGY_KIT_HELPERS.findFirstMatching(SELECTORS);
+  }
+
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg?.type !== 'STRATEGY_KIT_INSERT') return false;
+    try {
+      const target = locate();
+      if (!target) {
+        window.STRATEGY_KIT_HELPERS.copyToClipboardFallback(msg.text).then(
+          (ok) => {
+            window.STRATEGY_KIT_HELPERS.showToast(
+              ok
+                ? 'NotebookLMは入力欄の自動検出が難しいため、クリップボードにコピーしました。質問欄に貼り付けてください。'
+                : 'コピーに失敗しました。手動でコピーしてください。',
+              { error: !ok, duration: 4000 }
+            );
+          }
+        );
+        sendResponse({ ok: false, error: 'no-target-fallback-clipboard', site: 'notebooklm' });
+        return;
+      }
+      const ok = window.STRATEGY_KIT_HELPERS.insertSmart(target, msg.text);
+      window.STRATEGY_KIT_HELPERS.showToast(
+        ok
+          ? 'プロンプトを挿入しました（送信は手動で行ってください）'
+          : '挿入に失敗しました',
+        { error: !ok }
+      );
+      sendResponse({ ok, site: 'notebooklm' });
+    } catch (e) {
+      window.STRATEGY_KIT_HELPERS.showToast('エラー: ' + e.message, {
+        error: true,
+      });
+      sendResponse({ ok: false, error: e.message });
+    }
+    return true;
+  });
+})();
