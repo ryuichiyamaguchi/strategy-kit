@@ -1909,10 +1909,10 @@
         return msg.slice(0, 180);
       }
       if (msg.indexOf('503') !== -1 || /unavailable/i.test(msg)) {
-        return 'Gemini が一時的に混雑しています（503）。あとで再試行してください';
+        return 'AI が一時的に混雑しています（503）。あとで再試行してください';
       }
       if (msg.indexOf('429') !== -1 || /rate/i.test(msg)) {
-        return 'Gemini のレートリミットに達しました（429）。1分ほど待ってから再試行してください';
+        return 'AI のレートリミットに達しました（429）。1分ほど待ってから再試行してください';
       }
       if (/network|fetch|timeout/i.test(msg)) {
         return 'ネットワーク接続が不安定です。Wi-Fiを確認してください';

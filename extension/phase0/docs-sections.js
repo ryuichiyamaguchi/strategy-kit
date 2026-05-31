@@ -1,4 +1,17 @@
-const SECTION_MARKER_RE = /\[\[SK-SECTION:§(-?\d+)\]\]/g;
+const SECTION_MARKER_RE = /\[\[SK-SECTION:§(-?\d+(?:-\d+)?)\]\]/g;
+
+const TOP_LEVEL_KEY_RE = /^-?\d+$/;
+
+function sectionNoFromKey(key) {
+  // 先頭の(符号付き)整数部分のみをトップ番号として取り出す。§-1 → -1, §7-2 → 7。
+  const match = String(key).match(/^-?\d+/);
+  return match ? parseInt(match[0], 10) : NaN;
+}
+
+// サブ番号(§7-2 等)を含まない「トップ番号だけ」のキーか。§-1 等の負番号は true。
+function isTopLevelKey(key) {
+  return TOP_LEVEL_KEY_RE.test(String(key));
+}
 
 export function collectSectionMarkers(doc) {
   const markers = [];
@@ -14,10 +27,12 @@ export function collectSectionMarkers(doc) {
       let match;
       SECTION_MARKER_RE.lastIndex = 0;
       while ((match = SECTION_MARKER_RE.exec(text)) !== null) {
-        const no = parseInt(match[1], 10);
+        const key = match[1];
+        const no = sectionNoFromKey(key);
         const startIndex = elem.startIndex + match.index;
         markers.push({
           no,
+          key,
           startIndex,
           markerEndIndex: startIndex + match[0].length,
         });
@@ -37,7 +52,9 @@ export function computeEndIndex(doc) {
 
 export function findSectionRange(doc, sectionNo, { allowLastSectionNo = 99 } = {}) {
   const markers = collectSectionMarkers(doc);
-  const current = markers.filter((m) => m.no === sectionNo);
+  // トップ番号セクションの本体マーカーのみを current 対象とする。
+  // §7-2 等のサブ番号マーカーは §7 の current ではなく、章境界としてのみ機能する。
+  const current = markers.filter((m) => m.no === sectionNo && isTopLevelKey(m.key));
 
   if (current.length === 0) return { status: 'missing-current-marker', markers };
   if (current.length > 1) return { status: 'duplicate-current-marker', markers };

@@ -9,6 +9,13 @@ export { DEFAULT_IMAGE_MODEL as DEFAULT_GEMINI_IMAGE_MODEL };
 const IMAGE_MODEL_FALLBACKS = ['gemini-2.5-flash-image'];
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+// AI プロバイダ選択（v0.12〜）。後方互換のため未設定時は常に 'gemini' とみなす。
+export const PROVIDER_TYPE_KEY = 'sk_provider_type_v012';
+export const DEEPSEEK_API_KEY_KEY = 'sk_deepseek_api_key_v012';
+export const DEFAULT_DEEPSEEK_MODEL = 'deepseek-chat';
+export const DEEPSEEK_REASONER_MODEL = 'deepseek-reasoner';
+const DEEPSEEK_BASE = 'https://api.deepseek.com/chat/completions';
+
 function getChromeStorage(area) {
   return globalThis.chrome?.storage?.[area] || null;
 }
@@ -97,6 +104,88 @@ export async function getGeminiProxyConfig({
     return { proxy: null, token: '' };
   }
   return { proxy, token };
+}
+
+// 選択中のプロバイダ種別を返す。デフォルトは 'gemini'（未設定・不明値も 'gemini'）。
+// 保存先は sync を基本に、無ければ local をフォールバック確認する。
+export async function getSelectedProvider({
+  storage = getChromeStorage('local'),
+  syncStorage = getChromeStorage('sync'),
+} = {}) {
+  let raw = '';
+  if (syncStorage?.get) {
+    // proxy key も同時に読むことで、後続の proxy 設定読み込みと同じ get 形状を保ち
+    // 既存テスト/挙動（sync の get 呼び出し）に影響を与えない。
+    const synced = await syncStorage.get([PROVIDER_TYPE_KEY, GEMINI_PROXY_KEY]);
+    raw = String(synced?.[PROVIDER_TYPE_KEY] || '').trim();
+  }
+  if (!raw && storage?.get) {
+    // local 側も既存の token 読み込みと同じ get 形状に揃える。
+    const local = await storage.get([PROVIDER_TYPE_KEY, GEMINI_PROXY_TOKEN_KEY]);
+    raw = String(local?.[PROVIDER_TYPE_KEY] || '').trim();
+  }
+  return raw === 'deepseek' ? 'deepseek' : 'gemini';
+}
+
+export async function getDeepSeekApiKey({ storage = getChromeStorage('local') } = {}) {
+  if (!storage?.get) return '';
+  const stored = await storage.get([DEEPSEEK_API_KEY_KEY]);
+  return String(stored?.[DEEPSEEK_API_KEY_KEY] || '').trim();
+}
+
+// 渡された model を DeepSeek 用に正規化する。
+// 既に 'deepseek-' で始まるならそのまま。gemini 系/未知の場合、
+// 'pro'(区切り境界) または 'reasoner' を含むなら reasoner、それ以外は chat。
+// ※ 'preview' は image モデル名(gemini-3.1-flash-image-preview)にも含まれるため
+//    単独では reasoner 判定に使わない(誤判定回避)。
+function normalizeDeepSeekModel(model) {
+  const name = String(model || '').trim().toLowerCase();
+  if (name.startsWith('deepseek-')) return model;
+  if (/(^|-)pro(-|$)|reasoner/.test(name)) return DEEPSEEK_REASONER_MODEL;
+  return DEFAULT_DEEPSEEK_MODEL;
+}
+
+async function generateDeepSeek({
+  prompt,
+  model,
+  temperature = 0.3,
+  apiKey,
+  fetchImpl = fetch,
+}) {
+  const res = await fetchImpl(DEEPSEEK_BASE, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: String(prompt || '') }],
+      temperature,
+    }),
+  });
+
+  const body = await res.text();
+  if (!res.ok) {
+    const err = new Error('DeepSeek API HTTP ' + res.status + ': ' + body.slice(0, 240));
+    err.status = res.status;
+    throw err;
+  }
+
+  let json;
+  try {
+    json = JSON.parse(body);
+  } catch (e) {
+    throw new Error('DeepSeek 応答の解析に失敗しました: ' + body.slice(0, 120));
+  }
+  return {
+    ok: true,
+    text: String(json?.choices?.[0]?.message?.content || ''),
+    parts: [],
+    images: [],
+    raw: json,
+    mode: 'deepseek',
+  };
 }
 
 async function generateDirect({
@@ -207,6 +296,22 @@ async function runGenerateContentOnce({
   syncStorage = getChromeStorage('sync'),
   fetchImpl = fetch,
 } = {}) {
+  // プロバイダが 'deepseek' かつ DeepSeek キーありなら DeepSeek を使う。
+  // それ以外（'gemini'・未設定・キー無し）は従来の proxy→Gemini 経路を一切変更せず実行。
+  const provider = await getSelectedProvider({ storage, syncStorage });
+  if (provider === 'deepseek') {
+    const deepSeekKey = await getDeepSeekApiKey({ storage });
+    if (deepSeekKey) {
+      return await generateDeepSeek({
+        prompt,
+        model: normalizeDeepSeekModel(model),
+        temperature,
+        apiKey: deepSeekKey,
+        fetchImpl,
+      });
+    }
+  }
+
   const { proxy, token } = await getGeminiProxyConfig({ storage, syncStorage });
   if (proxy && token) {
     try {
@@ -282,6 +387,13 @@ export async function generateSummary({
   return generateContent({ prompt, model, temperature }, options);
 }
 
+// 画像生成。各候補モデルを generateContent 経由で呼ぶため、503/429/5xx/ネットワーク等の
+// 一時エラーは generateContent 内の指数バックオフ(isRetriableGeminiError)で自動リトライされる。
+// リトライを尽くしても一時エラーなら、それは「混雑が続いている」状態なので即 throw して
+// 上位(diagram.js)の手動 fallback に委ねる(別モデルに移っても混雑解消の保証がないため暴走させない)。
+// 404(モデル不在)のみ isModelNotFoundError で次の候補モデルへフォールバックする。
+// → リトライ(一時エラー)とモデルフォールバック(恒久エラー=404)は判定が排他で二重暴走しない。
+// maxRetries/baseDelayMs/sleepImpl は options 経由で generateContent にそのまま伝わる(テスト注入可能)。
 export async function generateImage({
   prompt,
   model = DEFAULT_IMAGE_MODEL,
@@ -302,6 +414,7 @@ export async function generateImage({
       }, options);
     } catch (error) {
       lastError = error;
+      // 404 以外(リトライ後も残る一時エラー含む)はモデルを変えても解決しないので即失敗。
       if (!isModelNotFoundError(error)) throw error;
     }
   }

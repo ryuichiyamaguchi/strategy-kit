@@ -735,6 +735,29 @@
     }
   }
 
+  // 画像生成の失敗理由を、利用者が次の一手を判断しやすい平易な日本語に分類する。
+  // リトライ(503/429/5xx)を尽くしても失敗した時にだけ手動 fallback へ来るので、
+  // 「混雑（時間をおけば直る）」と「設定不足（直さないと直らない）」を区別して伝える。
+  function describeImageFailureReason(error) {
+    const message = String((error && error.message) || '');
+    const status = error && typeof error.status === 'number' ? error.status : null;
+    if (/未設定|api key|proxy/i.test(message) && !/HTTP/.test(message)) {
+      return 'Gemini API key または proxy が未設定です。Options で設定すると自動生成できます。今は下の prompt をコピーして外部AIで画像化してください。';
+    }
+    if (status === 404 || /model not found|not found.*model|404/i.test(message)) {
+      return '画像生成モデルが見つかりませんでした（モデル名が変更された可能性）。下の prompt をコピーして外部AIで画像化してください。';
+    }
+    if (status === 429 || /HTTP 429|rate limit|quota/i.test(message)) {
+      return '利用枠（レート上限）に達したため、自動生成を一時的に行えません。少し時間をおくか、下の prompt をコピーして外部AIで画像化してください。';
+    }
+    if (status === 503 || status === 500 || status === 502 || status === 504 ||
+        /HTTP (?:500|502|503|504)|high demand|overloaded|unavailable|混雑/i.test(message)) {
+      return 'Gemini 側が混雑しています。自動リトライしても生成できませんでした。少し時間をおくか、下の prompt をコピーして外部AIで画像化してください。';
+    }
+    if (message) return '画像を自動生成できませんでした（' + message + '）。下の prompt をコピーして外部AIで画像化してください。';
+    return 'Gemini API key または proxy が未設定です。下の prompt をコピーして外部AIで画像化できます。';
+  }
+
   function showImageFallbackManual(prompt, diagram, resultArea, error) {
     const el = window.SK_CORE.el;
     window.SK_CORE.clearChildren(resultArea);
@@ -749,7 +772,7 @@
       }),
       el('p', {
         class: 'muted-note',
-        text: error && error.message ? error.message : 'Gemini API key または proxy が未設定です。下の prompt をコピーして外部AIで画像化できます。',
+        text: describeImageFailureReason(error),
       })
     ));
 
@@ -1505,6 +1528,13 @@
     const geminiUrl = chrome.runtime.getURL('phase0/gemini-client.js');
     const gemini = await import(geminiUrl);
     if (generationMode === 'image') {
+      const provider = await gemini.getSelectedProvider({
+        storage: chrome.storage.local,
+        syncStorage: chrome.storage.sync,
+      });
+      if (provider !== 'gemini') {
+        throw new Error('画像生成は Gemini プロバイダでのみ利用できます。テキスト図解（HTML/Mermaid）をご利用ください');
+      }
       const imagePrompt = buildImageDiagramPrompt(diagram, options.sourceInfo || prompt);
       try {
         const res = await gemini.generateImage({
