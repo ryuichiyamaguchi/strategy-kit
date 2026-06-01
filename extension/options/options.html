@@ -85,36 +85,6 @@
         <h2>Gemini 設定</h2>
         <p class="muted">全自動生成と図解自動生成で使います。学習用途では「セキュア学習モード」を推奨します。</p>
 
-        <div class="settings-block" id="provider-block">
-          <h3>AIプロバイダ</h3>
-          <p class="muted">テキスト生成に使う AI を選びます。未選択時は従来どおり Gemini を使います。画像系図解は Gemini のみ対応です。</p>
-          <label class="row">
-            <span>プロバイダ</span>
-            <select id="provider-select">
-              <option value="gemini">Gemini（Google）</option>
-              <option value="deepseek">DeepSeek</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="settings-block" id="deepseek-settings-block" hidden>
-          <h3>DeepSeek 設定</h3>
-          <div class="warning-box">
-            <strong>注意:</strong>
-            DeepSeek API key をこの端末の local storage に保存します。利用上限を絞った key を推奨します。画像生成には対応していません（画像系図解は Gemini を選んでください）。
-          </div>
-          <label class="row">
-            <span>DeepSeek API key</span>
-            <input id="deepseek-api-key" type="password" placeholder="sk-..." autocomplete="off" autocapitalize="off" spellcheck="false" />
-          </label>
-          <div class="row inline">
-            <button id="deepseek-key-save" class="btn" type="button">DeepSeek key を保存</button>
-            <button id="deepseek-key-delete" class="btn btn-ghost" type="button">DeepSeek key を削除</button>
-            <button id="deepseek-probe" class="btn btn-ghost" type="button">DeepSeek 実行確認</button>
-            <span id="deepseek-status" class="status"></span>
-          </div>
-        </div>
-
         <div class="settings-block" id="gemini-direct-block">
           <h3>直接 API key モード</h3>
           <div class="warning-box">

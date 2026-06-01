@@ -7,15 +7,11 @@ import {
 } from '../phase0/apps-script-client.js';
 import { createDocument, batchUpdate, getDocument } from '../phase0/docs-client.js';
 import {
-  DEEPSEEK_API_KEY_KEY,
   GEMINI_API_KEY_KEY,
   GEMINI_PROXY_KEY,
   GEMINI_PROXY_TOKEN_KEY,
-  PROVIDER_TYPE_KEY,
   generateContent,
-  getDeepSeekApiKey,
   getGeminiApiKey,
-  getSelectedProvider,
 } from '../phase0/gemini-client.js';
 import {
   createMasterDocument,
@@ -293,74 +289,6 @@ async function refreshGeminiStatus() {
   setStatus(proxyStatus, 'proxy 作成済み', 'ok');
 }
 
-function applyProviderVisibility(provider) {
-  const isDeepSeek = provider === 'deepseek';
-  const deepseekBlock = document.getElementById('deepseek-settings-block');
-  const geminiDirect = document.getElementById('gemini-direct-block');
-  const geminiSecure = document.getElementById('gemini-secure-block');
-  if (deepseekBlock) deepseekBlock.hidden = !isDeepSeek;
-  if (geminiDirect) geminiDirect.hidden = isDeepSeek;
-  if (geminiSecure) geminiSecure.hidden = isDeepSeek;
-}
-
-async function bindProviderCard() {
-  const select = document.getElementById('provider-select');
-  const provider = await getSelectedProvider({
-    storage: chrome.storage.local,
-    syncStorage: chrome.storage.sync,
-  });
-  if (select) select.value = provider;
-  applyProviderVisibility(provider);
-
-  const deepseekKey = await getDeepSeekApiKey({ storage: chrome.storage.local });
-  setStatus(
-    document.getElementById('deepseek-status'),
-    deepseekKey ? 'DeepSeek key 保存済み' : 'DeepSeek key 未保存',
-    deepseekKey ? 'ok' : 'warn'
-  );
-
-  select?.addEventListener('change', async () => {
-    const value = select.value === 'deepseek' ? 'deepseek' : 'gemini';
-    applyProviderVisibility(value);
-    await chrome.storage.sync.set({ [PROVIDER_TYPE_KEY]: value });
-  });
-
-  document.getElementById('deepseek-key-save')?.addEventListener('click', async () => {
-    const status = document.getElementById('deepseek-status');
-    const input = document.getElementById('deepseek-api-key');
-    const key = input.value.trim();
-    if (!key) {
-      setStatus(status, 'DeepSeek API key を入力してください', 'warn');
-      return;
-    }
-    await chrome.storage.local.set({ [DEEPSEEK_API_KEY_KEY]: key });
-    input.value = '';
-    setStatus(status, '保存済み', 'ok');
-  });
-
-  document.getElementById('deepseek-key-delete')?.addEventListener('click', async () => {
-    await chrome.storage.local.remove([DEEPSEEK_API_KEY_KEY]);
-    setStatus(document.getElementById('deepseek-status'), '削除しました', 'ok');
-  });
-
-  document.getElementById('deepseek-probe')?.addEventListener('click', async () => {
-    const status = document.getElementById('deepseek-status');
-    setStatus(status, '実行確認中…');
-    try {
-      const result = await generateContent({
-        prompt: 'Reply with exactly: STRATEGY-KIT OK',
-        temperature: 0,
-      }, {
-        storage: chrome.storage.local,
-        syncStorage: chrome.storage.sync,
-      });
-      setStatus(status, result.text ? '実行OK' : '応答なし', result.text ? 'ok' : 'warn');
-    } catch (error) {
-      setStatus(status, getErrorMessage(error), 'ng');
-    }
-  });
-}
-
 function bindGeminiCard() {
   const ack = document.getElementById('gemini-local-key-ack');
   const saveBtn = document.getElementById('gemini-key-save');
@@ -513,7 +441,6 @@ async function init() {
   await loadBusinessSettings();
   bindOAuthCard();
   bindMasterDocCard();
-  await bindProviderCard();
   bindGeminiCard();
   await refreshOAuthStatus({ interactive: false });
   await refreshMasterStatus();

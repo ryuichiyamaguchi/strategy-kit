@@ -1528,13 +1528,6 @@
     const geminiUrl = chrome.runtime.getURL('phase0/gemini-client.js');
     const gemini = await import(geminiUrl);
     if (generationMode === 'image') {
-      const provider = await gemini.getSelectedProvider({
-        storage: chrome.storage.local,
-        syncStorage: chrome.storage.sync,
-      });
-      if (provider !== 'gemini') {
-        throw new Error('画像生成は Gemini プロバイダでのみ利用できます。テキスト図解（HTML/Mermaid）をご利用ください');
-      }
       const imagePrompt = buildImageDiagramPrompt(diagram, options.sourceInfo || prompt);
       try {
         const res = await gemini.generateImage({

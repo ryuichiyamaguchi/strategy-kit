@@ -7,21 +7,20 @@
 | パス | 内容 |
 |---|---|
 | `extension/` | Chrome 拡張本体（ソース） |
-| `strategy-kit-v0.12.17.zip` | そのままインストールできる配布版 |
+| `strategy-kit-v0.12.18.zip` | そのままインストールできる配布版 |
 | `apps-script/` | Google Apps Script（ライブラリ / shim） |
 | `docs/` | セットアップガイド・構成図 |
 | `setup/` | 配布ハブページ・完全版ガイド・マスター雛形 |
 
 ## インストール（受講者向け）
 
-1. `strategy-kit-v0.12.17.zip` をダウンロードして**解凍**します。
+1. `strategy-kit-v0.12.18.zip` をダウンロードして**解凍**します。
 2. Chrome で `chrome://extensions` を開き、右上の「**デベロッパーモード**」を ON にします。
 3. 「**パッケージ化されていない拡張機能を読み込む**」をクリックし、解凍したフォルダを選択します。
 4. テストユーザー登録済みの Google アカウントでログインすると使えます。
 
 ## セットアップ
 
-- **AI プロバイダの選択**: 設定画面で Gemini または DeepSeek を選べます（未設定なら Gemini）。
 - **Gemini API キーの用意**: `docs/setup-guide-gemini-api.md`
 - **詳細な手順（Apps Script のデプロイ・マスター作成など）**: `setup/setup-guide-v0.11.html`
 - **マスター雛形**: `setup/master-template/`
@@ -40,4 +39,4 @@
 
 ## バージョン
 
-現在の配布版: **v0.12.17**
+現在の配布版: **v0.12.18**
