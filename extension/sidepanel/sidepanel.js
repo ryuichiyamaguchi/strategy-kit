@@ -1654,6 +1654,13 @@ function switchTab(name, options = {}) {
     if (name === 'diagram' && window.SlidesHandoff) {
       window.SlidesHandoff.init();
     }
+    // 修正A: 自動化タブをアクティブにしたタイミングで OAuth を再評価し、
+    //   連携済みなら（未構築のとき）スロットを構築する。連携後の拡張リロードを不要にする。
+    if (name === 'automation' && window.SK_AUTOMATION && typeof window.SK_AUTOMATION.ensureReady === 'function') {
+      Promise.resolve(window.SK_AUTOMATION.ensureReady())
+        .then(syncEmptyStates)
+        .catch(() => {});
+    }
     syncEmptyStates();
   });
 }
@@ -3968,6 +3975,13 @@ window.SK_CORE = {
       }
       if (changes.sk_oauth_ready || changes.sk_master_doc_v012) {
         needsChecklist = true;
+      }
+      // 修正A: options 側で Google 連携が完了した（sk_oauth_ready 変化）瞬間に
+      //   自動化スロットを再評価・構築する。拡張/サイドパネルのリロードを不要にする。
+      if (changes.sk_oauth_ready && window.SK_AUTOMATION && typeof window.SK_AUTOMATION.ensureReady === 'function') {
+        Promise.resolve(window.SK_AUTOMATION.ensureReady())
+          .then(syncEmptyStates)
+          .catch(() => {});
       }
       if (needsBusinessRefresh) {
         renderResearchSteps();

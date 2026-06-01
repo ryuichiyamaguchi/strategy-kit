@@ -1577,7 +1577,20 @@
     });
   }
 
-  async function ensureFullAutoMasterTarget_(ui) {
+  // 修正B: 全自動の「頭から実行する初回」以外（再試行・途中再開・失敗章スキップ等の継続実行）
+  //   ではバックアップ Doc を量産しないよう、バックアップ作成をスキップすべきか判定する純関数。
+  function shouldSkipFullAutoBackup_(opts) {
+    const o = opts || {};
+    const retrySections = Array.isArray(o.retrySections) ? o.retrySections : [];
+    const isContinuation =
+      retrySections.length > 0 ||
+      !!o.retryOnly ||
+      (Number(o.startIndex) > 0) ||
+      (Number(o.startSubNo) > 0);
+    return isContinuation;
+  }
+
+  async function ensureFullAutoMasterTarget_(ui, skipBackup) {
     try {
       const { docsClient, driveClient, masterDocManager } = await loadMasterWriterDeps();
       const settings = window.SK_CORE.getState()?.settings || {};
@@ -1586,10 +1599,11 @@
         storageArea: chrome.storage.sync,
       });
       let backup = null;
+      let created = false;
 
       if (!info.exists) {
         ui.progressLabel.textContent = 'マスターを作成中…';
-        const created = await masterDocManager.createMasterDocument({
+        const createdInfo = await masterDocManager.createMasterDocument({
           docsClient,
           storageArea: chrome.storage.sync,
           phases: window.SK_CORE.getPhases ? window.SK_CORE.getPhases() : [],
@@ -1599,12 +1613,14 @@
         });
         info = {
           exists: true,
-          documentId: created.masterDocId,
-          docUrl: created.masterDocUrl,
-          title: created.title,
-          masterInfo: created.masterInfo,
+          documentId: createdInfo.masterDocId,
+          docUrl: createdInfo.masterDocUrl,
+          title: createdInfo.title,
+          masterInfo: createdInfo.masterInfo,
         };
-      } else {
+        created = true;
+      } else if (!skipBackup) {
+        // 既存マスター + 頭からの初回実行のときだけバックアップを取る（破壊防止の安全網）
         ui.progressLabel.textContent = 'マスターのバックアップを作成中…';
         backup = await createMasterBackupCopy_({
           driveClient,
@@ -1619,7 +1635,9 @@
       });
       ui.progressLabel.textContent = backup
         ? 'バックアップ作成済み。マスター本体へ書き込みます。'
-        : '新規マスターを作成しました。マスター本体へ書き込みます。';
+        : created
+        ? '新規マスターを作成しました。マスター本体へ書き込みます。'
+        : '既存マスターへ続きを書き込みます。';
       return 'ready';
     } catch (e) {
       ui.progressLabel.textContent = 'マスター準備失敗: ' + (e.message || String(e));
@@ -1874,7 +1892,14 @@
       return;
     }
 
-    const masterReady = await ensureFullAutoMasterTarget_(ui);
+    // 修正B: 再試行・途中再開・失敗章スキップ等の継続実行ではバックアップを作らない
+    const skipBackup = shouldSkipFullAutoBackup_({
+      startIndex: startIndex,
+      startSubNo: startSubNo,
+      retrySections: retrySections,
+      retryOnly: opts && opts.retryOnly,
+    });
+    const masterReady = await ensureFullAutoMasterTarget_(ui, skipBackup);
     if (masterReady === 'cancelled') {
       ui.progressLabel.textContent = 'キャンセルされました。';
       return;
@@ -2368,7 +2393,13 @@
       return;
     }
 
-    const masterReady = await ensureFullAutoMasterTarget_(ui);
+    // 修正B: 再試行・途中再開等の継続実行ではバックアップを作らない
+    const skipBackup = shouldSkipFullAutoBackup_({
+      startIndex: startIndex,
+      startSubNo: startSubNo,
+      retrySections: (opts && opts.retrySections) || [],
+    });
+    const masterReady = await ensureFullAutoMasterTarget_(ui, skipBackup);
     if (masterReady === 'cancelled') {
       ui.progressLabel.textContent = 'キャンセルされました。';
       return;
@@ -3647,14 +3678,11 @@
     window.SK_STATE.save('automation.state', null);
   }
 
-  // core-ready 後に初期化
-  window.SK_CORE.on('core-ready', async function () {
-    const slot = document.getElementById('mod-automation-slot');
-    if (!slot) return;
-    const ready = await isOAuthReady();
-    if (!ready) return;
-    slot.classList.remove('hidden');
-    buildUI(slot);
+  // 前回の自動化進捗（中断再開）を復元する。
+  //   修正A: 二重構築・二重復元を防ぐため slot.dataset.skResumeRestored で1回だけ実行。
+  async function restoreSavedAutomationState_(slot) {
+    if (slot.dataset.skResumeRestored === '1') return;
+    slot.dataset.skResumeRestored = '1';
 
     // 前回の自動化進捗を確認
     //   v0.9.13: phaseIndex は数値 or 文字列（'3-2'）。文字列ケースは < 0 で弾けないので type で判定
@@ -3693,5 +3721,46 @@
 
     const toastIdx = String(savedState.phaseIndex);
     window.SK_CORE.showToast('中断点を検出しました。実行ボタンは §' + toastIdx + ' から続行します', false, 4000);
+  }
+
+  // 修正A: OAuth 連携済みなら自動化スロットを構築・復元する（冪等）。
+  //   連携が取れていなければ hidden のまま何もしない。
+  //   連携後に自動化タブをアクティブにした／options 側で連携した（storage 変化）タイミングから
+  //   再評価され、拡張のリロード無しで有効になる。
+  let automationInitInFlight = null;
+  async function initAutomationSlot() {
+    const slot = document.getElementById('mod-automation-slot');
+    if (!slot) return false;
+    // 二重構築防止: 既に構築済みなら再評価しない
+    if (slot.dataset.skBuilt === '1') return true;
+    // 並行呼び出しのデデュープ（タブ切替 + storage 変化が同時に来ても1回だけ）
+    if (automationInitInFlight) return automationInitInFlight;
+
+    automationInitInFlight = (async function () {
+      const ready = await isOAuthReady();
+      if (!ready) return false;
+      // await 中に別経路が構築を終えている可能性に備えて再チェック
+      if (slot.dataset.skBuilt === '1') return true;
+      slot.dataset.skBuilt = '1';
+      slot.classList.remove('hidden');
+      buildUI(slot);
+      await restoreSavedAutomationState_(slot);
+      return true;
+    })();
+
+    try {
+      return await automationInitInFlight;
+    } finally {
+      automationInitInFlight = null;
+    }
+  }
+
+  // sidepanel から連携検知時に呼べる公開 API
+  window.SK_AUTOMATION = window.SK_AUTOMATION || {};
+  window.SK_AUTOMATION.ensureReady = initAutomationSlot;
+
+  // core-ready 後に初期化（連携済みのときだけ構築）
+  window.SK_CORE.on('core-ready', function () {
+    initAutomationSlot();
   });
 })();
