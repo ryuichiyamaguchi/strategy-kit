@@ -19,6 +19,15 @@
 3. 「**パッケージ化されていない拡張機能を読み込む**」をクリックし、解凍したフォルダを選択します。
 4. テストユーザー登録済みの Google アカウントでログインすると使えます。
 
+## SNS-KIT X版 beta（Windows 実機確認用）
+
+X（旧Twitter）運用計画用の試験版です。受講者正式配布前の実機確認用として、以下をダウンロードして解凍してください。
+
+- `sns-kit-v0.12.18.zip`
+- 直リンク: `https://github.com/ryuichiyamaguchi/strategy-kit/raw/main/sns-kit-v0.12.18.zip`
+
+インストール手順は STRATEGY-KIT と同じです。Chrome の `chrome://extensions` で「パッケージ化されていない拡張機能を読み込む」から、解凍したフォルダを選択します。
+
 ## セットアップ
 
 - **Gemini API キーの用意**: `docs/setup-guide-gemini-api.md`
