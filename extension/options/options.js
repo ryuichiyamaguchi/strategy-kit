@@ -24,6 +24,37 @@ async function loadJson(path) {
   return res.json();
 }
 
+// product.json を読んで製品設定を解決する（sidepanel.js の resolveProductConfig と同一挙動）。
+// loadJson を注入式にして外部依存のない純関数に保つ。product.json が無い・壊れている
+// 場合は現行ハードコードパス（Webマーケ版）へ完全フォールバックする。
+const PRODUCT_CONFIG_FALLBACK = {
+  productLine: 'strategy-kit-v0.11',
+  promptsPath: 'data/prompts.json',
+  benchmarkSource: 'industry',
+  benchmarkPath: 'data/industries.json',
+  branding: { name: 'STRATEGY-KIT Helper', footerLabel: 'STRATEGY-KIT' },
+};
+
+async function resolveProductConfig(loadJsonFn) {
+  let raw = null;
+  try {
+    raw = await loadJsonFn('product.json');
+  } catch (e) {
+    raw = null;
+  }
+  const cfg = raw && typeof raw === 'object' ? raw : {};
+  return {
+    productLine: cfg.productLine || PRODUCT_CONFIG_FALLBACK.productLine,
+    promptsPath: cfg.promptsPath || PRODUCT_CONFIG_FALLBACK.promptsPath,
+    benchmarkSource:
+      cfg.benchmarkSource === 'platform' ? 'platform' : PRODUCT_CONFIG_FALLBACK.benchmarkSource,
+    benchmarkPath: cfg.benchmarkPath || PRODUCT_CONFIG_FALLBACK.benchmarkPath,
+    branding: cfg.branding && typeof cfg.branding === 'object'
+      ? cfg.branding
+      : PRODUCT_CONFIG_FALLBACK.branding,
+  };
+}
+
 function setStatus(el, text, kind = '') {
   if (!el) return;
   el.textContent = text;
@@ -227,7 +258,9 @@ function bindMasterDocCard() {
     const status = document.getElementById('master-doc-status');
     setStatus(status, '作成中…');
     try {
-      const prompts = await loadJson('data/prompts.json');
+      // product.json 経由で promptsPath を解決（無ければ data/prompts.json へフォールバック）
+      const productConfig = await resolveProductConfig(loadJson);
+      const prompts = await loadJson(productConfig.promptsPath);
       const result = await createMasterDocument({
         docsClient: { createDocument, batchUpdate },
         storageArea: chrome.storage.sync,

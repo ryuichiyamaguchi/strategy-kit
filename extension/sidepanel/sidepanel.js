@@ -33,9 +33,26 @@ const DEFAULT_PHASE_TOTAL = 10;
 const META_SYNC_DEBOUNCE_MS = 1000;
 const ENGAGEMENT_MODE_KEY = 'sk_engagement_mode';
 const HEARING_RAWTEXT_LOCAL_KEY = 'sk_hearing_rawtext_v012_local';
+// HEARING_SUMMARY_KEY は in-memory の state.settings 上のキー（§1 注入の参照元）。
+// v3.5: 保存先は chrome.storage.local の HEARING_SUMMARY_LOCAL_KEY に移行（sync 8KB/item クォータ回避）。
+//   旧 sync キー sk_hearing_summary_v012 はマイグレーション元として残し、移行後に sync から削除する。
 const HEARING_SUMMARY_KEY = 'sk_hearing_summary_v012';
+const HEARING_SUMMARY_LOCAL_KEY = 'sk_hearing_summary_v013_local';
+const HEARING_SUMMARY_LEGACY_SYNC_KEY = 'sk_hearing_summary_v012';
 const HEARING_NOTES_KEY = 'sk_hearing_notes_v012';
+// v0.13: 案件整合メタ + skip ack（F2: 別案件の古い要約で全自動が走る事故を防ぐ）
+const HEARING_META_KEY = 'sk_hearing_meta_v013';
+const HEARING_SKIP_ACK_KEY = 'sk_hearing_skip_ack_v013';
 const HEARING_SUMMARY_HARD_LIMIT = 6000;
+
+// hearing-readiness.js（純ロジック）は ESM。classic script の sidepanel.js からは
+// 起動時に動的 import して同期参照できるよう保持する。
+let hearingReadinessModule = null;
+async function ensureHearingReadinessModule() {
+  if (hearingReadinessModule) return hearingReadinessModule;
+  hearingReadinessModule = await import(chrome.runtime.getURL('phase0/hearing-readiness.js'));
+  return hearingReadinessModule;
+}
 
 function getAiOrigin(site) {
   const url = AI_URLS[site];
@@ -140,6 +157,8 @@ const state = {
   industries: null,
   prompts: null,
   aiProfiles: null,
+  platforms: null,
+  productConfig: null,
   settings: {
     industry: 'generic',
     industryLabel: '',
@@ -156,6 +175,8 @@ const state = {
     [ENGAGEMENT_MODE_KEY]: '',
     [HEARING_SUMMARY_KEY]: '',
     [HEARING_NOTES_KEY]: '',
+    [HEARING_META_KEY]: null,
+    [HEARING_SKIP_ACK_KEY]: null,
   },
   modeLocal: {
     [HEARING_RAWTEXT_LOCAL_KEY]: '',
@@ -180,6 +201,58 @@ async function loadJson(path) {
   const res = await fetch(url);
   if (!res.ok) throw new Error('failed to load ' + path);
   return res.json();
+}
+
+// product.json を読んで製品設定を解決する（Webマーケ版 / SNS 版の間接化）。
+// loadJson を注入式にして外部依存のない純関数に保つ（options.js と共有・テスト容易化）。
+// product.json が無い・壊れている場合は現行ハードコードパスへ完全フォールバックする。
+const PRODUCT_CONFIG_FALLBACK = {
+  productLine: 'strategy-kit-v0.11',
+  promptsPath: 'data/prompts.json',
+  benchmarkSource: 'industry',
+  benchmarkPath: 'data/industries.json',
+  branding: { name: 'STRATEGY-KIT Helper', footerLabel: 'STRATEGY-KIT' },
+};
+
+async function resolveProductConfig(loadJsonFn) {
+  let raw = null;
+  try {
+    raw = await loadJsonFn('product.json');
+  } catch (e) {
+    raw = null;
+  }
+  const cfg = raw && typeof raw === 'object' ? raw : {};
+  return {
+    productLine: cfg.productLine || PRODUCT_CONFIG_FALLBACK.productLine,
+    promptsPath: cfg.promptsPath || PRODUCT_CONFIG_FALLBACK.promptsPath,
+    benchmarkSource:
+      cfg.benchmarkSource === 'platform' ? 'platform' : PRODUCT_CONFIG_FALLBACK.benchmarkSource,
+    benchmarkPath: cfg.benchmarkPath || PRODUCT_CONFIG_FALLBACK.benchmarkPath,
+    branding: cfg.branding && typeof cfg.branding === 'object'
+      ? cfg.branding
+      : PRODUCT_CONFIG_FALLBACK.branding,
+  };
+}
+
+// 製品設定に従い prompts / industries / platforms / ai-profiles をまとめてロードする。
+// industries.json と ai-profiles.json は両製品で常時ロード（業種プリセット UI が使うため）。
+// benchmarkSource==="platform" のときのみ追加で platforms（benchmarkPath）をロードする。
+async function loadProductData(loadJsonFn) {
+  const config = await resolveProductConfig(loadJsonFn);
+  const [industries, prompts, aiProfiles] = await Promise.all([
+    loadJsonFn('data/industries.json'),
+    loadJsonFn(config.promptsPath),
+    loadJsonFn('data/ai-profiles.json'),
+  ]);
+  let platforms = null;
+  if (config.benchmarkSource === 'platform') {
+    try {
+      platforms = await loadJsonFn(config.benchmarkPath);
+    } catch (e) {
+      platforms = null;
+    }
+  }
+  return { config, industries, prompts, aiProfiles, platforms };
 }
 
 function el(tag, props = {}, ...children) {
@@ -273,6 +346,16 @@ function applyTemplate(text) {
   const store = state.settings.storeName || '';
   const topic = state.settings.researchTopic || '';
   const no = state.settings.researchNo || 'NN';
+  // SNS 版トークン。★アカウント名★ は店舗名入力の読み替え（store を流用）。
+  // ★プラットフォーム★ は state.platforms（benchmarkSource==="platform" でのみロード）の
+  // default アイテムの label。platforms 未ロード時（Webマーケ版）は空 → 置換しない
+  // （prompts.json は当該トークンを含まないため無害）。
+  const platformLabel = (() => {
+    const plats = state.platforms;
+    if (!plats || !Array.isArray(plats.items)) return '';
+    const def = plats.items.find((p) => p.id === plats.default) || plats.items[0];
+    return (def && def.label) || '';
+  })();
 
   let out = String(text || '');
   out = out
@@ -285,7 +368,10 @@ function applyTemplate(text) {
   if (store)
     out = out
       .replaceAll('★店舗名★', store)
-      .replaceAll('★店舗・屋号★', store);
+      .replaceAll('★店舗・屋号★', store)
+      .replaceAll('★アカウント名★', store);
+  if (platformLabel)
+    out = out.replaceAll('★プラットフォーム★', platformLabel);
   if (industry && store)
     out = out.replaceAll('★業種・店舗★', `${industry} / ${store}`);
   if (topic)
@@ -851,11 +937,26 @@ function getRawPhases() {
   return state.prompts?.phases || [];
 }
 
+// 製品別の合成フェーズ文言を supplementary から引く（構造は変えず文言ソースのみ間接化）。
+// state.prompts.supplementary に該当 id があれば body/title を採用、無ければ現行ハードコード
+// （Webマーケ版互換）にフォールバックする。
+function findSupplementaryEntry(supId) {
+  const list = state.prompts?.supplementary;
+  if (!Array.isArray(list)) return null;
+  return list.find((s) => s && s.id === supId) || null;
+}
+
 function buildModeAHearingDesignPhase() {
+  // Webマーケ版互換のデフォルト（supplementary に mode-a-hearing-design が無い場合に使用）
+  const fallbackTitle = 'ヒアリング設計（30問 + 所感欄）';
+  const fallbackBody = '{{businessContext}}\n\n業種「★業種★」／店舗「★店舗名★」について、クライアントワーク開始前のヒアリング設計を作成してください。6カテゴリ x 5問 = 30問に整理し、各質問に「質問の意図」を1行で付けてください。\n\n【質問カテゴリ】\n1. 事業・サービス全体像: 5問\n2. 顧客・市場: 5問\n3. 競合・差別化: 5問\n4. マーケティング・営業: 5問\n5. 数字・採算: 5問\n6. 組織・制約・意思決定: 5問\n\n【必須で聞く項目】\n- 予算\n- 意思決定者\n- 導入期限\n- 過去施策の実測値\n\n所感欄に書いた仮説は [仮説] タグにしてください。';
+  const sup = findSupplementaryEntry('mode-a-hearing-design');
+  const title = (sup && sup.title) || fallbackTitle;
+  const body = (sup && sup.body) || fallbackBody;
   return {
     id: 'phase-0-mode-a-hearing-design',
     no: 0,
-    title: 'ヒアリング設計（30問 + 所感欄）',
+    title: title,
     frame: '6カテゴリ x 5問 = 30問',
     primaryAi: 'chatgpt',
     secondaryAi: 'claude',
@@ -866,7 +967,7 @@ function buildModeAHearingDesignPhase() {
         id: 'phase-0-mode-a-hearing-design-prompt',
         label: 'ヒアリング質問30問を作る',
         for: 'chatgpt',
-        body: '{{businessContext}}\n\n業種「★業種★」／店舗「★店舗名★」について、クライアントワーク開始前のヒアリング設計を作成してください。6カテゴリ x 5問 = 30問に整理し、各質問に「質問の意図」を1行で付けてください。\n\n【質問カテゴリ】\n1. 事業・サービス全体像: 5問\n2. 顧客・市場: 5問\n3. 競合・差別化: 5問\n4. マーケティング・営業: 5問\n5. 数字・採算: 5問\n6. 組織・制約・意思決定: 5問\n\n【必須で聞く項目】\n- 予算\n- 意思決定者\n- 導入期限\n- 過去施策の実測値\n\n所感欄に書いた仮説は [仮説] タグにしてください。'
+        body: body
       }
     ],
     modeKind: 'hearingDesign',
@@ -937,6 +1038,12 @@ function buildBusinessContextForMode(mode) {
     if (!summary) {
       return '【クライアントワーク / ヒアリング済】ヒアリング要約が未確定です。§0で録音文字起こしを要約し、要約を確定してから§1以降へ進んでください。';
     }
+    // R1: B も C と同様に「案件整合 OK のときのみ」注入する（設計 §3 F2）。
+    // stale-summary（別案件の古い要約）やメタ無し（整合不明）は注入しない。
+    // 注入しない場合はヒアリング未確定のプレースホルダを返す。
+    if (!isHearingSummaryConsistentSync()) {
+      return '【クライアントワーク / ヒアリング済】ヒアリング要約の案件整合が確認できません。§0でヒアリング要約を確認・確定してから§1以降へ進んでください。';
+    }
     return [
       '【クライアントワーク / ヒアリング済】',
       '以下はヒアリング録音文字起こし等を要約した一次情報です。',
@@ -945,15 +1052,156 @@ function buildBusinessContextForMode(mode) {
       summary,
     ].join('\n');
   }
+  // F1: モードC（自社事業）でも、案件整合の取れた確定要約があれば注入する。
+  // ラベルは B（クライアント文字起こし要約）と区別する。
+  if (mode === 'C') {
+    const summary = String(state.settings[HEARING_SUMMARY_KEY] || '').trim();
+    if (summary && isHearingSummaryConsistentSync()) {
+      // 壁打ち要約のラベル文言も製品別に差し替え可能化（構造は不変）。
+      // supplementary id "mode-c-wallbounce" の body があればその行群を使い、
+      // 無ければ現行ハードコード（Webマーケ版互換）にフォールバックする。
+      const sup = findSupplementaryEntry('mode-c-wallbounce');
+      const header = (sup && sup.body)
+        ? sup.body
+        : [
+            '【自社事業ヒアリング（壁打ち）結果】',
+            '以下は AI 壁打ち等で整理した自社事業の一次情報です。',
+            '後続フェーズではこの要約を優先し、要約にない事実は推測で補完しないでください。',
+          ].join('\n');
+      return [header, '', summary].join('\n');
+    }
+    return '';
+  }
   return '';
 }
 
+// F2: state.settings に保持した案件メタが現在の業種/店舗と一致するか（同期判定）。
+// hearing-readiness.js が未ロードでも安全側（不整合）に倒す。
+function isHearingSummaryConsistentSync() {
+  if (!hearingReadinessModule) return false;
+  return hearingReadinessModule.isHearingMetaConsistent(
+    state.settings[HEARING_META_KEY],
+    { storeName: state.settings.storeName, industryLabel: state.settings.industryLabel }
+  );
+}
+
+// ゲート・next-action 誘導が共有するヒアリング準備状況（設計 §4-4）。
+// module 未ロード時は安全側（ヒアリング未完）に倒し、誤ってゲートを素通りさせない。
+function getHearingReadinessState(modeOverride) {
+  const mode = getEngagementMode(modeOverride);
+  if (!hearingReadinessModule) {
+    return {
+      mode,
+      hasSummary: !!String(state.settings[HEARING_SUMMARY_KEY] || '').trim(),
+      consistent: false,
+      metaUnknown: false,
+      skipAckValid: false,
+      gateRequired: true,
+      status: mode === 'A' ? 'mode-a-design' : 'needs-hearing',
+      staleStoreName: '',
+    };
+  }
+  return hearingReadinessModule.getHearingReadiness({
+    mode,
+    summary: state.settings[HEARING_SUMMARY_KEY],
+    meta: state.settings[HEARING_META_KEY],
+    skipAck: state.settings[HEARING_SKIP_ACK_KEY],
+    settings: {
+      storeName: state.settings.storeName,
+      industryLabel: state.settings.industryLabel,
+    },
+  });
+}
+
+// F2: 「このまま進む」同意を案件スコープで記録する（別案件では再度ゲートを出す）。
+async function persistHearingSkipAck() {
+  let ack;
+  try {
+    const mod = await ensureHearingReadinessModule();
+    ack = mod.buildHearingMeta({
+      storeName: state.settings.storeName,
+      industryLabel: state.settings.industryLabel,
+    });
+  } catch (_) {
+    ack = {
+      storeName: String(state.settings.storeName || '').trim(),
+      industryLabel: String(state.settings.industryLabel || '').trim(),
+      updatedAt: Date.now(),
+    };
+  }
+  await chrome.storage.sync.set({ sk_hearing_skip_ack_v013: ack });
+  state.settings[HEARING_SKIP_ACK_KEY] = ack;
+  return ack;
+}
+
+// メタ無し既存要約（後方互換）/ 別案件メタを「現在の案件のもの」として整合化する。
+// ゲートの「引き継ぐ / この要約のまま進む」で使う。
+async function adoptHearingSummaryForCurrentCase() {
+  let meta;
+  try {
+    const mod = await ensureHearingReadinessModule();
+    meta = mod.buildHearingMeta({
+      storeName: state.settings.storeName,
+      industryLabel: state.settings.industryLabel,
+    });
+  } catch (_) {
+    meta = {
+      storeName: String(state.settings.storeName || '').trim(),
+      industryLabel: String(state.settings.industryLabel || '').trim(),
+      updatedAt: Date.now(),
+    };
+  }
+  await chrome.storage.sync.set({ sk_hearing_meta_v013: meta });
+  state.settings[HEARING_META_KEY] = meta;
+  return meta;
+}
+
 async function loadModeLocalState() {
-  const stored = await chrome.storage.local.get(['sk_hearing_rawtext_v012_local']);
+  const stored = await chrome.storage.local.get([
+    'sk_hearing_rawtext_v012_local',
+    HEARING_SUMMARY_LOCAL_KEY,
+  ]);
   state.modeLocal[HEARING_RAWTEXT_LOCAL_KEY] = String(stored.sk_hearing_rawtext_v012_local || '');
+
+  // v3.5: 要約本体は local が正。旧 sync 本体（loadSettings で読んだ HEARING_SUMMARY_KEY）
+  //   しか無ければ local へ移行し、移行成功後に旧 sync キーを削除（sync 全体クォータ100KBを解放）。
+  await hydrateHearingSummaryBody(stored[HEARING_SUMMARY_LOCAL_KEY]);
+
   if (!state.modeLocal.hearingSummaryDraft) {
     state.modeLocal.hearingSummaryDraft = String(state.settings[HEARING_SUMMARY_KEY] || '');
   }
+}
+
+// v3.5: ローカル本体のハイドレーション＋後方互換マイグレーション。
+//   local 値を優先。local 空で旧 sync 値があれば local へコピーし、成功後のみ sync 旧キーを削除。
+async function hydrateHearingSummaryBody(localValue) {
+  const legacySyncValue = String(state.settings[HEARING_SUMMARY_KEY] || '');
+  let plan;
+  try {
+    const mod = await ensureHearingReadinessModule();
+    plan = mod.planHearingSummaryMigration({ localValue, legacySyncValue });
+  } catch (_) {
+    // 純ロジック未ロード時のフォールバック（同等の方針: local 優先・旧 sync は移行）。
+    const local = String(localValue || '').trim();
+    const legacy = legacySyncValue.trim();
+    plan = local
+      ? { value: local, migrate: false, removeLegacy: false }
+      : (legacy ? { value: legacy, migrate: true, removeLegacy: true } : { value: '', migrate: false, removeLegacy: false });
+  }
+
+  if (plan.migrate && plan.value) {
+    try {
+      await chrome.storage.local.set({ [HEARING_SUMMARY_LOCAL_KEY]: plan.value });
+      if (plan.removeLegacy) {
+        // 移行成功後のみ旧 sync キーを削除する（コピー前に消さない）。
+        await chrome.storage.sync.remove([HEARING_SUMMARY_LEGACY_SYNC_KEY]);
+      }
+    } catch (e) {
+      console.warn('[strategy-kit] hearing summary migration failed', e);
+    }
+  }
+  // in-memory の正（§1 注入の参照元）を local 本体に揃える。
+  state.settings[HEARING_SUMMARY_KEY] = plan.value;
 }
 
 function persistModeAuxInput(key, value, immediate = false) {
@@ -1161,11 +1409,30 @@ async function persistHearingSummary(summary) {
     return false;
   }
   try {
+    // F2: 要約確定時に案件メタ（storeName/industryLabel/updatedAt）を併存保存する。
+    let meta = null;
+    try {
+      const mod = await ensureHearingReadinessModule();
+      meta = mod.buildHearingMeta({
+        storeName: state.settings.storeName,
+        industryLabel: state.settings.industryLabel,
+      });
+    } catch (_) {
+      meta = {
+        storeName: String(state.settings.storeName || '').trim(),
+        industryLabel: String(state.settings.industryLabel || '').trim(),
+        updatedAt: Date.now(),
+      };
+    }
+    // v3.5 真因対応: 本体は chrome.storage.local（10MB級）へ。メタ＋lastPhase だけ sync。
+    //   sync は QUOTA_BYTES_PER_ITEM=8192 のため日本語要約（最大18KB）は必ず reject されていた。
+    await chrome.storage.local.set({ [HEARING_SUMMARY_LOCAL_KEY]: value });
     await chrome.storage.sync.set({
-      sk_hearing_summary_v012: value,
+      sk_hearing_meta_v013: meta,
       lastPhase: 'phase-1',
     });
     state.settings[HEARING_SUMMARY_KEY] = value;
+    state.settings[HEARING_META_KEY] = meta;
     state.settings.lastPhase = 'phase-1';
     state.modeLocal.hearingSummaryDraft = value;
     state.modeLocal.hearingStatus = 'saved';
@@ -1178,7 +1445,8 @@ async function persistHearingSummary(summary) {
   } catch (e) {
     console.warn('[strategy-kit] hearing summary persist failed', e);
     state.modeLocal.hearingStatus = 'error';
-    state.modeLocal.hearingStatusMessage = '保存に失敗しました。6000字以内に短くして再試行してください';
+    const reason = String((e && e.message) || e || '不明なエラー');
+    state.modeLocal.hearingStatusMessage = `保存に失敗しました（${reason}）。`;
     renderModeSelector();
     return false;
   }
@@ -1299,8 +1567,10 @@ function buildModeBHearingSummaryPanel() {
           refreshHearingPanelControls(event.target.closest('.mode-b-summary-panel'));
         },
         blur: (event) => {
+          // 状態の保存のみ。ここでパネルを全再描画すると、貼り付け直後に
+          // 「この要約で確定」を押した際 blur が先に発火して押下中のボタンが破棄され
+          // click が発火しない（モードC と同根のクリック飲み込み。2026-06-06）。
           state.modeLocal.hearingSummaryDraft = event.target.value;
-          renderModeSelector();
         },
       },
     })
@@ -1345,6 +1615,123 @@ function buildModeBHearingSummaryPanel() {
   }));
   panel.appendChild(actions);
   return panel;
+}
+
+// v3.2 FixA: モードC（自社事業）の壁打ち要約 取り込みパネル（B パネルの簡易版）。
+// 壁打ち出力は既に8セクションなので Gemini 再要約は不要。貼って確定だけのシンプル導線。
+// 確定は既存 persistHearingSummary 経路（6000字検証＋F2 メタ保存は persist 内）を共有する。
+function buildModeCHearingSummaryPanel() {
+  const summaryDraft = getHearingSummaryDraft();
+  const summaryTrimmed = summaryDraft.trim();
+  const summaryTooLong = summaryTrimmed.length > HEARING_SUMMARY_HARD_LIMIT;
+  const storedSummary = String(state.settings[HEARING_SUMMARY_KEY] || '').trim();
+  const confirmed = !!storedSummary && isHearingSummaryConsistentSync();
+  const canConfirm = !!summaryTrimmed && !summaryTooLong;
+
+  const panel = el('div', {
+    class: 'mode-c-summary-panel',
+    style: 'display:grid;gap:8px;margin-top:10px',
+  });
+
+  // 確定済み（この案件の要約あり・整合OK）のときは状態表示＋作り直し導線のみ。
+  if (confirmed) {
+    panel.appendChild(el('div', {
+      style: 'font-size:12px;font-weight:700;color:#166534',
+      text: '✓ この案件のヒアリング要約は確定済みです。このまま全自動を実行できます',
+    }));
+    panel.appendChild(el('div', {
+      style: 'font-size:11px;color:#64748b',
+      text: `現在の要約 ${storedSummary.length.toLocaleString()}字`,
+    }));
+    panel.appendChild(el('button', {
+      class: 'btn btn-ghost btn-sm',
+      type: 'button',
+      text: '破棄して作り直す',
+      style: 'justify-self:start',
+      on: { click: () => discardHearingSummaryForRebuild() },
+    }));
+    return panel;
+  }
+
+  // 注意: blur で renderModeSelector() による全再描画をしてはいけない。
+  //   貼り付け直後に「この要約で確定」を押すと、textarea の blur で押下中のボタン自体が
+  //   破棄されて click が発火しない（実機 2026-06-06: ボタン無反応の原因）。
+  //   入力のたびにボタン活性・文字数・状態行を「直接」更新し、再描画なしで反映する。
+  // v3.5: persist 失敗時の hearingStatusMessage を表示する（B パネル同様）。
+  //   旧実装は summaryTooLong しか見ず、保存失敗が「無反応」に見えていた（真因2）。
+  const isError = state.modeLocal.hearingStatus === 'error';
+  const statusRow = el('div', {
+    attrs: { 'data-role': 'hearing-status' },
+    style: `font-size:12px;font-weight:700;color:${(summaryTooLong || isError) ? '#b91c1c' : '#166534'}`,
+    text: summaryTooLong
+      ? '要約が長すぎます。6000字以内に短くしてください'
+      : (isError && state.modeLocal.hearingStatusMessage)
+        ? state.modeLocal.hearingStatusMessage
+        : '壁打ちで作ったヒアリング要約を貼り付けて確定してください',
+  });
+  const counterRow = el('div', {
+    style: 'font-size:11px;color:#64748b',
+    text: `要約 ${summaryTrimmed.length.toLocaleString()}字（保存上限 ${HEARING_SUMMARY_HARD_LIMIT.toLocaleString()}字）`,
+  });
+  const confirmBtn = el('button', {
+    class: 'btn btn-primary btn-sm',
+    type: 'button',
+    text: 'この要約で確定',
+    disabled: !canConfirm,
+    style: 'justify-self:start',
+    on: { click: () => persistHearingSummary(getHearingSummaryDraft()) },
+  });
+  function syncConfirmUi(rawValue) {
+    const trimmed = String(rawValue || '').trim();
+    const tooLong = trimmed.length > HEARING_SUMMARY_HARD_LIMIT;
+    confirmBtn.disabled = !trimmed || tooLong;
+    counterRow.textContent = `要約 ${trimmed.length.toLocaleString()}字（保存上限 ${HEARING_SUMMARY_HARD_LIMIT.toLocaleString()}字）`;
+    statusRow.style.color = tooLong ? '#b91c1c' : '#166534';
+    statusRow.textContent = tooLong
+      ? '要約が長すぎます。6000字以内に短くしてください'
+      : '壁打ちで作ったヒアリング要約を貼り付けて確定してください';
+  }
+  panel.appendChild(statusRow);
+  panel.appendChild(el('label', { style: 'display:grid;gap:4px;font-size:12px;font-weight:700' },
+    document.createTextNode('壁打ちで作ったヒアリング要約（8セクション）をここに貼り付け'),
+    el('textarea', {
+      value: summaryDraft,
+      placeholder: 'AI（ChatGPT / Claude / Gemini）との壁打ちで出てきた8セクションのヒアリング要約を、そのまま貼り付けてください。',
+      attrs: { 'data-role': 'hearing-summary' },
+      style: 'width:100%;min-height:140px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:12px;line-height:1.5;resize:vertical',
+      on: {
+        input: (event) => {
+          state.modeLocal.hearingSummaryDraft = event.target.value;
+          syncConfirmUi(event.target.value);
+        },
+        blur: (event) => {
+          // 状態の保存のみ。再描画しない（クリック飲み込み防止）。
+          state.modeLocal.hearingSummaryDraft = event.target.value;
+        },
+      },
+    })
+  ));
+  panel.appendChild(counterRow);
+  panel.appendChild(confirmBtn);
+  return panel;
+}
+
+// v3.2 FixA: モードC の確定済み要約を破棄して貼り直せる状態に戻す。
+async function discardHearingSummaryForRebuild() {
+  try {
+    // v3.5: 本体は local、メタ（+旧 sync 本体の残骸があれば）は sync を消す。
+    await chrome.storage.local.remove([HEARING_SUMMARY_LOCAL_KEY]);
+    await chrome.storage.sync.remove([HEARING_SUMMARY_LEGACY_SYNC_KEY, HEARING_META_KEY]);
+  } catch (_) {}
+  state.settings[HEARING_SUMMARY_KEY] = '';
+  state.settings[HEARING_META_KEY] = null;
+  state.modeLocal.hearingSummaryDraft = '';
+  state.modeLocal.hearingStatus = 'idle';
+  state.modeLocal.hearingStatusMessage = '要約を破棄しました。壁打ちで作り直して貼り直してください';
+  renderModeSelector();
+  renderPhaseList();
+  renderNextAction();
+  showToast('ヒアリング要約を破棄しました');
 }
 
 function renderModeSelector() {
@@ -1449,6 +1836,10 @@ function renderModeSelector() {
 
   if (mode === 'B' && expanded) {
     optionsWrap.appendChild(buildModeBHearingSummaryPanel());
+  }
+
+  if (mode === 'C' && expanded) {
+    optionsWrap.appendChild(buildModeCHearingSummaryPanel());
   }
   mount.appendChild(optionsWrap);
 }
@@ -2126,14 +2517,28 @@ function computeNextAction() {
       action: 'open-mode',
     };
   }
-  if (getEngagementMode() === 'B' && !String(state.settings[HEARING_SUMMARY_KEY] || '').trim()) {
+  // ヒアリング誘導は停止ゲートと同じ共有判定（getHearingReadinessState）を参照し、
+  // 文言・発火条件の二重化/矛盾を防ぐ（設計 §4-4）。
+  // 進捗がまだ無い段階でのみ §0 ヒアリングへ誘導する（着手後の動線は不変）。
+  const hearingReadiness = getHearingReadinessState();
+  const mode = getEngagementMode();
+  if ((mode === 'B' || mode === 'C') && hearingReadiness.gateRequired && filled.size === 0 && partial.size === 0) {
     const summaryPhase = phases.find((p) => String(p.no) === '0');
+    if (mode === 'B') {
+      return {
+        eyebrow: 'ヒアリング済み案件',
+        parts: ['', '§0 ヒアリング要約', 'を確定します'],
+        cta: '要約する',
+        action: 'open-phase',
+        phaseId: summaryPhase?.id || 'phase-0-mode-b-hearing-summary',
+      };
+    }
+    // モードC（自社事業）: 全自動タブへ誘導（全自動開始時にヒアリングゲートが案内する）
     return {
-      eyebrow: 'ヒアリング済み案件',
-      parts: ['', '§0 ヒアリング要約', 'を確定します'],
-      cta: '要約する',
-      action: 'open-phase',
-      phaseId: summaryPhase?.id || 'phase-0-mode-b-hearing-summary',
+      eyebrow: 'まず最初に',
+      parts: ['全自動を開始すると', 'ヒアリング入力', 'を案内します'],
+      cta: '自動化タブへ',
+      action: 'open-automation',
     };
   }
   const partialPhase = phases.find((p) => partial.has(String(p.no)));
@@ -2314,6 +2719,9 @@ function activateNextActionFromHost(host) {
     // Wave 4: 図解タブ廃止に伴い、完了時はマスタードキュメントを開く
     const masterBtn = document.getElementById('open-master-doc');
     if (masterBtn) masterBtn.click();
+  } else if (act === 'open-automation') {
+    // C モード・ヒアリング誘導: 自動化タブへ移動（全自動開始時にゲートが案内）
+    switchTab('automation');
   }
 }
 
@@ -3540,6 +3948,8 @@ async function loadSettings() {
     'sk_engagement_mode',
     'sk_hearing_summary_v012',
     'sk_hearing_notes_v012',
+    HEARING_META_KEY,
+    HEARING_SKIP_ACK_KEY,
   ]);
   state.settings = { ...state.settings, ...stored };
 }
@@ -3653,8 +4063,10 @@ function bindSetupForm() {
 	          'sk_engagement_mode',
 	          'sk_hearing_summary_v012',
 	          'sk_hearing_notes_v012',
+	          'sk_hearing_meta_v013',
+	          'sk_hearing_skip_ack_v013',
 	        ]);
-	        await chrome.storage.local.remove(['sk_hearing_rawtext_v012_local']);
+	        await chrome.storage.local.remove(['sk_hearing_rawtext_v012_local', 'sk_hearing_summary_v013_local']);
 	      } catch (e) {
         console.error('[STRATEGY-KIT] sync.remove エラー:', e);
       }
@@ -3728,6 +4140,9 @@ window.SK_CORE = {
   getCurrentPhase: () =>
     findModeAdjustedPhaseById(state.settings.lastPhase),
   getPhases: () => getVisiblePhases(),
+  // SNS 版のプラットフォーム別ベンチマーク（automation.js の findPlatform が参照）。
+  // benchmarkSource==="platform" 以外（Webマーケ版）では null。
+  getPlatforms: () => state.platforms || null,
   getResearchCycle: () => state.prompts?.researchCycle || null,
   q2Filtering: {
     normalizeQ2Category,
@@ -3756,6 +4171,12 @@ window.SK_CORE = {
   // 永続化
   persistSettings,
 
+  // ヒアリング停止ゲート（automation.js が参照）
+  getHearingReadinessState,
+  persistHearingSkipAck,
+  adoptHearingSummaryForCurrentCase,
+  ensureHearingReadinessModule,
+
   // 状態永続化（state-persistence.js が先行ロードされていれば）
   get stateStore() {
     return window.SK_STATE || null;
@@ -3765,24 +4186,47 @@ window.SK_CORE = {
 (async function init() {
   try {
     // v0.12.1: バージョン文字列はハードコードせず manifest から動的取得
+    // SNS 版対応: ブランド表記は product.json の branding.footerLabel に間接化。
+    // product.json ロード前なので一旦フォールバック表記で描画し、ロード後に上書きする。
+    const footerVersionEl = document.getElementById('footer-version');
+    let manifestVersionStr = '';
     try {
-      const manifestVersion = chrome?.runtime?.getManifest?.()?.version;
-      const footerVersion = document.getElementById('footer-version');
-      if (footerVersion && manifestVersion) {
-        footerVersion.textContent = 'STRATEGY-KIT v' + manifestVersion;
+      manifestVersionStr = chrome?.runtime?.getManifest?.()?.version || '';
+      if (footerVersionEl && manifestVersionStr) {
+        footerVersionEl.textContent = 'STRATEGY-KIT v' + manifestVersionStr;
       }
     } catch (_) {
       /* manifest 取得失敗時はフォールバックでそのまま */
     }
 
-    [state.industries, state.prompts, state.aiProfiles] = await Promise.all([
-      loadJson('data/industries.json'),
-      loadJson('data/prompts.json'),
-      loadJson('data/ai-profiles.json'),
-	    ]);
+    // product.json 経由で製品設定を解決し、prompts / industries / platforms をロードする。
+    // product.json が無い／読めない場合は data/prompts.json + data/industries.json へ
+    // 完全フォールバックする（既存 Webマーケ版を一切壊さない）。
+    const productData = await loadProductData(loadJson);
+    state.productConfig = productData.config;
+    state.industries = productData.industries;
+    state.prompts = productData.prompts;
+    state.aiProfiles = productData.aiProfiles;
+    state.platforms = productData.platforms;
+
+    // フッター表記を product.json の branding.footerLabel に間接化（不読時は STRATEGY-KIT）。
+    try {
+      const footerLabel =
+        (state.productConfig && state.productConfig.branding && state.productConfig.branding.footerLabel) ||
+        'STRATEGY-KIT';
+      if (footerVersionEl) {
+        footerVersionEl.textContent = manifestVersionStr
+          ? footerLabel + ' v' + manifestVersionStr
+          : footerLabel;
+      }
+    } catch (_) {
+      /* branding 解決失敗時はフォールバック表記のまま */
+    }
 	    await loadSettings();
 	    await loadModeLocalState();
 	    await detectGeminiSummarizerAvailability();
+	    // ヒアリング準備状況の純ロジックを先読み（buildBusinessContextForMode が同期参照する）
+	    await ensureHearingReadinessModule().catch(() => {});
 	    ensureVisibleLastPhase();
 
 	    // SK_STATE から補足状態を復元（chrome.storage.sync の設定を上書きしない）
@@ -3938,6 +4382,12 @@ window.SK_CORE = {
         state.modeLocal[HEARING_RAWTEXT_LOCAL_KEY] = String(changes.sk_hearing_rawtext_v012_local.newValue || '');
         scheduleStableRender('storage-hearing-raw');
       }
+      // v3.5: 要約本体は local に保存されるので、別コンテキストからの変更を local 側で拾う。
+      if (areaName === 'local' && changes[HEARING_SUMMARY_LOCAL_KEY]) {
+        state.settings[HEARING_SUMMARY_KEY] = String(changes[HEARING_SUMMARY_LOCAL_KEY].newValue || '');
+        state.modeLocal.hearingSummaryDraft = state.settings[HEARING_SUMMARY_KEY];
+        scheduleStableRender('storage-hearing-summary');
+      }
       if (areaName !== 'sync') return;
       let needsChecklist = false;
       let needsBusinessRefresh = false;
@@ -3947,11 +4397,8 @@ window.SK_CORE = {
         ensureVisibleLastPhase();
         needsModeRefresh = true;
       }
-      if (changes.sk_hearing_summary_v012) {
-        state.settings[HEARING_SUMMARY_KEY] = changes.sk_hearing_summary_v012.newValue || '';
-        state.modeLocal.hearingSummaryDraft = state.settings[HEARING_SUMMARY_KEY];
-        needsModeRefresh = true;
-      }
+      // v3.5: 要約本体は local 監視へ移行（上の local ブロック）。sync 側の旧キー変化（移行時の削除等）は
+      //   in-memory を上書きしない（移行で local に揃えた値を消さないため）。
       if (changes.sk_hearing_notes_v012) {
         state.settings[HEARING_NOTES_KEY] = changes.sk_hearing_notes_v012.newValue || '';
         needsModeRefresh = true;
@@ -3975,6 +4422,11 @@ window.SK_CORE = {
       }
       if (changes.sk_oauth_ready || changes.sk_master_doc_v012) {
         needsChecklist = true;
+      }
+      // マスタードキュメントが新規作成・変更されたら、進捗トラッカーに再取得を促す。
+      // （最上部の進捗チップ/ドット/「次は §N」が前案件の値のまま固まるのを防ぐ）
+      if (changes.sk_master_doc_v012) {
+        emit('master-doc-changed');
       }
       // 修正A: options 側で Google 連携が完了した（sk_oauth_ready 変化）瞬間に
       //   自動化スロットを再評価・構築する。拡張/サイドパネルのリロードを不要にする。

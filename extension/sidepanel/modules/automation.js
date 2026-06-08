@@ -258,6 +258,79 @@
     }
   }
 
+  // SNS 版プラットフォーム別 snsBenchmark を sidepanel.js の state.platforms から取得
+  // findIndustry（state.industries）と対称。state.platforms は benchmarkSource==="platform"
+  // のときだけロードされる（Webマーケ版は null）→ その場合は常に null を返し無害。
+  function findPlatform(platformIdOrLabel) {
+    try {
+      const st =
+        window.SK_CORE && window.SK_CORE.getState
+          ? window.SK_CORE.getState()
+          : null;
+      const items = st && st.platforms && st.platforms.items;
+      if (!items) return null;
+      return (
+        items.find(function (p) {
+          return p.id === platformIdOrLabel || p.label === platformIdOrLabel;
+        }) || null
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // snsBenchmark を Markdown ブロック化して body 先頭に差し込む（injectBenchmark と同型）。
+  // X 単一前提のため業種未登録向けの代替注入分岐は持たない（default 解決で足りる）。
+  // metrics は platforms.json 側でキーが増減しうるため Object.entries で動的に行生成する。
+  function injectPlatformBenchmark(body, platform) {
+    if (!platform || !platform.snsBenchmark) return body;
+    const b = platform.snsBenchmark;
+    const m = b.metrics || {};
+    function fmtRange(x) {
+      if (!x) return '— / — / —';
+      const u = x.unit ? ' ' + x.unit : '';
+      return x.low + ' / ' + x.mid + ' / ' + x.high + u;
+    }
+    function tag(x) {
+      return x && x.tag ? x.tag : '';
+    }
+    const sourcesText = (b.sources || [])
+      .map(function (s, i) {
+        return i + 1 + '. ' + s.label + ' — ' + s.url;
+      })
+      .join('\n');
+
+    const header =
+      '【プラットフォーム別ベンチマーク（自動注入: ' +
+      platform.label +
+      ' / 更新 ' +
+      b.updated +
+      '）】';
+    const lines = ['', header];
+    if (b.notes) lines.push('> ' + b.notes);
+    lines.push('', '| 指標 | low / mid / high | タグ |', '|---|---|---|');
+    // metrics は JSON のキー順を維持して動的に行生成（キー名をそのまま指標名に使う）
+    const memos = [];
+    Object.keys(m).forEach(function (key) {
+      const x = m[key];
+      lines.push('| ' + key + ' | ' + fmtRange(x) + ' | ' + tag(x) + ' |');
+      if (x && x.memo) memos.push('- ' + key + ': ' + x.memo);
+    });
+    lines.push('');
+    if (memos.length) {
+      lines.push('【指標メモ】');
+      memos.forEach(function (line) {
+        lines.push(line);
+      });
+      lines.push('');
+    }
+    if (platform.algorithmNotes) {
+      lines.push('【アルゴリズム特性メモ】', platform.algorithmNotes, '');
+    }
+    lines.push('【主要出典】', sourcesText, '');
+    return lines.join('\n') + '\n\n' + body;
+  }
+
   // unitEconomicsBenchmark を Markdown ブロック化して body 先頭に差し込む
   // 第3引数 actualIndustryLabel を渡すと「汎用基準で代替注入」モードになる
   function injectBenchmark(body, industry, actualIndustryLabel) {
@@ -341,6 +414,26 @@
           body = injectBenchmark(body, generic, formInputs.industry);
         }
         // generic も取れない最悪ケースは従来どおり素通り（body そのまま）
+      }
+    }
+
+    // SNS版: §0/§7 にプラットフォーム別 snsBenchmark を自動注入（state.platforms.default で解決）。
+    // state.platforms は benchmarkSource==="platform" のときだけロードされる → Webマーケ版は素通り。
+    if (
+      prompt.id === 'phase-sns-0-platform-research' ||
+      prompt.id === 'phase-sns-7-operations-economics'
+    ) {
+      const st =
+        window.SK_CORE && window.SK_CORE.getState
+          ? window.SK_CORE.getState()
+          : null;
+      const platformKey =
+        (formInputs && formInputs.platform) ||
+        (st && st.platforms && st.platforms.default) ||
+        null;
+      const plat = platformKey ? findPlatform(platformKey) : null;
+      if (plat && plat.snsBenchmark) {
+        body = injectPlatformBenchmark(body, plat);
       }
     }
 
@@ -1222,6 +1315,608 @@
       ctrl.cancelled = false;
     }
 
+    // ============================================================
+    // ヒアリング停止ゲート（設計 §4: 全自動の前にヒアリング完了を促す）
+    // showDraftDecisionModal と同パターンの Promise モーダル。
+    // #draft-decision-modal-root にマウント / Escape / 既存モーダルと排他。
+    // ============================================================
+    async function loadHearingReadinessModule() {
+      const url = chrome.runtime.getURL('phase0/hearing-readiness.js');
+      return await import(url);
+    }
+
+    function showHearingGateModal(plan, handlers) {
+      const el = window.SK_CORE.el;
+      const clear = window.SK_CORE.clearChildren;
+      let root = document.getElementById('draft-decision-modal-root');
+      if (!root) {
+        root = document.createElement('div');
+        root.id = 'draft-decision-modal-root';
+        root.className = 'draft-decision-modal-root hidden';
+        document.body.appendChild(root);
+      }
+
+      return new Promise(function (resolve) {
+        const previouslyFocused = document.activeElement;
+        let settled = false;
+        let resultPane = null;
+
+        function getFocusable() {
+          return Array.prototype.slice.call(
+            root.querySelectorAll('button, [href], textarea, [tabindex]:not([tabindex="-1"])')
+          ).filter(function (n) { return !n.disabled && n.offsetParent !== null; });
+        }
+
+        function cleanup() {
+          document.removeEventListener('keydown', onKeyDown, true);
+          root.classList.add('hidden');
+          root.removeAttribute('role');
+          root.removeAttribute('aria-modal');
+          root.removeAttribute('aria-labelledby');
+          clear(root);
+          if (previouslyFocused && previouslyFocused.focus) {
+            try { previouslyFocused.focus({ preventScroll: true }); } catch (_) {}
+          }
+        }
+
+        function close(outcome) {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve(outcome || { action: 'cancel' });
+        }
+
+        // Escape は「何もしない」= ゲートを閉じるだけ（全自動は開始しない・busy にしない）。
+        function onKeyDown(event) {
+          if (event['key'] === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            close({ action: 'cancel' });
+            return;
+          }
+          // フォーカストラップ
+          if (event['key'] === 'Tab') {
+            const focusable = getFocusable();
+            if (!focusable.length) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+              event.preventDefault();
+              last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+              event.preventDefault();
+              first.focus();
+            }
+          }
+        }
+
+        async function onChoice(choice) {
+          // 結果表示型（モードA質問生成）は閉じずにモーダル内で結果を見せる
+          if (choice.id === 'generate-questions' && handlers.onGenerateQuestions) {
+            const btn = root.querySelector('[data-choice="generate-questions"]');
+            if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
+            try {
+              const text = await handlers.onGenerateQuestions();
+              showResult('ヒアリング質問', text);
+            } catch (e) {
+              if (btn) { btn.disabled = false; btn.textContent = choice.label; }
+              showResult('生成に失敗しました', String((e && e.message) || e || ''), true);
+            }
+            return;
+          }
+          // 壁打ち（3段フロー）: ①項目策定中表示 ②項目確認 ③確定でコピー。
+          // フォールバック（事前調査不可・パース失敗）は handlers.onWallbounce 側で
+          // 汎用テンプレを即コピーして閉じる（ユーザーが詰まらない）。
+          if (choice.id === 'wallbounce' && handlers.onWallbounce) {
+            const btn = root.querySelector('[data-choice="wallbounce"]');
+            if (btn) { btn.disabled = true; btn.textContent = '項目を作成中…（Webで事前調査しています）'; }
+            try {
+              const res = await handlers.onWallbounce();
+              if (res && res.kind === 'items' && Array.isArray(res.items) && res.items.length) {
+                // ② 項目リストを表示し「この項目で壁打ちプロンプトを確定」ボタンを出す。
+                //    項目表示中は wallbounce ボタンを disabled のまま固定し再策定の暴発を防ぐ。
+                showInterviewItems(res.items, res.heading, {
+                  searchQueries: res.searchQueries,
+                  urlStatuses: res.urlStatuses,
+                }, async function () {
+                  const outcome = await res.onConfirm();
+                  // fix1: コピー成功時のみ閉じる。失敗時は閉じず、生成済みプロンプト全文を
+                  //       textarea で表示して手動コピー / 再コピーできる状態を残す。
+                  if (outcome && outcome.copied === false) {
+                    showResult('コピーに失敗しました（下の本文を手動でコピーしてください）', outcome.prompt || '', true);
+                    return;
+                  }
+                  close(outcome || { action: 'wallbounce' });
+                });
+                if (btn) { btn.textContent = '項目を作成しました'; }
+              } else {
+                // フォールバック（汎用テンプレを即コピー済み）。
+                // fix1: 汎用コピーも失敗時は閉じず本文を残す。
+                if (res && res.outcome && res.outcome.copied === false) {
+                  if (btn) { btn.disabled = false; btn.textContent = choice.label; }
+                  showResult('コピーに失敗しました（下の本文を手動でコピーしてください）', res.outcome.prompt || '', true);
+                } else {
+                  close((res && res.outcome) || { action: 'wallbounce' });
+                }
+              }
+            } catch (e) {
+              if (btn) { btn.disabled = false; btn.textContent = choice.label; }
+              showResult('項目の作成に失敗しました', String((e && e.message) || e || ''), true);
+            }
+            return;
+          }
+          // 貼り付け / 要約 / 引き継ぎ / 同意 はハンドラへ委譲して閉じる
+          const outcome = await handlers.onChoice(choice);
+          close(outcome || { action: 'cancel' });
+        }
+
+        // 壁打ち②: 策定された項目リストと「確定」ボタンをモーダル内に表示する。
+        // heading は grounded 有無で正直に出し分けた見出し文言（fix2）。
+        // meta = { searchQueries, urlStatuses } で検索・URL読み込みを透明化する（v3.3）。
+        function showInterviewItems(items, heading, meta, onConfirm) {
+          if (!resultPane) return;
+          clear(resultPane);
+          resultPane.style.display = '';
+          resultPane.appendChild(el('div', {
+            style: 'font-size:12px;font-weight:700;margin-bottom:6px;color:#166534',
+            text: heading || 'この案件のヒアリング項目',
+          }));
+          const listEl = el('ol', {
+            style: 'margin:0 0 8px 0;padding-left:20px;font-size:12px;line-height:1.6;max-height:220px;overflow:auto',
+          });
+          items.forEach(function (it) {
+            listEl.appendChild(el('li', { text: String(it) }));
+          });
+          resultPane.appendChild(listEl);
+
+          // 検索・URL 読み込みの透明化（v3.3）: 何を調べたかをユーザーに見せる。
+          const info = meta || {};
+          const queries = Array.isArray(info.searchQueries) ? info.searchQueries : [];
+          const urlStatuses = Array.isArray(info.urlStatuses) ? info.urlStatuses : [];
+          if (queries.length) {
+            resultPane.appendChild(el('div', {
+              style: 'font-size:11px;color:#475569;margin:0 0 4px 0',
+              text: '🔎 検索したキーワード: ' + queries.join(' / '),
+            }));
+          }
+          if (urlStatuses.length) {
+            const sites = urlStatuses.map(function (s) {
+              const host = hostFromUrl(s.url);
+              return host + (s.ok ? ' ✓' : ' ✗（読み込み失敗）');
+            }).join(' / ');
+            resultPane.appendChild(el('div', {
+              style: 'font-size:11px;color:#475569;margin:0 0 6px 0',
+              text: '📄 読み込んだサイト: ' + sites,
+            }));
+          }
+
+          const confirmBtn = el('button', {
+            class: 'btn btn-primary btn-sm',
+            type: 'button',
+            text: 'この項目で壁打ちプロンプトを確定',
+            style: 'margin-top:4px',
+            on: { click: function () { onConfirm(); } },
+          });
+          resultPane.appendChild(confirmBtn);
+          if (confirmBtn.focus) confirmBtn.focus({ preventScroll: true });
+        }
+
+        // URL からホスト名だけを取り出して短く表示する（失敗時は元文字列）。
+        function hostFromUrl(url) {
+          try {
+            return new URL(String(url)).host;
+          } catch (_) {
+            return String(url || '');
+          }
+        }
+
+        function showResult(title, text, isError) {
+          if (!resultPane) return;
+          clear(resultPane);
+          resultPane.style.display = '';
+          resultPane.appendChild(el('div', {
+            style: 'font-size:12px;font-weight:700;margin-bottom:6px;color:' + (isError ? '#b91c1c' : '#166534'),
+            text: title,
+          }));
+          const ta = el('textarea', {
+            value: text,
+            attrs: { readonly: 'readonly' },
+            style: 'width:100%;min-height:160px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:12px;line-height:1.5;resize:vertical',
+          });
+          resultPane.appendChild(ta);
+          const copyBtn = el('button', {
+            class: 'btn btn-primary btn-sm',
+            type: 'button',
+            text: 'コピー',
+            style: 'margin-top:6px',
+            on: { click: async function () {
+              try {
+                await navigator.clipboard.writeText(text);
+                window.SK_CORE.showToast('コピーしました');
+              } catch (_) {
+                window.SK_CORE.showToast('コピーに失敗しました', true);
+              }
+            } },
+          });
+          resultPane.appendChild(copyBtn);
+        }
+
+        const actions = el('div', { class: 'draft-decision-actions' });
+        (plan.choices || []).forEach(function (choice) {
+          const btn = el('button', {
+            class: 'draft-decision-choice' + (choice.recommended ? ' is-recommended' : ''),
+            type: 'button',
+            attrs: { 'data-choice': choice.id },
+            on: { click: function () { onChoice(choice); } },
+          },
+            el('span', { class: 'draft-decision-choice-title', text: choice.label }),
+            el('span', { class: 'draft-decision-choice-desc', text: choice.desc || '' })
+          );
+          actions.appendChild(btn);
+        });
+        // 「やめる」= 何もせず閉じる
+        actions.appendChild(el('button', {
+          class: 'draft-decision-choice',
+          type: 'button',
+          attrs: { 'data-choice': 'cancel' },
+          on: { click: function () { close({ action: 'cancel' }); } },
+        },
+          el('span', { class: 'draft-decision-choice-title', text: 'やめる' }),
+          el('span', { class: 'draft-decision-choice-desc', text: '実行をキャンセルします。何も変更しません。' })
+        ));
+
+        resultPane = el('div', { style: 'display:none;margin-top:12px' });
+
+        const sheet = el('div', {
+          class: 'draft-decision-sheet',
+          attrs: {
+            role: 'dialog',
+            'aria-modal': 'true',
+            'aria-labelledby': 'draft-decision-title',
+          },
+          on: { click: function (event) { event.stopPropagation(); } },
+        },
+          el('h2', { id: 'draft-decision-title', class: 'draft-decision-title', text: plan.title || 'ヒアリングを完了させましょう' }),
+          el('p', { class: 'draft-decision-lede', text: plan.lede || '' }),
+          actions,
+          resultPane
+        );
+
+        clear(root);
+        root.appendChild(sheet);
+        root.classList.remove('hidden');
+        document.addEventListener('keydown', onKeyDown, true);
+        const first = root.querySelector('.draft-decision-choice');
+        if (first && first.focus) first.focus({ preventScroll: true });
+      });
+    }
+
+    // 全自動開始前に呼ぶ。ゲートが必要なら表示し、選択結果に応じて
+    // { proceed: bool } を返す。proceed=false なら呼び出し側は busy 化せず return する。
+    async function maybeRunHearingGate(formInputs) {
+      const core = window.SK_CORE;
+      let readiness;
+      try {
+        readiness = core.getHearingReadinessState();
+      } catch (_) {
+        readiness = { gateRequired: false };
+      }
+      if (!readiness || !readiness.gateRequired) {
+        return { proceed: true };
+      }
+
+      let mod;
+      try {
+        mod = await loadHearingReadinessModule();
+      } catch (_) {
+        // 純ロジックが読めない場合は既存動線を壊さず素通り（全自動を止めない）
+        return { proceed: true };
+      }
+      const plan = mod.getHearingGatePlan({
+        mode: readiness.mode,
+        status: readiness.status,
+        staleStoreName: readiness.staleStoreName,
+      });
+
+      // supplementary id "mode-c-wallbounce" の製品別文言（questionAreas / summaryHeading）。
+      // 無ければ buildWallbounceHearingPrompt / buildGuidedInterviewPrompt 側の現行版にフォールバック。
+      function resolveWallbounceSupplementary() {
+        try {
+          var sups = (core.getState().prompts || {}).supplementary;
+          if (Array.isArray(sups)) {
+            return sups.find(function (s) { return s && s.id === 'mode-c-wallbounce'; }) || null;
+          }
+        } catch (_) {}
+        return null;
+      }
+
+      // クリップボードへコピーを試み、成否を返す（fix1: 失敗時に本文を救済できるよう prompt も返す）。
+      async function tryCopyPrompt(prompt, successNotice) {
+        try {
+          await navigator.clipboard.writeText(prompt);
+          core.showToast(successNotice || '壁打ちプロンプトをコピーしました。AI で要約ができたら、入口モードの貼り付け欄で確定 → もう一度「実行」を押してください', false, 8000);
+          return { action: 'wallbounce', copied: true, prompt: prompt };
+        } catch (_) {
+          core.showToast('コピーに失敗しました。下に表示した本文を手動でコピーしてください', true);
+          return { action: 'wallbounce', copied: false, prompt: prompt };
+        }
+      }
+
+      // 汎用テンプレ（事前調査なし）を即コピーする最終フォールバック。
+      async function copyGenericWallbouncePrompt(wbSup, notice) {
+        const prompt = mod.buildWallbounceHearingPrompt({
+          industry: formInputs.industry,
+          storeName: formInputs.storeName,
+          memo: formInputs.memo,
+          context: formInputs.context,
+          questionAreas: wbSup && wbSup.questionAreas,
+          summaryHeading: wbSup && wbSup.summaryHeading,
+        });
+        return await tryCopyPrompt(prompt, notice);
+      }
+
+      // 未設定かどうかは事前判定せず、実行時のエラーで判定する（判定と実行の経路を一元化。
+      // 事前判定の二重実装は「実生成は通るのに判定だけ落ちる」乖離バグを生んだため廃止）。
+      function isGeminiUnconfiguredError(e) {
+        return /未設定/.test(String((e && e.message) || ''));
+      }
+
+      const outcome = await showHearingGateModal(plan, {
+        // 壁打ち3段フロー: ①項目策定(google_search) ②項目確認 ③確定でコピー。
+        // 戻り値: { kind:'items', items, onConfirm } で②へ進む / それ以外は即コピー済み（フォールバック）。
+        onWallbounce: async function () {
+          const wbSup = resolveWallbounceSupplementary();
+          // ① 項目策定（google_search 付き → 失敗なら tools 無しで再試行）
+          // プロンプトは useTools に合わせて生成する: ツール無しの再試行で検索指示を残すと
+          // モデルがツール呼び出しを試みて本文なし応答（text 空）になることがあるため。
+          function buildItemsPrompt(searchEnabled) {
+            return mod.buildInterviewItemsPrompt({
+              industry: formInputs.industry,
+              storeName: formInputs.storeName,
+              memo: formInputs.memo,
+              context: formInputs.context,
+              searchEnabled: searchEnabled,
+              // TODO(将来拡張): §0 プレリサーチ本文（マスタードキュメントの §0 相当）を
+              // 安価に取得できるヘルパが整い次第 preResearch に渡す。現状は重い doc 読み取りが
+              // 必要なためスコープ外（implementation-report v3 §将来拡張 参照）。
+            });
+          }
+          const geminiClient = await loadGeminiClient();
+          const model = modelSelect.value || 'gemini-3.5-flash';
+          const runOpts = { storage: chrome.storage.local, syncStorage: chrome.storage.sync };
+
+          // context / メモに URL があれば url_context ツールも付けてページ内容を読ませる（v3.3）。
+          // google_search は検索でURL閲覧ではないため、URL の中身は url_context が必要。
+          const hasUrl = mod.extractUrls(
+            String(formInputs.context || '') + '\n' + String(formInputs.memo || '')
+          ).length > 0;
+
+          // text だけでなく result（mode / groundingMetadata / url_context_metadata）も返し
+          // grounding 判定（fix2）と検索クエリ・URL 取得状況の透明化（v3.3）に使う。
+          async function generateItems(useTools) {
+            const params = { prompt: buildItemsPrompt(useTools), model: model, temperature: 0.3 };
+            if (useTools) {
+              const tools = [{ google_search: {} }];
+              if (hasUrl) tools.push({ url_context: {} });
+              params.tools = tools;
+            }
+            const result = await geminiClient.generateContent(params, runOpts);
+            const text = String((result && result.text) || '').trim();
+            if (!text) {
+              // 空応答（HTTP 200 だが本文 part が無い: thinking 消費・safety 等）は
+              // 生成失敗として扱い、throw で次の段（tools 無し再試行→汎用）へ落とす。
+              const cand = result && result.raw && result.raw.candidates && result.raw.candidates[0];
+              console.warn('[SK hearing] empty response text: tools=' + useTools
+                + ' mode=' + String(result && result.mode)
+                + ' finishReason=' + String(cand && cand.finishReason)
+                + ' rawHead=' + JSON.stringify(result && result.raw ? JSON.stringify(result.raw).slice(0, 300) : ''));
+              throw new Error('empty response text');
+            }
+            const items = mod.parseInterviewItems(text);
+            if (!items) {
+              // 診断用: パース失敗の生テキスト先頭を残す（原因特定後に縮小可）
+              console.warn('[SK hearing] interview items parse failed: tools=' + useTools
+                + ' mode=' + String(result && result.mode)
+                + ' textHead=' + JSON.stringify(text.slice(0, 300)));
+            }
+            return {
+              items: items,
+              grounded: mod.wasPreResearchGrounded(result),
+              searchQueries: mod.extractSearchQueries(result),
+              urlStatuses: mod.extractUrlContextStatuses(result),
+            };
+          }
+
+          let items = null;
+          let grounded = false;
+          let searchQueries = [];
+          let urlStatuses = [];
+          let unconfigured = false;
+          // 1段目: google_search（+ URL があれば url_context）付き
+          try {
+            const r1 = await generateItems(true);
+            items = r1.items;
+            grounded = r1.grounded;
+            searchQueries = r1.searchQueries;
+            urlStatuses = r1.urlStatuses;
+          } catch (e) {
+            console.warn('[SK hearing] items generation failed (tools=true):', e);
+            unconfigured = isGeminiUnconfiguredError(e);
+            items = null;
+          }
+          // 2段目: tools 無しで再試行（tools 無し＝grounding は必ず無効。未設定確定なら再試行しない）
+          if (!items && !unconfigured) {
+            try {
+              const r2 = await generateItems(false);
+              items = r2.items;
+              grounded = false;
+              searchQueries = [];
+              urlStatuses = [];
+            } catch (e) {
+              console.warn('[SK hearing] items generation failed (tools=false):', e);
+              unconfigured = isGeminiUnconfiguredError(e);
+              items = null;
+            }
+          }
+          // 3段目: それも失敗 or 件数不足 → 汎用テンプレを即コピー（事前調査スキップ告知）
+          if (!items || !items.length) {
+            return { outcome: await copyGenericWallbouncePrompt(wbSup, unconfigured
+              ? '事前調査をスキップして汎用の質問でコピーしました（AI 連携が未設定です）'
+              : '事前調査をスキップして汎用の質問でコピーしました（項目の自動作成に失敗。混雑時は時間をおくと成功します）') };
+          }
+          // ② 成功 → 項目リストを表示し、③ 確定で guided プロンプトをコピー。
+          //    見出しは grounded 有無で正直に出し分ける（proxy / 非 grounding は誤認させない）。
+          return {
+            kind: 'items',
+            items: items,
+            heading: mod.interviewItemsHeading(grounded),
+            searchQueries: searchQueries,
+            urlStatuses: urlStatuses,
+            onConfirm: async function () {
+              const guided = mod.buildGuidedInterviewPrompt({
+                industry: formInputs.industry,
+                storeName: formInputs.storeName,
+                memo: formInputs.memo,
+                context: formInputs.context,
+                summaryHeading: wbSup && wbSup.summaryHeading,
+              }, items);
+              // fix1: コピー成否を返し、失敗時は呼び出し側がモーダルを閉じず本文を残す。
+              return await tryCopyPrompt(guided);
+            },
+          };
+        },
+        onChoice: async function (choice) {
+          if (choice.id === 'paste' || choice.id === 'summarize') {
+            // 入口モードの貼り付け欄（B も C も対応）へ誘導。全自動は開始しない。
+            core.showToast('入口モードの貼り付け欄でヒアリング要約を確定してから、もう一度「実行」を押してください', false, 6000);
+            try {
+              const st = core.getState();
+              if (st && st.settings) st.settings.lastPhase = 'phase-0';
+            } catch (_) {}
+            return { action: 'paste' };
+          }
+          if (choice.id === 'keep-stale') {
+            // 残っている要約を現在の案件のものとして整合化（後方互換 / 引き継ぎ）
+            try { await core.adoptHearingSummaryForCurrentCase(); } catch (_) {}
+            core.showToast('この要約をこの案件のものとして引き継ぎました', false, 4000);
+            return { action: 'keep-stale', proceed: true };
+          }
+          if (choice.id === 'proceed' && choice.ackOnProceed) {
+            // 同意を案件スコープで記録 → 続行（同一案件では再表示しない）
+            try { await core.persistHearingSkipAck(); } catch (_) {}
+            return { action: 'proceed', proceed: true };
+          }
+          return { action: 'cancel' };
+        },
+        onGenerateQuestions: async function () {
+          // モードA: runFullAuto を使わず、質問設計プロンプトを単発 generateContent で実行
+          const designBody = getModeADesignPromptBody();
+          const promptText = window.SK_CORE.applyTemplate(designBody);
+          const geminiClient = await loadGeminiClient();
+          const result = await geminiClient.generateContent({
+            prompt: promptText,
+            model: modelSelect.value || 'gemini-3.5-flash',
+            temperature: 0.4,
+          }, {
+            storage: chrome.storage.local,
+            syncStorage: chrome.storage.sync,
+          });
+          return String((result && result.text) || '').trim();
+        },
+      });
+
+      // keep-stale / proceed は続行、それ以外（壁打ち/貼り付け/cancel）は中断
+      if (outcome && outcome.proceed) {
+        return { proceed: true };
+      }
+      return { proceed: false };
+    }
+
+    // v3.6: 全自動 fresh run の §0 シード判定＋実行。戻り値は「生成ループの開始 index」上書き値（null=従来どおり）。
+    //   ready（整合確定要約あり）のときだけ:
+    //     - §0 未充足 → 確定要約を §0 章として直書きシード（成功なら §1 から / 失敗なら §0 から生成へフォールバック）
+    //     - §0 既に done → 書き込みスキップ・§1 から
+    //   ready でない（このまま進む 等）→ null（従来どおり §0 から生成）。
+    async function maybeSeedPhase0ForFreshRun_() {
+      let readiness;
+      try {
+        readiness = window.SK_CORE.getHearingReadinessState();
+      } catch (_) {
+        return null;
+      }
+      let plan;
+      try {
+        const mod = await loadHearingReadinessModule();
+        // §0 が既に done かどうかは master 進捗の filledSections（0 を含むか）で判定。
+        const phase0Filled = !!(cachedMasterProgress
+          && Array.isArray(cachedMasterProgress.filledSections)
+          && cachedMasterProgress.filledSections.indexOf(0) !== -1);
+        plan = mod.planFullAutoFreshRunStart({ status: readiness && readiness.status, phase0Filled });
+      } catch (_) {
+        return null;
+      }
+      if (!plan || plan.startIndex !== 1) {
+        // ready でない（plan.startIndex===0）→ 従来どおり §0 から生成。
+        return null;
+      }
+      if (plan.seedPhase0) {
+        const ok = await seedPhase0FromHearingSummary_();
+        if (!ok) {
+          // 書き込み失敗は安全側: 従来どおり §0 から生成にフォールバック（全自動を止めない）。
+          return null;
+        }
+      }
+      // §0 はシード済み or 既に done。生成ループは §1 から。
+      return 1;
+    }
+
+    // v3.6: 確定済みヒアリング要約を §0 章としてマスターへ直書きする（AI 生成なし）。
+    //   appendMasterSectionDirect_ 流用（SK-SECTION マーカー・status done・章配置は既存規約準拠）。
+    //   見出しタイトルは §0 既存章タイトル規約（phases[0].title）に合わせる。
+    //   成功で true、失敗で false（呼び出し側が §0 からの従来生成にフォールバック）。
+    async function seedPhase0FromHearingSummary_() {
+      try {
+        const settings = (window.SK_CORE.getState && window.SK_CORE.getState().settings) || {};
+        const summary = String(settings['sk_hearing_summary_v012'] || '').trim();
+        if (!summary) {
+          console.warn('[SK hearing] §0 seed skipped: confirmed summary is empty');
+          return false;
+        }
+        // §0 章タイトルは既存規約（phases[0].title）に準拠。取れなければ汎用フォールバック。
+        let title = '事前調査・ヒアリング要約';
+        try {
+          const phases = window.SK_CORE.getPhases();
+          const p0 = (phases || []).find(function (p) { return String(p.no) === '0'; });
+          if (p0 && p0.title) title = String(p0.title);
+        } catch (_) {}
+        await appendMasterSectionDirect_({
+          sectionNo: '0',
+          title: title,
+          body: summary,
+          status: 'done',
+          aiUsed: 'hearing-summary',
+        });
+        return true;
+      } catch (e) {
+        console.warn('[SK hearing] §0 seed write failed; falling back to generating §0:', e);
+        return false;
+      }
+    }
+
+    // モードA 質問設計プロンプトの body（sidepanel.js buildModeAHearingDesignPhase と同一・設計 §4-3）。
+    // 全自動ループを使わず単発実行するため、ここで合成プロンプトを取得する。
+    function getModeADesignPromptBody() {
+      try {
+        const phases = window.SK_CORE.getPhases();
+        const p0 = (phases || []).find(function (p) { return String(p.no) === '0'; });
+        if (p0 && p0.prompts && p0.prompts[0] && p0.prompts[0].body) {
+          return p0.prompts[0].body;
+        }
+      } catch (_) {}
+      // フォールバック（getPhases がモードA合成フェーズを返さない場合）
+      return '{{businessContext}}\n\n業種「★業種★」／店舗「★店舗名★」について、クライアントワーク開始前のヒアリング設計を作成してください。6カテゴリ x 5問 = 30問に整理し、各質問に「質問の意図」を1行で付けてください。';
+    }
+
     async function executeAutomation(actionOptions = {}) {
       if (isAutomationRunning) return;
       const primaryAction = await buildCurrentAutomationAction({
@@ -1256,6 +1951,25 @@
       // 読み取り専用表示を最新化
       refreshBusinessReadout();
 
+      // ヒアリング停止ゲート（設計 §4-1: setAutomationRunBusy・ログ初期化より前に判定）。
+      // 全自動分岐のみ。整合要約あり / 同案件 ack 済みならゲートは出ない（既存動線不変）。
+      // 中断・再開（resume / retry）時は再度のヒアリング確認を挟まず素通りさせる。
+      const isFreshFullAutoRun =
+        radioFull.checked &&
+        !actionOptions.forceResumeContext &&
+        primaryAction.kind !== 'retry';
+      // v3.6: ready（整合確定要約あり）の fresh run は §0 を直書きシードして §1 から開始する
+      //   ための上書き開始 index（ヒアリング/項目策定で §0 相当は済んでいる二度手間の解消）。
+      let freshRunStartOverride = null;
+      if (isFreshFullAutoRun) {
+        const gateOutcome = await maybeRunHearingGate(formInputs);
+        if (gateOutcome && gateOutcome.proceed === false) {
+          // 壁打ち/貼り付け選択 or キャンセル: 全自動は開始しない（busy 化しない）
+          return;
+        }
+        freshRunStartOverride = await maybeSeedPhase0ForFreshRun_();
+      }
+
       setAutomationRunBusy();
 
       progressArea.classList.remove('hidden');
@@ -1265,7 +1979,9 @@
 
       const isFullAuto = radioFull.checked;
 
-      const startIndex = primaryAction.startIndex || 0;
+      const startIndex = (freshRunStartOverride != null)
+        ? freshRunStartOverride
+        : (primaryAction.startIndex || 0);
       const startSubNo = primaryAction.startSubNo || null;
       const resumedAccumulated = primaryAction.accumulated || null;
       const retrySections = primaryAction.retrySections || [];

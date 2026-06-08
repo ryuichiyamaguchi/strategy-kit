@@ -12,7 +12,8 @@
     { id: 2, label: 'アウトライン確認',    note: 'Chat · source 効く',    warn: false },
     { id: 3, label: '初回 Slide Deck',     note: 'Studio · source 効く',  warn: false },
     { id: 4, label: 'デザイン / Revision', note: '⚠ source は効かない',   warn: true  },
-    { id: 5, label: '最終調整',            note: 'NotebookLM 外',         warn: false },
+    { id: 5, label: '読み上げ原稿（任意）', note: 'Chat · source 効く',    warn: false },
+    { id: 6, label: '最終調整',            note: 'NotebookLM 外',         warn: false },
   ];
 
   var CHECKLIST = [
@@ -26,6 +27,7 @@
   var _state = { checklist: {}, stage: 1 };
   var _playbookText = null;
   var _guideText = null;
+  var _masterDocUrl = '';
   var _initialized = false;
 
   // ── ストレージ ──────────────────────────────────────
@@ -103,7 +105,28 @@
   }
 
   // ── マスタードキュメント URL ────────────────────────
+  // 正本は chrome.storage.sync の sk_master_doc_v012.docUrl（diagram.js と同一ソース）。
+  // state.settings.masterDocUrl は設定されないため参照しない（旧実装の不具合）。
+  function _fetchMasterDocUrl(cb) {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
+        chrome.storage.sync.get(['sk_master_doc_v012'], function (result) {
+          var info = (result && result.sk_master_doc_v012) || null;
+          var url = '';
+          if (info && info.documentId) {
+            url = info.docUrl
+              || 'https://docs.google.com/document/d/' + encodeURIComponent(info.documentId) + '/edit';
+          }
+          if (cb) cb(url);
+        });
+        return;
+      }
+    } catch (e) { /* noop */ }
+    if (cb) cb('');
+  }
+
   function _getMasterDocUrl() {
+    if (_masterDocUrl) return _masterDocUrl;
     try {
       if (typeof state !== 'undefined' && state && state.settings && state.settings.masterDocUrl) {
         return state.settings.masterDocUrl;
@@ -292,6 +315,9 @@
     if (_initialized) {
       _renderChecklist();
       _renderStageHighlight();
+      // タブを開き直すたびに最新のマスタードキュメント URL を取り込む
+      // （作成・連携後に開いた場合に空のままにならないように）。
+      _fetchMasterDocUrl(function (url) { _masterDocUrl = url || ''; });
       return;
     }
     _initialized = true;
@@ -312,6 +338,8 @@
     _fetchMd('slides-design-guide.md', function (err, text) {
       _guideText = err ? '' : text;
     });
+    // マスタードキュメント URL を非同期取得（sk_master_doc_v012.docUrl）
+    _fetchMasterDocUrl(function (url) { _masterDocUrl = url || ''; });
   }
 
   window.SlidesHandoff = { init: init };

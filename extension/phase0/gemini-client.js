@@ -18,6 +18,7 @@ export function buildGenerateContentRequest({
   temperature = 0.3,
   responseModalities,
   responseFormat,
+  tools,
 } = {}) {
   const generationConfig = { temperature };
   if (Array.isArray(responseModalities) && responseModalities.length) {
@@ -27,7 +28,7 @@ export function buildGenerateContentRequest({
     generationConfig.responseFormat = responseFormat;
   }
 
-  return {
+  const body = {
     contents: [
       {
         role: 'user',
@@ -36,6 +37,12 @@ export function buildGenerateContentRequest({
     ],
     generationConfig,
   };
+  // tools（例: [{ google_search: {} }]）は指定時のみ body に載せる。
+  // 未指定・空配列・非配列は付与せず、現行リクエストとバイト一致を維持する（後方互換）。
+  if (Array.isArray(tools) && tools.length) {
+    body.tools = tools;
+  }
+  return body;
 }
 
 export function extractGenerateContentParts(json) {
@@ -105,6 +112,7 @@ async function generateDirect({
   temperature,
   responseModalities,
   responseFormat,
+  tools,
   apiKey,
   fetchImpl,
 }) {
@@ -119,6 +127,7 @@ async function generateDirect({
       temperature,
       responseModalities,
       responseFormat,
+      tools,
     })),
   });
 
@@ -146,6 +155,7 @@ async function generateViaProxy({
   temperature = 0.3,
   responseModalities,
   responseFormat,
+  tools,
   fetchImpl = fetch,
   proxy,
   token,
@@ -156,14 +166,21 @@ async function generateViaProxy({
     responseModalities,
     responseFormat,
   }).generationConfig;
-  const json = await postGeminiProxy(proxy.webAppUrl, {
+  const payload = {
     action: 'generateContent',
     token,
     prompt,
     model,
     temperature,
     generationConfig,
-  }, { fetchImpl });
+  };
+  // tools（google_search 等）は指定時のみ payload に載せる。
+  // 既存デプロイ済み proxy は tools を無視（不明キーはスルー）するため後方互換。
+  // 将来の proxy 更新で grounding を有効化できるよう前方互換のために送る。
+  if (Array.isArray(tools) && tools.length) {
+    payload.tools = tools;
+  }
+  const json = await postGeminiProxy(proxy.webAppUrl, payload, { fetchImpl });
   const raw = json.raw || json;
   return {
     ok: true,
@@ -202,6 +219,7 @@ async function runGenerateContentOnce({
   temperature = 0.3,
   responseModalities,
   responseFormat,
+  tools,
 } = {}, {
   storage = getChromeStorage('local'),
   syncStorage = getChromeStorage('sync'),
@@ -216,6 +234,7 @@ async function runGenerateContentOnce({
         temperature,
         responseModalities,
         responseFormat,
+        tools,
         fetchImpl,
         proxy,
         token,
@@ -231,6 +250,7 @@ async function runGenerateContentOnce({
         temperature,
         responseModalities,
         responseFormat,
+        tools,
         apiKey,
         fetchImpl,
       });
@@ -248,6 +268,7 @@ async function runGenerateContentOnce({
     temperature,
     responseModalities,
     responseFormat,
+    tools,
     apiKey,
     fetchImpl,
   });

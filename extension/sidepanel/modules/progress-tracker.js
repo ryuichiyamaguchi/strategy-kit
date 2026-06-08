@@ -5,6 +5,10 @@
 //   OAuth 未連携時はスロットを hidden のまま機能オフ。
 
 (function () {
+  // buildUI で構築した現在のスロットの「進捗再読込」処理を保持する。
+  // master-doc-changed（マスタードキュメント新規作成・変更）から再実行できるようにする。
+  let reloadActiveProgress = null;
+
   async function isOAuthReady() {
     try {
       const authUrl = chrome.runtime.getURL('phase0/auth.js');
@@ -22,10 +26,15 @@
       'sk_chapter_doc_v012',
       'sk_master_doc_v012',
     ]);
+    // 1軸化（進捗の正本はマスター本体）に合わせ master を最優先で読む。
+    // sk_draft_doc_v012 / sk_chapter_doc_v012 は案件スコープを持たないグローバルキーで、
+    // プロジェクト切替時にクリアされない。master を優先しないと、新規案件でマスターを作っても
+    // 前案件の旧 draft/chapter を読んで最上部進捗が古いまま固まる（diagram.js は既に master 優先）。
+    // master 未設定時のみ旧 draft/chapter へフォールバック（旧データの後方互換）。
     return (
+      stored.sk_master_doc_v012?.documentId ||
       stored.sk_draft_doc_v012?.documentId ||
       stored.sk_chapter_doc_v012?.documentId ||
-      stored.sk_master_doc_v012?.documentId ||
       null
     );
   }
@@ -193,6 +202,11 @@
     });
     slot.appendChild(reloadBtn);
 
+    // master-doc-changed から再読込を呼べるよう、現在のスロットの再読込処理を保持
+    reloadActiveProgress = function () {
+      loadProgress(barInner, listEl, summaryEl, reloadBtn);
+    };
+
     // 初回自動ロード
     loadProgress(barInner, listEl, summaryEl, reloadBtn);
   }
@@ -207,5 +221,24 @@
 
     slot.classList.remove('hidden');
     buildUI(slot);
+  });
+
+  // マスタードキュメントが新規作成・変更されたら進捗を再取得する。
+  // （sidepanel.js が storage の sk_master_doc_v012 変化を master-doc-changed として中継）
+  // 症状: 新規案件でマスタードキュメントを作っても最上部の進捗チップ/ドット/「次は §N」が
+  //       前案件の値のまま固まる → ここで読み直して解消する。
+  window.SK_CORE.on('master-doc-changed', async function () {
+    const slot = document.getElementById('mod-progress-tracker-slot');
+    if (!slot) return;
+    const ready = await isOAuthReady();
+    if (!ready) return;
+    if (slot.classList.contains('hidden')) {
+      // 連携直後などでまだ UI 未構築なら、初回構築＝初回ロードで反映
+      slot.classList.remove('hidden');
+      buildUI(slot);
+    } else if (reloadActiveProgress) {
+      // 構築済みなら既存の再読込と同じ処理で最上部進捗を更新
+      reloadActiveProgress();
+    }
   });
 })();
