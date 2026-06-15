@@ -561,17 +561,20 @@ export function planHearingSummaryMigration({ localValue, legacySyncValue } = {}
   return { value: '', migrate: false, removeLegacy: false };
 }
 
-// v3.6: 全自動 fresh run の §0 シード判定（純ロジック）。
+// v3.6+: 全自動 fresh run の §0 シード判定（純ロジック）。
 //   実機: 整合する確定要約があるのに全自動が §0（プレリサーチ）から AI 生成され二度手間。
-//   仕様: readiness.status === 'ready'（整合確定要約あり）のときだけ、
+//   仕様: mode === 'B'（クライアントワーク）かつ readiness.status === 'ready' のときだけ §0 シード：
 //     - §0 が未充足なら確定要約を §0 章としてマスターへ直書きシード（seedPhase0=true）
 //     - §0 が既に done なら書き込みスキップ（seedPhase0=false・上書きしない）
 //     - いずれも生成ループは §1 から（startIndex=1）。§0 相当はヒアリング/項目策定で済んでいる。
+//   mode !== 'B'（モードC=自社事業・モードA・省略）は ready でも §0 シードしない。
+//     - モードC: §0（市場調査=phase-0-prelimit）を AI に実行させ壁打ち要約を §0 に反映する。
+//     - モードA: §0 をヒアリング設計差し替えで実行する（既存仕様不変）。
 //   ready でない（needs-hearing / ack-skipped / stale-summary / meta-unknown 等）は
 //   従来どおり §0 から生成（seedPhase0=false・startIndex=0）。
 //   呼び出し側はこの判定の対象を「全自動 fresh run」に限定する（resume/retry は触らない）。
-export function planFullAutoFreshRunStart({ status, phase0Filled } = {}) {
-  if (status === 'ready') {
+export function planFullAutoFreshRunStart({ status, phase0Filled, mode } = {}) {
+  if (mode === 'B' && status === 'ready') {
     return { seedPhase0: !phase0Filled, startIndex: 1 };
   }
   return { seedPhase0: false, startIndex: 0 };

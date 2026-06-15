@@ -1851,7 +1851,7 @@
         const phase0Filled = !!(cachedMasterProgress
           && Array.isArray(cachedMasterProgress.filledSections)
           && cachedMasterProgress.filledSections.indexOf(0) !== -1);
-        plan = mod.planFullAutoFreshRunStart({ status: readiness && readiness.status, phase0Filled });
+        plan = mod.planFullAutoFreshRunStart({ status: readiness && readiness.status, phase0Filled, mode: readiness && readiness.mode });
       } catch (_) {
         return null;
       }
