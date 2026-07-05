@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>STRATEGY-KIT v0.12 セットアップガイド</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <style>
+      /* 日本語の折り返し配慮：長い見出し・本文が不自然に割れないように */
+      h1, h2, h3 {
+        overflow-wrap: break-word;
+        word-break: normal;
+        line-break: strict;
+      }
+      p, li, .step-summary, .faq-a, .faq-q, .step-done, .step-warn, .step-tip {
+        overflow-wrap: break-word;
+        word-break: normal;
+        line-break: strict;
+      }
+      .prereq-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .prereq-item {
+        padding: 16px 18px;
+        border: 1px solid rgba(40, 89, 67, 0.15);
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.7);
+        font-size: 0.96rem;
+        line-height: 1.7;
+      }
+      .prereq-item strong {
+        display: block;
+        color: var(--forest-deep);
+        font-family: 'Manrope', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .check-list {
+        list-style: none;
+        padding-left: 0;
+        margin: 12px 0 0;
+      }
+      .check-list li {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(40, 89, 67, 0.08);
+        font-size: 0.97rem;
+        line-height: 1.7;
+      }
+      .check-list li:last-child {
+        border-bottom: none;
+      }
+      .check-list li::before {
+        content: '□';
+        flex-shrink: 0;
+        color: var(--marigold);
+        font-weight: 700;
+        font-size: 1rem;
+        margin-top: 1px;
+      }
+      .faq-block {
+        margin-top: 14px;
+      }
+      .faq-item {
+        border: 1px solid rgba(40, 89, 67, 0.13);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        margin-bottom: 10px;
+      }
+      .faq-q {
+        padding: 14px 16px;
+        background: rgba(40, 89, 67, 0.06);
+        font-weight: 700;
+        font-size: 0.97rem;
+        color: var(--forest-deep);
+        cursor: default;
+      }
+      .faq-a {
+        padding: 14px 16px;
+        font-size: 0.97rem;
+        line-height: 1.75;
+        background: rgba(255, 255, 255, 0.6);
+      }
+      .faq-a code, .faq-q code {
+        background: rgba(40, 89, 67, 0.09);
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 0.92em;
+      }
+      .step-done {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: var(--radius-sm);
+        background: rgba(40, 89, 67, 0.09);
+        font-size: 0.96rem;
+        line-height: 1.7;
+      }
+      .step-done strong {
+        color: var(--forest-deep);
+      }
+      .step-warn {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-left: 4px solid var(--marigold);
+        border-radius: var(--radius-sm);
+        background: var(--alert-bg);
+        font-size: 0.96rem;
+        line-height: 1.75;
+      }
+      .step-warn strong {
+        color: #92600f;
+      }
+      .step-warn.step-warn-strong {
+        border-left-width: 5px;
+        background: #fdf1d6;
+      }
+      .step-tip {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-left: 4px solid rgba(40, 89, 67, 0.5);
+        border-radius: var(--radius-sm);
+        background: rgba(40, 89, 67, 0.07);
+        font-size: 0.96rem;
+        line-height: 1.75;
+      }
+      .step-summary {
+        display: inline-flex;
+        padding: 5px 12px;
+        border-radius: 999px;
+        background: var(--marigold-soft);
+        color: #7a4a0a;
+        font-size: 0.88rem;
+        font-weight: 700;
+        margin-bottom: 14px;
+      }
+      ol.detail-steps {
+        margin: 10px 0 0;
+        padding-left: 1.4em;
+      }
+      ol.detail-steps li {
+        margin-bottom: 8px;
+        line-height: 1.8;
+      }
+      ol.detail-steps code, ul.plain-list code {
+        background: rgba(40, 89, 67, 0.09);
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 0.92em;
+      }
+      .ui-chip {
+        display: inline-block;
+        padding: 1px 8px;
+        border-radius: 6px;
+        background: rgba(40, 89, 67, 0.1);
+        color: var(--forest-deep);
+        font-weight: 700;
+        font-size: 0.92em;
+        white-space: nowrap;
+      }
+      .step-section-title {
+        margin: 24px 0 8px;
+        font-family: 'Manrope', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+      .faq-label {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--marigold-soft);
+        color: #7a4a0a;
+        font-size: 0.84rem;
+        font-weight: 700;
+        margin-right: 6px;
+      }
+      .support-card {
+        padding: 24px;
+        border: 1px solid rgba(40, 89, 67, 0.13);
+        border-radius: var(--radius);
+        background: var(--card);
+        box-shadow: var(--shadow);
+      }
+      .version-note {
+        margin-top: 28px;
+        padding-top: 18px;
+        border-top: 1px solid rgba(40, 89, 67, 0.12);
+        color: var(--ink-soft);
+        font-size: 0.93rem;
+      }
+      .flow-map {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .flow-map-item {
+        flex: 1 1 130px;
+        padding: 12px 14px;
+        border: 1px solid rgba(40, 89, 67, 0.15);
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.7);
+        font-size: 0.92rem;
+        line-height: 1.55;
+      }
+      .flow-map-item strong {
+        display: block;
+        color: var(--forest-deep);
+        font-size: 0.82rem;
+        letter-spacing: 0.04em;
+        margin-bottom: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <strong>STRATEGY-KIT v0.12 セットアップガイド</strong>
+        <a href="strategy-kit-hub.html">配布ページへ戻る</a>
+      </header>
+
+      <main>
+
+        <!-- ヒーロー -->
+        <section class="hero">
+          <span class="eyebrow">現行版セットアップ</span>
+          <h1>STRATEGY-KIT v0.12<br>セットアップガイド</h1>
+          <p class="lede">所要 15〜25 分。Google アカウントと直接つなぐ方式（OAuth 連携）です。上から順に進めれば、最初のアウトプットまでたどり着けます。</p>
+          <div class="pill-row">
+            <span class="chip">Chrome 拡張</span>
+            <span class="chip">Unpacked 読み込み</span>
+            <span class="chip">Google 連携</span>
+            <span class="chip">無料枠OK</span>
+          </div>
+        </section>
+
+        <!-- 全体の流れ -->
+        <section>
+          <div class="section-card">
+            <h2>この 6 ステップで完了します</h2>
+            <p>むずかしいのは「Google との連携（STEP 2）」だけです。ここに一番丁寧な説明を割いています。ほかは数分で終わります。</p>
+            <div class="flow-map">
+              <div class="flow-map-item"><strong>STEP 1</strong>拡張機能を Chrome に読み込む</div>
+              <div class="flow-map-item"><strong>STEP 2</strong>Google アカウントを連携する</div>
+              <div class="flow-map-item"><strong>STEP 3</strong>事業情報を入力する</div>
+              <div class="flow-map-item"><strong>STEP 4</strong>マスタードキュメントを作る</div>
+              <div class="flow-map-item"><strong>STEP 5</strong>Gemini API キーを設定する（任意）</div>
+              <div class="flow-map-item"><strong>STEP 6</strong>§0 を始める</div>
+            </div>
+            <div class="step-tip">
+              X（旧Twitter）運用の <strong>X-KIT</strong> ／ Instagram 運用の <strong>INSTAGRAM-KIT</strong> をお使いの方も、手順はこのガイドと同じです。違いは最後の「<a href="#sns-section">X-KIT / INSTAGRAM-KIT をお使いの方へ</a>」でまとめています。
+            </div>
+          </div>
+        </section>
+
+        <!-- 事前準備 -->
+        <section>
+          <div class="section-card">
+            <h2>セットアップを始める前に</h2>
+            <p>以下が揃っているか確認してください。特に <strong>テストユーザー登録</strong>（下記）が済んでいないと STEP 2 で必ず止まります。</p>
+
+            <div class="prereq-grid">
+              <div class="prereq-item">
+                <strong>Google アカウント</strong>
+                個人の Gmail アドレスで OK。Workspace アカウントでも使えます。
+              </div>
+              <div class="prereq-item">
+                <strong>Chrome ブラウザ</strong>
+                バージョン 116 以上。Chrome 右上メニュー →「Chrome について」で確認できます。
+              </div>
+              <div class="prereq-item">
+                <strong>配布 ZIP</strong>
+                配布ページから拡張機能の ZIP をダウンロード済み。まだの方は<a href="strategy-kit-hub.html">配布ページ</a>から取得してください。
+              </div>
+            </div>
+
+            <div class="step-warn step-warn-strong" style="margin-top:20px;">
+              <strong>いちばん大事な事前準備：テストユーザー登録</strong><br>
+              STRATEGY-KIT は現在「テスト中のアプリ」として運用しています。連携できる Google アカウントは、講師（山口さん）側にあらかじめ登録された<strong>テストユーザーだけ</strong>です。<br>
+              <strong>使う予定の Gmail アドレスを、事前に講師へ伝えて登録してもらってください。</strong> 未登録のまま STEP 2 に進むと、連携の途中で「<code>アクセスをブロック（access_denied）</code>」と表示されて先に進めません。その場合は自分では解決できないので、登録済みか講師に確認してください。
+            </div>
+
+            <div class="step-warn" style="margin-top:14px;">
+              <strong>ZIP は解凍してから使います。</strong> ダウンロードしたままの ZIP ファイルを Chrome に読み込んでも動きません。必ずデスクトップや「ダウンロード」フォルダに解凍（展開）してから STEP 1 に進んでください。
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 1 -->
+        <section>
+          <div class="step-card">
+            <div class="step-number">1</div>
+            <h2>拡張機能を Chrome に読み込む</h2>
+            <span class="step-summary">パッケージ化されていない拡張機能（Unpacked）として入れる</span>
+
+            <div class="step-meta">
+              <span class="chip">Chrome</span>
+              <span class="chip">拡張機能</span>
+            </div>
+
+            <div class="step-tip">
+              現在 Chrome Web Store への申請中のため、ストアからではなく手動で読み込みます（Unpacked 方式）。通常のインストールより手数が多いだけで、難しくはありません。
+            </div>
+
+            <p class="step-section-title">操作手順</p>
+            <ol class="detail-steps">
+              <li>
+                <strong>ZIP を解凍します。</strong> ダウンロードした ZIP ファイルをダブルクリックして解凍します（Mac は自動展開、Windows はファイルを右クリック →「すべて展開」）。同じ名前のフォルダが作られます。
+              </li>
+              <li>
+                Chrome で新しいタブを開き、アドレスバーに次を入力して Enter を押します。
+              </li>
+            </ol>
+
+            <div class="code-block">
+              <div class="code-head">
+                <strong>Chrome アドレスバーに入力</strong>
+                <button class="copy-button" data-copy="chrome://extensions/">コピー</button>
+              </div>
+              <pre><code>chrome://extensions/</code></pre>
+            </div>
+
+            <ol class="detail-steps" start="3">
+              <li>
+                拡張機能の管理ページが開きます。画面右上の「<strong>デベロッパーモード</strong>」のトグルを<strong>オン（青色）</strong>にします。
+              </li>
+              <li>
+                画面左上に「<strong>パッケージ化されていない拡張機能を読み込む</strong>」ボタンが出ます。これをクリックします。
+              </li>
+              <li>
+                ファイル選択ダイアログで、STEP 1-1 で解凍した<strong>フォルダ自体</strong>を選び「開く」（Mac は「選択」）をクリックします。フォルダの中に入らず、フォルダを選択してください。
+              </li>
+              <li>
+                拡張機能一覧に「<strong>STRATEGY-KIT Helper</strong>」が追加されれば成功です。
+              </li>
+            </ol>
+
+            <div class="step-warn">
+              <strong>Chrome 起動時に「デベロッパーモードの拡張機能を無効にしますか？」というポップアップが出ることがあります。</strong><br>
+              これは Chrome の仕様です。「<strong>×</strong>」で閉じる（キャンセル）を選んでください。「無効にする」を押すと拡張が止まります。毎回出る場合は、起動のたびに × で閉じてください。
+            </div>
+
+            <p class="step-section-title">よくある詰まりポイント</p>
+            <div class="faq-block">
+              <div class="faq-item">
+                <div class="faq-q">「パッケージ化されていない拡張機能を読み込む」ボタンが見当たらない</div>
+                <div class="faq-a">デベロッパーモードがオフになっています。画面右上のトグルを確認してオンにしてください。</div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q">フォルダを選んだのにエラーになる</div>
+                <div class="faq-a">ZIP を解凍したフォルダではなく、ZIP ファイルそのものを選んでいる可能性があります。解凍後のフォルダを選んでください。フォルダの中に <code>manifest.json</code> というファイルがあれば正しいフォルダです。</div>
+              </div>
+            </div>
+
+            <div class="step-done">
+              <strong>完了の確認:</strong> <code>chrome://extensions/</code> の一覧に「STRATEGY-KIT Helper」が表示され、エラーなく有効になっていれば STEP 1 完了です。
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 2 -->
+        <section>
+          <div class="step-card">
+            <div class="step-number">2</div>
+            <h2>Google アカウントを連携する</h2>
+            <span class="step-summary">拡張機能があなたの Google ドキュメントに保存できるようにする</span>
+
+            <div class="step-meta">
+              <span class="chip">サイドパネル</span>
+              <span class="chip">設定ページ</span>
+              <span class="chip">Google 連携</span>
+            </div>
+
+            <div class="step-tip">
+              このツールは、作った戦略をあなたの Google ドキュメントに記録します。そのために一度だけ「あなたの Google アカウントを使う許可」を出す作業がこの STEP です。<strong>最初の関門はここだけ</strong>なので、落ち着いて進めてください。
+            </div>
+
+            <p class="step-section-title">操作手順</p>
+            <ol class="detail-steps">
+              <li>
+                Chrome の右上、パズルピースのアイコン（拡張機能メニュー）をクリックし、一覧の「STRATEGY-KIT Helper」の横にある<strong>ピンのアイコン</strong>を押してツールバーに固定しておくと便利です（任意）。
+              </li>
+              <li>
+                ツールバーの <strong>STRATEGY-KIT のアイコンをクリック</strong>します。画面の右側に「サイドパネル」が開きます。
+              </li>
+              <li>
+                サイドパネルの上部に「<span class="ui-chip">はじめに · 3 ステップ</span>」という帯があり、「<strong>Google 連携</strong>」「<strong>事業情報</strong>」「<strong>§0 を始める</strong>」の 3 つが並んでいます。この一番左の「<strong>Google 連携</strong>」をクリックします。
+              </li>
+              <li>
+                新しいタブで<strong>設定ページ</strong>が開きます。「<strong>Google アカウント連携</strong>」の欄にある「<strong>連携 / 再連携</strong>」ボタンをクリックします。
+              </li>
+              <li>
+                Google のログイン画面が出たら、<strong>テストユーザー登録した Gmail アドレス</strong>（事前準備で講師に伝えたもの）でログインします。
+              </li>
+              <li>
+                「このアプリが Google アカウントへのアクセスを求めています」という同意画面で、内容を確認して「<strong>許可</strong>」（続行）まで進めます。
+              </li>
+              <li>
+                設定ページに戻り、「<strong>状態確認</strong>」ボタンを押して「連携済み」の表示になれば成功です。
+              </li>
+            </ol>
+
+            <div class="step-warn step-warn-strong">
+              <strong>「アクセスをブロック（access_denied）」と出て進めないとき</strong><br>
+              使っている Gmail アドレスが、まだテストユーザーに登録されていません。これは自分の操作では直せません。<strong>そのアドレスを講師（山口さん）に伝えて、テストユーザー登録を依頼してください。</strong> 登録後に、もう一度「連携 / 再連携」から試すと通ります。
+            </div>
+
+            <div class="step-warn step-warn-strong">
+              <strong>連携は約 7 日で切れます（重要）</strong><br>
+              テスト中のアプリのため、一度連携しても<strong>およそ 7 日で許可が自動で失効</strong>します。週をまたぐと、自動化などが「<strong>未連携</strong>」の表示になって止まることがあります。<strong>「未連携」と出たら壊れたわけではありません。</strong> 設定ページの「<strong>連携 / 再連携</strong>」をもう一度押せば、また使えるようになります。定期的に押し直す前提でお使いください。
+            </div>
+
+            <div class="step-warn">
+              <strong>「このアプリは Google で確認されていません」と表示されたとき</strong><br>
+              テスト中のアプリでは、この警告が出ることがあります。あやしいものではありません。画面下部の「<strong>詳細</strong>」→「<strong>（アプリ名）に移動（安全ではないページ）</strong>」をクリックし、そのまま「許可」まで進めてください。
+            </div>
+
+            <p class="step-section-title">よくある詰まりポイント</p>
+            <div class="faq-block">
+              <div class="faq-item">
+                <div class="faq-q">アイコンを押してもサイドパネルが開かない</div>
+                <div class="faq-a"><code>chrome://extensions/</code> で STRATEGY-KIT Helper が「有効」になっているか確認してください。有効なのに開かない場合は、いったん Chrome を再起動してから、もう一度アイコンをクリックしてみてください。</div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q">「連携 / 再連携」を押しても何も起きない</div>
+                <div class="faq-a">ポップアップがブロックされている場合があります。アドレスバー右端のブロック通知を確認して許可するか、少し待ってからもう一度押してください。</div>
+              </div>
+            </div>
+
+            <div class="step-done">
+              <strong>完了の確認:</strong> 設定ページの「Google アカウント連携」で「状態確認」を押し、「連携済み」と表示されれば STEP 2 完了です。
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 3 -->
+        <section>
+          <div class="step-card">
+            <div class="step-number">3</div>
+            <h2>事業情報を入力する</h2>
+            <span class="step-summary">業種と店舗名を入れて、プロンプトに自動で反映させる</span>
+
+            <div class="step-meta">
+              <span class="chip">設定ページ</span>
+            </div>
+
+            <div class="step-tip">
+              ここで入れた業種・店舗名は、各フェーズのプロンプト（AI への指示文）に自動で差し込まれます。テスト目的なら仮の内容でも構いません。
+            </div>
+
+            <p class="step-section-title">操作手順</p>
+            <ol class="detail-steps">
+              <li>
+                STEP 2 で開いた設定ページの上部にある「<strong>事業情報</strong>」の欄を使います（サイドパネルの帯から「<strong>事業情報</strong>」を押しても同じ設定ページが開きます）。
+              </li>
+              <li>
+                「<strong>業種プリセット</strong>」で、近いものを選びます。ぴったりが無ければ「その他」を選び、次の欄で書きます。
+              </li>
+              <li>
+                「<strong>業種（自由入力）</strong>」に具体的な業種を入れます（例:「クライミングジム」）。
+              </li>
+              <li>
+                「<strong>店舗・屋号</strong>」にお店や事業の名前を入れます（例:「エナジー柏店」）。
+              </li>
+              <li>
+                ページ下部の「<strong>保存</strong>」ボタンを押します。「保存しました」と表示されれば OK です。
+              </li>
+            </ol>
+
+            <div class="step-done">
+              <strong>完了の確認:</strong> 業種と店舗・屋号を入力して「保存」できていれば STEP 3 完了です。
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 4 -->
+        <section>
+          <div class="step-card">
+            <div class="step-number">4</div>
+            <h2>マスタードキュメントを作る</h2>
+            <span class="step-summary">戦略を書き込む Google ドキュメントをワンボタンで生成する</span>
+
+            <div class="step-meta">
+              <span class="chip">設定ページ</span>
+              <span class="chip">Google ドキュメント</span>
+            </div>
+
+            <div class="step-tip">
+              「マスタードキュメント」は、§0〜§9 の成果を章ごとに記録していく 1 本の Google ドキュメントです。<strong>テンプレートを自分で取り込む必要はありません。</strong> ボタン一つで、拡張機能が中身を組み立てた Doc を作ってくれます。
+            </div>
+
+            <p class="step-section-title">操作手順</p>
+            <ol class="detail-steps">
+              <li>
+                設定ページの「<strong>マスタードキュメント</strong>」の欄を開きます。
+              </li>
+              <li>
+                「<strong>新規作成</strong>」ボタンをクリックします。少し待つと、あなたの Google ドライブに新しい Google ドキュメントが作られます。
+              </li>
+              <li>
+                「<strong>📄 開く</strong>」ボタンで、作られたマスタードキュメントを確認できます。章立て（§0〜§9）が入った Doc が開けば成功です。
+              </li>
+            </ol>
+
+            <div class="step-tip">
+              <strong>すでに作った Doc を使いたいときは:</strong> 「Google Docs URL」欄にその URL を貼り、「<strong>確認して保存</strong>」を押すと、その Doc を記録先として登録できます。
+            </div>
+
+            <div class="step-warn">
+              <strong>AI の出力を直接このマスターに書き込まないでください。</strong> AI が生成した文章はいったん別の場所に残し、人間が選んでから転記する運用にしてください（設定ページ「このツールについて」にも同じ注意があります）。
+            </div>
+
+            <div class="step-done">
+              <strong>完了の確認:</strong> 「📄 開く」で、章立ての入ったマスタードキュメントが開ければ STEP 4 完了です。
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 5 -->
+        <section>
+          <div class="step-card">
+            <div class="step-number">5</div>
+            <h2>Gemini API キーを設定する（任意）</h2>
+            <span class="step-summary">AI に文章を自動で書かせたいときだけ必要</span>
+
+            <div class="step-meta">
+              <span class="chip">設定ページ</span>
+              <span class="chip">Gemini</span>
+            </div>
+
+            <div class="step-tip">
+              自分で AI チャット（Gemini・ChatGPT など）にプロンプトを貼って進める「手動運用」だけなら、この STEP は<strong>スキップして構いません</strong>。「全自動生成」や「図解の自動生成」を使うときだけ、Gemini の API キーが要ります。
+            </div>
+
+            <p class="step-section-title">① まず API キーを取得する</p>
+            <div class="alert" style="background:#dbeafe;border-left:4px solid #3b82f6;">
+              <strong>📘 初めての方は完全ガイドを推奨</strong><br>
+              「API って何？」「Google AI Studio って何？」からゼロで理解できる詳細ガイドを用意しています。キーの取り方はこちらに沿って進めてください。
+              <div style="margin-top:8px;">
+                <a class="button" href="gemini-api-guide-v0.11.html">Gemini API 完全ガイドを開く</a>
+              </div>
+            </div>
+            <p style="margin-top:12px;">
+              かんたんに言うと、<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio（aistudio.google.com/app/apikey）</a>を開いて「API キーを作成」を押すと、<code>AIza…</code> で始まるキーが発行されます。これをコピーしておきます。
+            </p>
+            <div class="step-warn">
+              <strong>API キーはパスワードと同じ扱いです。</strong> 他人に教えたり、SNS・GitHub などに貼ったりしないでください。
+            </div>
+
+            <p class="step-section-title">② 拡張機能にキーを登録する</p>
+            <p>設定ページの「<strong>Gemini 設定</strong>」の欄で登録します。方法は 2 つあり、学習用途では<strong>「セキュア学習モード」を推奨</strong>します。</p>
+
+            <div class="step-tip">
+              <strong>おすすめ：セキュア学習モード</strong><br>
+              キーを拡張機能（この端末）に保存せず、あなた専用の保管場所（Apps Script）に預ける方式です。手順は次のとおりです。
+              <ol class="detail-steps" style="margin-top:8px;">
+                <li>「<strong>Gemini proxy を作成</strong>」を押します（初回に Apps Script 側の承認を求められることがあります。表示に従って許可してください）。</li>
+                <li>キー入力欄に、①で取得した <code>AIza…</code> のキーを貼り付けます。</li>
+                <li>「<strong>proxy に key を設定</strong>」を押します。</li>
+                <li>「<strong>proxy 実行確認</strong>」を押して、正常に動けば完了です。</li>
+              </ol>
+            </div>
+
+            <div class="step-tip">
+              <strong>もう一つ：直接 API key モード</strong><br>
+              キーをこの端末に保存する簡易な方式です。使う場合は<strong>「上限を絞った学習用の無料枠キー」だけ</strong>にしてください。確認のチェックを入れ、キーを貼り付けて「<strong>直接 key を保存</strong>」→「<strong>直接 key 実行確認</strong>」の順に押します。
+            </div>
+
+            <div class="alert">
+              <strong>無料枠について</strong><br>
+              Gemini の無料枠は、おおよそ<strong>1 分あたり 10 回・1 日 250 回</strong>までです。手動・半自動なら問題ありませんが、全自動で連続実行すると 1 分あたりの制限に当たることがあります。その場合はフェーズの間に少し時間を空けてください。クレジットカードを登録していなければ課金は発生しません。
+            </div>
+
+            <div class="step-done">
+              <strong>完了の確認:</strong> 「proxy 実行確認」または「直接 key 実行確認」が成功すれば STEP 5 完了です。手動運用のみの方はスキップで問題ありません。
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 6 -->
+        <section>
+          <div class="step-card">
+            <div class="step-number">6</div>
+            <h2>§0 を始めて、最初のアウトプットを出す</h2>
+            <span class="step-summary">フェーズを 1 つ動かして、マスターに記録されるのを確認する</span>
+
+            <div class="step-meta">
+              <span class="chip">サイドパネル</span>
+              <span class="chip">フェーズ</span>
+            </div>
+
+            <p class="step-section-title">操作手順</p>
+            <ol class="detail-steps">
+              <li>
+                設定ページを閉じ、<strong>サイドパネルに戻ります</strong>（設定ページ左上の「← サイドパネルに戻る」でも戻れます）。
+              </li>
+              <li>
+                サイドパネルのタブから「<strong>フェーズ</strong>（手動で進める）」を開きます。「<strong>§0</strong>」から順に並んでいます。
+              </li>
+              <li>
+                「<strong>§0 プレリサーチ（ヒアリング前調査）</strong>」を開き、表示されるプロンプトを、対応する AI チャットに送って進めます。全自動を使う場合は「<strong>自動化</strong>（AIにまとめて任せる）」タブから実行できます。
+              </li>
+              <li>
+                出てきた結果を確認し、必要な部分をマスタードキュメントの該当章に記録します（人間が選んで転記します）。
+              </li>
+            </ol>
+
+            <div class="step-tip">
+              サイドパネルには「フェーズ」「自動化」「リサーチ」「スライド」の 4 つのタブがあります。まずは「フェーズ」で §0 を 1 つ動かし、マスターに記録されることを確認できれば、全体の流れがつかめます。
+            </div>
+
+            <div class="step-done">
+              <strong>これでセットアップは完了です。</strong> §0 の結果がマスタードキュメントに記録できれば、あとは §1 → §9 まで同じ要領で進めていけます。
+            </div>
+          </div>
+        </section>
+
+        <!-- SNS 版 -->
+        <section id="sns-section">
+          <div class="section-card">
+            <h2>X-KIT / INSTAGRAM-KIT をお使いの方へ</h2>
+            <p>
+              X（旧Twitter）運用の <strong>X-KIT</strong> と、Instagram 運用の <strong>INSTAGRAM-KIT</strong> も、<strong>セットアップの手順はこのガイドとまったく同じ</strong>です（拡張機能を読み込む → Google 連携 → 事業情報 → マスタードキュメント作成 → Gemini 設定 → §0 を始める）。違うのは次の点だけです。
+            </p>
+            <ul class="plain-list" style="line-height:1.9;">
+              <li>拡張機能一覧に表示される名前が「<strong>X-KIT</strong>」または「<strong>INSTAGRAM-KIT</strong>」になります（STRATEGY-KIT Helper ではありません）。</li>
+              <li>読み込む ZIP は、それぞれの製品の ZIP です（X-KIT は <code>x-kit-v0.12.22.zip</code>、INSTAGRAM-KIT は <code>instagram-kit-v0.12.22.zip</code>）。</li>
+              <li>事業情報や各フェーズの中身が、マーケ戦略ではなく <strong>SNS アカウント運用</strong>の内容になります。</li>
+            </ul>
+
+            <p class="step-section-title">フェーズの中身（§0〜§9）</p>
+            <p class="muted" style="font-size:0.95rem;line-height:1.85;">
+              §0 プラットフォーム調査 → §1 ヒアリング（運用目的・体制・既存資産・トンマナ）→ §2 競合アカウント／オーディエンス分析 → §3 統合（アカウントの勝ち筋を 1 行で定義）→ §4 ペルソナ・コンテンツピラー・フォロワージャーニー → §5 アカウントコンセプト・bio／固定ポスト設計・トンマナガイド → §6 投稿企画のブレスト（5 枠＋優先度）→ §7 投稿カレンダー・運用エコノミクス → §8 KPI ツリー → §9 PDCA・採否判断。<br>
+              つまり「マーケティング戦略」を「SNS アカウント運用計画」に読み替えた 10 フェーズになります。進め方（連携・記録・転記のルール）は STRATEGY-KIT と共通です。
+            </p>
+
+            <div class="step-warn">
+              <strong>連携まわりの注意（テストユーザー登録・約 7 日で失効）は 3 製品すべて共通です。</strong> STEP 2 の説明をそのまま参照してください。
+            </div>
+          </div>
+        </section>
+
+        <!-- 困ったら -->
+        <section>
+          <div class="section-card">
+            <h2>困ったら（よくある質問）</h2>
+
+            <div class="faq-block">
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q1</span>連携で「アクセスをブロック（access_denied）」と出る</div>
+                <div class="faq-a">
+                  使っている Gmail アドレスがテストユーザーに未登録です。自分では直せないので、そのアドレスを講師（山口さん）に伝えて登録してもらってください。登録後、設定ページの「連携 / 再連携」からやり直すと通ります。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q2</span>しばらく使っていたら「未連携」になって自動化が止まった</div>
+                <div class="faq-a">
+                  故障ではありません。テスト中アプリの許可はおよそ 7 日で自動的に切れます。設定ページの「Google アカウント連携」で「<strong>連携 / 再連携</strong>」をもう一度押すと復活します。週明けなどに止まっていたら、まずここを試してください。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q3</span>「このアプリは Google で確認されていません」と出る</div>
+                <div class="faq-a">
+                  テスト中アプリのため出る警告で、正常です。画面下部の「<strong>詳細</strong>」→「<strong>（アプリ名）に移動（安全ではないページ）</strong>」→「許可」の順に進めてください。「キャンセル」や「戻る」を押すと連携が完了しません。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q4</span>拡張機能アイコンを押してもサイドパネルが開かない</div>
+                <div class="faq-a">
+                  <code>chrome://extensions/</code> で拡張が「有効」になっているか確認してください。「デベロッパーモードの拡張機能を無効にしますか？」で「無効にする」を押してしまった場合は、ここで再度有効化できます。それでも開かない場合は Chrome を再起動してください。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q5</span>全自動モードが途中で止まる</div>
+                <div class="faq-a">
+                  Gemini 無料枠の「1 分あたり 10 回」の制限に当たっている可能性があります。フェーズとフェーズの間に少し時間を空けてから再実行するか、手動・半自動で 1 つずつ進めてください。
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q6</span>以前のガイド（v0.11）と手順が全然違う</div>
+                <div class="faq-a">
+                  v0.11 までは Apps Script のライブラリ登録や Web App のデプロイが必要でしたが、現行の v0.12 では<strong>その作業は不要</strong>になりました。Google 連携（STEP 2）だけで動きます。このガイド（v0.12）に沿って進めてください。
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- サポート -->
+        <section>
+          <div class="support-card">
+            <h2>サポート・お問い合わせ</h2>
+            <p>このガイドを見ても解決しない場合は、<strong>職業訓練校の窓口（山口さん）</strong>までご連絡ください。</p>
+            <p>質問の際は、以下を合わせてお伝えいただくとスムーズです。</p>
+            <ul>
+              <li>どのステップで詰まっているか（例: STEP 2 の連携で）</li>
+              <li>表示されているエラーメッセージ（スクリーンショット推奨）</li>
+              <li>使用している OS と Chrome のバージョン</li>
+            </ul>
+
+            <p class="version-note">
+              バージョン: v0.12 対応 &nbsp;/&nbsp; STRATEGY-KIT / X-KIT / INSTAGRAM-KIT 共通
+            </p>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <script>
+      document.querySelectorAll('[data-copy]').forEach(function (button) {
+        button.addEventListener('click', async function () {
+          var text = button.getAttribute('data-copy');
+          try {
+            await navigator.clipboard.writeText(text);
+            button.textContent = 'コピー済み';
+            setTimeout(function () {
+              button.textContent = 'コピー';
+            }, 1600);
+          } catch (e) {
+            button.textContent = '失敗';
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

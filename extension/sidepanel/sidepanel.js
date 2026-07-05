@@ -214,6 +214,20 @@ const PRODUCT_CONFIG_FALLBACK = {
   branding: { name: 'STRATEGY-KIT Helper', footerLabel: 'STRATEGY-KIT' },
 };
 
+// branding 各キーの解決ヘルパー（product.json 未読・欠落時は STRATEGY-KIT 文言へフォールバック）。
+// state.productConfig.branding を単一情報源にして、表示文言を製品横断で間接化する。
+function getBranding() {
+  return (state.productConfig && state.productConfig.branding) || null;
+}
+function brandFooterLabel() {
+  const b = getBranding();
+  return (b && b.footerLabel) || 'STRATEGY-KIT';
+}
+function brandPurposeLabel() {
+  const b = getBranding();
+  return (b && b.purposeLabel) || 'マーケティング戦略立案';
+}
+
 async function resolveProductConfig(loadJsonFn) {
   let raw = null;
   try {
@@ -765,7 +779,7 @@ function formatQ2SelectionAppendix(plan) {
     '',
     '---',
     '',
-    '## STRATEGY-KIT 自動確認: 5枠選定',
+    '## ' + brandFooterLabel() + ' 自動確認: 5枠選定',
     '| slot | category_label | selected_candidate_id | 施策名 | computed_rice | selection_type | note |',
     '|---:|---|---|---|---:|---|---|',
   ];
@@ -1234,9 +1248,11 @@ function persistHearingRawText(value, immediate = false) {
 }
 
 function buildHearingSummaryPrompt(rawText) {
+  // ドメイン語は branding.purposeLabel に間接化（未設定時は STRATEGY-KIT の「マーケティング戦略立案」）。
+  const purposeLabel = brandPurposeLabel();
   return [
     'SYSTEM:',
-    'あなたはマーケティング戦略講座のヒアリング記録を整理する編集者です。',
+    'あなたは' + purposeLabel + 'のヒアリング記録を整理する編集者です。',
     '目的は、録音文字起こしや議事録の生データから、後続の戦略立案プロンプトに渡せる一次情報要約を作ることです。',
     '生データにない事実を作らないでください。外部調査で補完しないでください。',
     '不明点・矛盾・追加確認が必要な点は、推測で埋めず「要確認」に分けてください。',
@@ -1245,7 +1261,7 @@ function buildHearingSummaryPrompt(rawText) {
     '',
     'USER:',
     '以下は、クライアントワークのヒアリング録音文字起こし、議事録、またはメモの生データです。',
-    'ノイズ、言い淀み、重複、雑談を整理し、後続のマーケティング戦略立案に使える要約にしてください。',
+    'ノイズ、言い淀み、重複、雑談を整理し、後続の' + purposeLabel + 'に使える要約にしてください。',
     '',
     '【出力フォーマット】',
     '## 1. 案件概要',
@@ -3191,7 +3207,7 @@ async function saveChapterToDocs(phase) {
 function buildDocTitle() {
   const store = state.settings?.storeName || '案件名未設定';
   const date = new Date().toISOString().slice(0, 10);
-  return `STRATEGY-KIT 章別記録 ${store} ${date}`;
+  return `${brandFooterLabel()} 章別記録 ${store} ${date}`;
 }
 
 function buildChapterText(phase) {
@@ -4137,6 +4153,10 @@ function emit(event, payload) {
 window.SK_CORE = {
   // データ
   getState: () => state,
+  // ブランド表記の間接化ヘルパー（automation.js / diagram.js が生成物タイトル等に使う）。
+  // product.json 未読・branding 欠落時は STRATEGY-KIT の現状文言へフォールバックする。
+  getBranding: () => getBranding(),
+  getFooterLabel: () => brandFooterLabel(),
   getCurrentPhase: () =>
     findModeAdjustedPhaseById(state.settings.lastPhase),
   getPhases: () => getVisiblePhases(),
@@ -4193,7 +4213,8 @@ window.SK_CORE = {
     try {
       manifestVersionStr = chrome?.runtime?.getManifest?.()?.version || '';
       if (footerVersionEl && manifestVersionStr) {
-        footerVersionEl.textContent = 'STRATEGY-KIT v' + manifestVersionStr;
+        // product.json ロード前なので brandFooterLabel() は null→'STRATEGY-KIT' を返す（ロード後 4216 で上書き）。
+        footerVersionEl.textContent = brandFooterLabel() + ' v' + manifestVersionStr;
       }
     } catch (_) {
       /* manifest 取得失敗時はフォールバックでそのまま */
@@ -4211,14 +4232,35 @@ window.SK_CORE = {
 
     // フッター表記を product.json の branding.footerLabel に間接化（不読時は STRATEGY-KIT）。
     try {
-      const footerLabel =
-        (state.productConfig && state.productConfig.branding && state.productConfig.branding.footerLabel) ||
-        'STRATEGY-KIT';
+      const footerLabel = brandFooterLabel();
       if (footerVersionEl) {
         footerVersionEl.textContent = manifestVersionStr
           ? footerLabel + ' v' + manifestVersionStr
           : footerLabel;
       }
+    } catch (_) {
+      /* branding 解決失敗時はフォールバック表記のまま */
+    }
+
+    // ヘッダーのブランド表記（ロゴ monogram / 2段テキスト / aria-label / タイトル）を
+    // product.json の branding に間接化（各キー欠落時は STRATEGY-KIT の現状文言を維持）。
+    try {
+      const branding = getBranding();
+      const logoMonogram = (branding && branding.logoMonogram) || 'SK';
+      const brandLines =
+        branding && Array.isArray(branding.brandLines) && branding.brandLines.length >= 2
+          ? branding.brandLines
+          : ['STRATEGY', 'kit'];
+      const brandName = (branding && branding.name) || 'STRATEGY-KIT';
+      const logoEl = document.getElementById('brand-logo');
+      const mainEl = document.getElementById('brand-text-main');
+      const subEl = document.getElementById('brand-text-sub');
+      const rootEl = document.getElementById('brand-root');
+      if (logoEl) logoEl.textContent = logoMonogram;
+      if (mainEl) mainEl.textContent = brandLines[0];
+      if (subEl) subEl.textContent = brandLines[1];
+      if (rootEl) rootEl.setAttribute('aria-label', brandName);
+      if (document.title === 'STRATEGY-KIT') document.title = brandName;
     } catch (_) {
       /* branding 解決失敗時はフォールバック表記のまま */
     }

@@ -7,6 +7,18 @@
 (function () {
   const DRAFT_DECISION_CANCELLED = 'DRAFT_DECISION_CANCELLED';
 
+  // 生成物タイトル等のブランド表記を product.json の branding.footerLabel に間接化する。
+  // SK_CORE.getFooterLabel 経由（未読・未定義時は STRATEGY-KIT へフォールバック）。
+  function brandFooterLabel_() {
+    try {
+      const fn = window.SK_CORE && window.SK_CORE.getFooterLabel;
+      const label = typeof fn === 'function' ? fn() : null;
+      return label || 'STRATEGY-KIT';
+    } catch (_) {
+      return 'STRATEGY-KIT';
+    }
+  }
+
   async function isOAuthReady() {
     try {
       const authUrl = chrome.runtime.getURL('phase0/auth.js');
@@ -820,7 +832,7 @@
           docsClient,
           driveClient,
           storageArea: chrome.storage.sync,
-          titleBase: settings.storeName || settings.industryLabel || 'STRATEGY-KIT DRAFT',
+          titleBase: settings.storeName || settings.industryLabel || (brandFooterLabel_() + ' DRAFT'),
         });
         draftUrlInput.value = draftRes.draftDocUrl;
         if (window.SK_STATE) {
@@ -1918,115 +1930,135 @@
     }
 
     async function executeAutomation(actionOptions = {}) {
+      // 再入ガード（TOCTOU 対策）: 最初の await より前に同期でフラグを立て、二重起動で同一
+      // マスター Doc への並行 batchUpdate が起きないようにする。連打・並行呼び出しでも 2 本目は
+      // ここで即 return する。以降の early-return・例外・完走のいずれでも下の finally で必ず解除する。
+      // ボタンの視覚的無効化はフラグ set 直後の applyAutomationPrimaryAction / setAutomationRunBusy に
+      // 委ね、startBtn.disabled=true は setAutomationRunBusy 一箇所に保つ（fix-2 の単一ロック不変条件）。
       if (isAutomationRunning) return;
-      const primaryAction = await buildCurrentAutomationAction({
-        refreshDraft: true,
-        forceStartAtZero: !!actionOptions.forceStartAtZero,
-        ignoreFailedSections: !!actionOptions.ignoreFailedSections,
-        forceResumeContext: actionOptions.forceResumeContext,
-      });
-      applyAutomationPrimaryAction(primaryAction);
-      if (primaryAction.primaryDisabled) return;
+      isAutomationRunning = true;
+      let busyStarted = false;
+      try {
+        const primaryAction = await buildCurrentAutomationAction({
+          refreshDraft: true,
+          forceStartAtZero: !!actionOptions.forceStartAtZero,
+          ignoreFailedSections: !!actionOptions.ignoreFailedSections,
+          forceResumeContext: actionOptions.forceResumeContext,
+        });
+        applyAutomationPrimaryAction(primaryAction);
+        if (primaryAction.primaryDisabled) return;
 
-      // v0.9.14: 業種・店舗はトップ「事業設定」を単一ソースとして参照
-      const settings = window.SK_CORE.getState().settings || {};
-      const industryVal = (settings.industryLabel || '').trim();
-      const storeVal = (settings.storeName || '').trim();
+        // v0.9.14: 業種・店舗はトップ「事業設定」を単一ソースとして参照
+        const settings = window.SK_CORE.getState().settings || {};
+        const industryVal = (settings.industryLabel || '').trim();
+        const storeVal = (settings.storeName || '').trim();
 
-      const formInputs = {
-        industry: industryVal,
-        storeName: storeVal,
-        memo: memoArea.value.trim(),
-        context: contextArea.value.trim(),
-      };
-      if (!formInputs.industry) {
-        window.alert('⚠ 上の「事業設定」セクションで業種を選んでください。\n\nページ上部の「事業設定」カードで業種（プリセット選択 or 自由入力）と店舗・屋号を入力してから、もう一度「実行」を押してください。');
-        // トップ事業設定セクションへ誘導
-        if (typeof businessEditBtn !== 'undefined' && businessEditBtn.click) {
-          businessEditBtn.click();
-        }
-        refreshBusinessReadout();
-        return;
-      }
-      // 読み取り専用表示を最新化
-      refreshBusinessReadout();
-
-      // ヒアリング停止ゲート（設計 §4-1: setAutomationRunBusy・ログ初期化より前に判定）。
-      // 全自動分岐のみ。整合要約あり / 同案件 ack 済みならゲートは出ない（既存動線不変）。
-      // 中断・再開（resume / retry）時は再度のヒアリング確認を挟まず素通りさせる。
-      const isFreshFullAutoRun =
-        radioFull.checked &&
-        !actionOptions.forceResumeContext &&
-        primaryAction.kind !== 'retry';
-      // v3.6: ready（整合確定要約あり）の fresh run は §0 を直書きシードして §1 から開始する
-      //   ための上書き開始 index（ヒアリング/項目策定で §0 相当は済んでいる二度手間の解消）。
-      let freshRunStartOverride = null;
-      if (isFreshFullAutoRun) {
-        const gateOutcome = await maybeRunHearingGate(formInputs);
-        if (gateOutcome && gateOutcome.proceed === false) {
-          // 壁打ち/貼り付け選択 or キャンセル: 全自動は開始しない（busy 化しない）
+        const formInputs = {
+          industry: industryVal,
+          storeName: storeVal,
+          memo: memoArea.value.trim(),
+          context: contextArea.value.trim(),
+        };
+        if (!formInputs.industry) {
+          window.alert('⚠ 上の「事業設定」セクションで業種を選んでください。\n\nページ上部の「事業設定」カードで業種（プリセット選択 or 自由入力）と店舗・屋号を入力してから、もう一度「実行」を押してください。');
+          // トップ事業設定セクションへ誘導
+          if (typeof businessEditBtn !== 'undefined' && businessEditBtn.click) {
+            businessEditBtn.click();
+          }
+          refreshBusinessReadout();
           return;
         }
-        freshRunStartOverride = await maybeSeedPhase0ForFreshRun_();
-      }
+        // 読み取り専用表示を最新化
+        refreshBusinessReadout();
 
-      setAutomationRunBusy();
-
-      progressArea.classList.remove('hidden');
-      window.SK_CORE.clearChildren(logArea);
-      progressBarInner.style.width = '0%';
-      persistAutomationDraft();
-
-      const isFullAuto = radioFull.checked;
-
-      const startIndex = (freshRunStartOverride != null)
-        ? freshRunStartOverride
-        : (primaryAction.startIndex || 0);
-      const startSubNo = primaryAction.startSubNo || null;
-      const resumedAccumulated = primaryAction.accumulated || null;
-      const retrySections = primaryAction.retrySections || [];
-      clearResumeContext(true);
-
-      try {
-        if (isFullAuto) {
-          await runFullAuto(formInputs, ctrl, modelSelect.value, {
-            progressBarInner,
-            progressLabel,
-            logArea,
-            draftInfoArea,
-            chainArea,
-            onFailedSectionsChange: updateFailedSectionsCache,
-          }, {
-            startIndex: startIndex,
-            startSubNo: startSubNo,
-            accumulated: resumedAccumulated,
-            retrySections: retrySections,
-            retryOnly: primaryAction.kind === 'retry',
-            financeModel: financeModelSelect.value,
-          });
-        } else {
-          await runSemiAuto(formInputs, ctrl, {
-            progressBarInner,
-            progressLabel,
-            logArea,
-            draftInfoArea,
-            chainArea,
-            onFailedSectionsChange: updateFailedSectionsCache,
-          }, { startIndex: startIndex, startSubNo: startSubNo, accumulated: resumedAccumulated, retrySections: retrySections });
+        // ヒアリング停止ゲート（設計 §4-1: setAutomationRunBusy・ログ初期化より前に判定）。
+        // 全自動分岐のみ。整合要約あり / 同案件 ack 済みならゲートは出ない（既存動線不変）。
+        // 中断・再開（resume / retry）時は再度のヒアリング確認を挟まず素通りさせる。
+        const isFreshFullAutoRun =
+          radioFull.checked &&
+          !actionOptions.forceResumeContext &&
+          primaryAction.kind !== 'retry';
+        // v3.6: ready（整合確定要約あり）の fresh run は §0 を直書きシードして §1 から開始する
+        //   ための上書き開始 index（ヒアリング/項目策定で §0 相当は済んでいる二度手間の解消）。
+        let freshRunStartOverride = null;
+        if (isFreshFullAutoRun) {
+          const gateOutcome = await maybeRunHearingGate(formInputs);
+          if (gateOutcome && gateOutcome.proceed === false) {
+            // 壁打ち/貼り付け選択 or キャンセル: 全自動は開始しない（busy 化しない）
+            return;
+          }
+          freshRunStartOverride = await maybeSeedPhase0ForFreshRun_();
         }
-      } catch (e) {
-        const mode = isFullAuto ? '全自動' : '半自動チェーン';
-        console.error('[STRATEGY-KIT] ' + mode + 'エラー:', e);
-        stopSavingOverlay();
-        setCurrentLocationText(mode + 'でエラーが発生しました', 'Google連携とマスターの状態を確認してください');
-        const help = describeAutomationError(e);
-        progressLabel.textContent = '⚠ ' + mode + 'で停止しました: ' + help.short;
-        appendAutomationErrorLog(logArea, mode + 'の実行エラー', e);
-        window.SK_CORE.showToast(mode + 'を実行中にエラーが発生しました。' + help.short, true, 6000);
+
+        setAutomationRunBusy();
+        busyStarted = true;
+
+        progressArea.classList.remove('hidden');
+        window.SK_CORE.clearChildren(logArea);
+        progressBarInner.style.width = '0%';
+        persistAutomationDraft();
+
+        const isFullAuto = radioFull.checked;
+
+        const startIndex = (freshRunStartOverride != null)
+          ? freshRunStartOverride
+          : (primaryAction.startIndex || 0);
+        const startSubNo = primaryAction.startSubNo || null;
+        const resumedAccumulated = primaryAction.accumulated || null;
+        const retrySections = primaryAction.retrySections || [];
+        clearResumeContext(true);
+
+        try {
+          if (isFullAuto) {
+            await runFullAuto(formInputs, ctrl, modelSelect.value, {
+              progressBarInner,
+              progressLabel,
+              logArea,
+              draftInfoArea,
+              chainArea,
+              onFailedSectionsChange: updateFailedSectionsCache,
+            }, {
+              startIndex: startIndex,
+              startSubNo: startSubNo,
+              accumulated: resumedAccumulated,
+              retrySections: retrySections,
+              retryOnly: primaryAction.kind === 'retry',
+              financeModel: financeModelSelect.value,
+            });
+          } else {
+            await runSemiAuto(formInputs, ctrl, {
+              progressBarInner,
+              progressLabel,
+              logArea,
+              draftInfoArea,
+              chainArea,
+              onFailedSectionsChange: updateFailedSectionsCache,
+            }, { startIndex: startIndex, startSubNo: startSubNo, accumulated: resumedAccumulated, retrySections: retrySections });
+          }
+        } catch (e) {
+          const mode = isFullAuto ? '全自動' : '半自動チェーン';
+          console.error('[STRATEGY-KIT] ' + mode + 'エラー:', e);
+          stopSavingOverlay();
+          setCurrentLocationText(mode + 'でエラーが発生しました', 'Google連携とマスターの状態を確認してください');
+          const help = describeAutomationError(e);
+          progressLabel.textContent = '⚠ ' + mode + 'で停止しました: ' + help.short;
+          appendAutomationErrorLog(logArea, mode + 'の実行エラー', e);
+          window.SK_CORE.showToast(mode + 'を実行中にエラーが発生しました。' + help.short, true, 6000);
+        } finally {
+          stopSavingOverlay();
+        }
       } finally {
-        stopSavingOverlay();
+        // TOCTOU 解除側: fresh/resume/retry・早期リターン・例外のどの経路でも実行中フラグを
+        // 必ず戻す。busy 化まで到達した実行のみ setAutomationRunIdle で完全復帰（再取得あり）、
+        // busy 前の早期リターンはボタン状態のみ戻す（余計なマスター再取得を発生させない）。
         isAutomationRunning = false;
-        setAutomationRunIdle();
+        if (busyStarted) {
+          setAutomationRunIdle();
+        } else if (automationPrimaryAction) {
+          applyAutomationPrimaryAction(automationPrimaryAction);
+        } else {
+          startBtn.disabled = false;
+        }
       }
     }
 
@@ -2225,7 +2257,7 @@
         driveClient,
         storageArea: chrome.storage.sync,
         phases: window.SK_CORE.getPhases ? window.SK_CORE.getPhases() : [],
-        titleBase: settings.storeName || settings.industryLabel || 'STRATEGY-KIT DRAFT',
+        titleBase: settings.storeName || settings.industryLabel || (brandFooterLabel_() + ' DRAFT'),
         confirmUseExisting: async function (existing) {
           const title = existing.title || '(無題)';
           const choice = await showDraftDecisionModal({
@@ -2325,7 +2357,7 @@
           phases: window.SK_CORE.getPhases ? window.SK_CORE.getPhases() : [],
           industryLabel: settings.industryLabel || '',
           storeName: settings.storeName || '',
-          title: settings.storeName || settings.industryLabel || 'STRATEGY-KIT Master',
+          title: settings.storeName || settings.industryLabel || (brandFooterLabel_() + ' Master'),
         });
         info = {
           exists: true,
@@ -2368,7 +2400,7 @@
     }
     const documentId = masterInfo?.documentId;
     if (!documentId) throw new Error('マスター Doc が未設定です');
-    const baseTitle = masterInfo.title || 'STRATEGY-KIT Master';
+    const baseTitle = masterInfo.title || (brandFooterLabel_() + ' Master');
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const copied = await driveClient.copyFile(documentId, {
       name: '[BACKUP before full auto] ' + baseTitle + ' ' + timestamp,
@@ -2438,9 +2470,10 @@
       storageArea: chrome.storage.sync,
     });
     const isSummary = type === 'summary';
+    const draftLabel = brandFooterLabel_() + ' DRAFT';
     const prompt = isSummary
       ? [
-          '以下のSTRATEGY-KIT DRAFTを読み、A4 1枚相当のExecutive Summaryを作成してください。',
+          '以下の' + draftLabel + 'を読み、A4 1枚相当のExecutive Summaryを作成してください。',
           '条件:',
           '- Markdown形式で出力する',
           '- HTMLは出さない',
@@ -2452,7 +2485,7 @@
           draft.text,
         ].join('\n')
       : [
-          '以下のSTRATEGY-KIT DRAFTを整形してください。',
+          '以下の' + draftLabel + 'を整形してください。',
           '条件:',
           '- Markdown形式で出力する',
           '- HTMLは出さない',
@@ -2474,7 +2507,7 @@
     });
     const titlePrefix = isSummary ? '[SUMMARY]' : '[CLEAN]';
     const generatedText = generated.text || '（応答なし）';
-    const title = `${titlePrefix} ${draft.title || 'STRATEGY-KIT DRAFT'}`;
+    const title = `${titlePrefix} ${draft.title || draftLabel}`;
     const derived = await draftManager.createDerivedDraftDocument({
       docsClient,
       title,
@@ -2555,12 +2588,22 @@
       ? (financeModel || financeGate.FINANCE_GATE_RECOMMENDED_MODEL)
       : selectedModel;
     const temperature = isFinance ? 0.2 : 0.4;
+    // 空応答（2xx だが本文 part が無い: safety block / MAX_TOKENS / finishReason=SAFETY 等）は
+    // 「（応答なし）」を status:done で保存せず throw し、呼び出し側の failed マーカー + retry UI へ
+    // 落とす。モードA 質問設計の空応答 throw（'empty response text'）と挙動を揃える。
+    function requireGeneratedBody_(res) {
+      const text = (res && res.text) ? String(res.text) : '';
+      if (!text.trim()) {
+        throw new Error('AI が空の応答を返しました（応答なし）。時間をおいて再試行してください');
+      }
+      return text;
+    }
     let res = await geminiClient.generateContent({
       prompt: promptText,
       model: effectiveModel,
       temperature: temperature,
     });
-    let bodyText = (res && res.text) ? res.text : '（応答なし）';
+    let bodyText = requireGeneratedBody_(res);
 
     if (!isFinance) {
       return { bodyText: bodyText, model: effectiveModel, financeGate: null, financeGateWarning: false };
@@ -2579,7 +2622,7 @@
         model: effectiveModel,
         temperature: 0.1,
       });
-      bodyText = (res && res.text) ? res.text : '（応答なし）';
+      bodyText = requireGeneratedBody_(res);
       validation = financeGate.validateUnitEconomicsOutput(bodyText);
     }
 
@@ -3769,7 +3812,7 @@
 	            const textWithQ2Appendix =
 	              q2Result.applies &&
 	              q2Result.appendix &&
-	              text.indexOf('STRATEGY-KIT 自動確認: 5枠選定') === -1
+	              text.indexOf('自動確認: 5枠選定') === -1
 	                ? text + q2Result.appendix
 	                : text;
 	            nextBtn.disabled = true;

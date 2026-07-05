@@ -102,24 +102,31 @@ export async function importDraftToMaster({
 
   const written = [];
   for (const section of plan.sections) {
-    const result = await masterSectionWriter.writeMasterSection({
-      docsClient,
-      storageArea,
-      sectionKey: section['key'],
-      title: section.title,
-      body: section.body,
-      status: section.status,
-      errorCode: section.status === 'failed' ? FAILURE_ERROR_CODE : '',
-      errorMessage: section.errorMessage || '',
-      aiUsed: 'draft-import',
-      now,
-    });
-    written.push({
-      key: section['key'],
-      title: section.title,
-      status: section.status,
-      result,
-    });
+    try {
+      const result = await masterSectionWriter.writeMasterSection({
+        docsClient,
+        storageArea,
+        sectionKey: section['key'],
+        title: section.title,
+        body: section.body,
+        status: section.status,
+        errorCode: section.status === 'failed' ? FAILURE_ERROR_CODE : '',
+        errorMessage: section.errorMessage || '',
+        aiUsed: 'draft-import',
+        now,
+      });
+      written.push({
+        key: section['key'],
+        title: section.title,
+        status: section.status,
+        result,
+      });
+    } catch (cause) {
+      // 途中失敗: フルロールバックは大工事のため行わない。done マーカー書き込みは冪等で
+      // 再取り込みにより回復可能（永久損失ではない=RED ではない）ため、「どこまで書けたか」と
+      // 復旧導線（再取り込みで冪等に続行 / 取り込み前バックアップ Doc あり）を伝えるエラーへ包む。
+      throw buildPartialImportError({ cause, section, writtenCount: written.length, backup });
+    }
   }
 
   const failedCount = plan.sections.filter((section) => section.status === 'failed').length;
@@ -168,6 +175,26 @@ export async function createMasterBackupCopy({
   };
   await storageArea.set({ [MASTER_BACKUP_KEY]: backup });
   return backup;
+}
+
+// 途中失敗を「途中まで書き込み済み + 再取り込みで復旧可能」と伝わるエラーへ包む。
+// UI 側 describeAutomationError は既定分岐で message を 120 字トリムするため、主要導線
+// （再取り込みで復旧）を先頭へ寄せ、503/429 等の生ステータス語は本文に混ぜない
+// （それらのキーワードで別分類に丸められ、復旧導線が消えるのを避ける）。原因は cause に保持。
+function buildPartialImportError({ cause, section, writtenCount, backup } = {}) {
+  const label = ('§' + (section?.['key'] || '') + ' ' + (section?.title || '')).trim().slice(0, 14);
+  const message = 'DRAFT取り込みが途中で失敗しました（' + label + '）。'
+    + 'マスターに' + writtenCount + '章書き込み済み・残り未適用。'
+    + 'もう一度「取り込み」を押すと済んだ章は自動で置換され途中から復旧します'
+    + '（取り込み前バックアップDoc作成済み）。';
+  const error = new Error(message);
+  error.code = FAILURE_ERROR_CODE;
+  error.partialImport = true;
+  error.writtenCount = writtenCount;
+  error.failedSectionKey = section?.['key'] || '';
+  error.backup = backup || null;
+  error.cause = cause;
+  return error;
 }
 
 function collectDraftSectionCandidates(doc, phases = []) {

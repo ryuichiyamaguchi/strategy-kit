@@ -1,0 +1,17 @@
+{
+  "productLine": "strategy-kit-v0.11",
+  "promptsPath": "data/prompts.json",
+  "benchmarkSource": "industry",
+  "benchmarkPath": "data/industries.json",
+  "branding": {
+    "name": "STRATEGY-KIT Helper",
+    "footerLabel": "STRATEGY-KIT",
+    "logoMonogram": "SK",
+    "brandLines": [
+      "STRATEGY",
+      "kit"
+    ],
+    "audienceContext": "職業訓練マーケティング戦略講座の受講者",
+    "purposeLabel": "マーケティング戦略立案"
+  }
+}

@@ -8,6 +8,26 @@
   let diagramTypes = null;
   let diagramStylesInjected = false;
 
+  // ブランド表記/受講者文脈を product.json の branding に間接化（未読・欠落時は STRATEGY-KIT の現状文言）。
+  function brandFooterLabel_() {
+    try {
+      const fn = window.SK_CORE && window.SK_CORE.getFooterLabel;
+      const label = typeof fn === 'function' ? fn() : null;
+      return label || 'STRATEGY-KIT';
+    } catch (_) {
+      return 'STRATEGY-KIT';
+    }
+  }
+  function brandAudienceContext_() {
+    try {
+      const fn = window.SK_CORE && window.SK_CORE.getBranding;
+      const b = typeof fn === 'function' ? fn() : null;
+      return (b && b.audienceContext) || '職業訓練マーケティング戦略講座の受講者';
+    } catch (_) {
+      return '職業訓練マーケティング戦略講座の受講者';
+    }
+  }
+
   const SELECT_FORCE_STYLE = 'width:100%;display:block;min-height:32px;white-space:normal;appearance:auto;-webkit-appearance:menulist;box-sizing:border-box;';
   const CARD_FORMAT_PREFIX = 'html-card-';
   const EXPERT_GROUP_LABEL = '上級者向け（Mermaid）';
@@ -249,7 +269,7 @@
       'phaseScope: "all"',
       '---',
       '',
-      '# STRATEGY-KIT NotebookLM Source Pack',
+      '# ' + brandFooterLabel_() + ' NotebookLM Source Pack',
       '',
       '## 使い方',
       '',
@@ -314,10 +334,10 @@
     return [
       '# NotebookLM Studio Slide Deck Prompt',
       '',
-      'Create a Japanese slide deck from the uploaded STRATEGY-KIT source.',
+      'Create a Japanese slide deck from the uploaded ' + brandFooterLabel_() + ' source.',
       '',
       'Audience:',
-      '- 職業訓練マーケティング戦略講座の受講者',
+      '- ' + brandAudienceContext_(),
       '- 事業者や支援者に説明できる完成資料を作る',
       '',
       'Format:',

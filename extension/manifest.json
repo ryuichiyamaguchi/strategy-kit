@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "STRATEGY-KIT Helper",
-  "version": "0.12.21",
+  "version": "0.12.22",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArhjpMOgnUQQx4GxKNVm4CV+fwtSjCy0oyMZOocCNIVZsdf81Vncj26K2wuDJzxf5X4Ee2TldrC7I8P20f2oUmEztE9cPYCWNUS2rmuaSFIb96asNiuDqmJLFwRgYHgX+lQEOqCz3l+lAgpwBPpYscfB7XKi5l45CpNMfpd+km2qw+FITYasn0NMYIPymx1Btod+OLJdRMxLW2ijfa13F6OKmnQerJrzvtDsHFF9HmSZ0BamNyVObaiPROQnpeb9NvUkV+wuu+OGnOJ24Myn8aYTrVaN2mtdJWZV81rq69SpJbtyLmKx5kwVabP5wKVZdvmpSOIRuqomOuLzAYoLn7QIDAQAB",
   "oauth2": {
     "client_id": "975964313152-9oo5d5f2onr7ds3ei4qntg4qs3k2fltt.apps.googleusercontent.com",
@@ -69,54 +69,110 @@
   ],
   "content_scripts": [
     {
-      "matches": ["https://claude.ai/*"],
-      "js": ["lib/insert-helpers.js", "content/claude.js"],
+      "matches": [
+        "https://claude.ai/*"
+      ],
+      "js": [
+        "lib/insert-helpers.js",
+        "content/claude.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
-      "js": ["lib/insert-helpers.js", "content/chatgpt.js"],
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": [
+        "lib/insert-helpers.js",
+        "content/chatgpt.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://gemini.google.com/*"],
-      "js": ["lib/insert-helpers.js", "content/gemini.js"],
+      "matches": [
+        "https://gemini.google.com/*"
+      ],
+      "js": [
+        "lib/insert-helpers.js",
+        "content/gemini.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://manus.im/*", "https://www.manus.im/*"],
-      "js": ["lib/insert-helpers.js", "content/manus.js"],
+      "matches": [
+        "https://manus.im/*",
+        "https://www.manus.im/*"
+      ],
+      "js": [
+        "lib/insert-helpers.js",
+        "content/manus.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://genspark.ai/*", "https://www.genspark.ai/*"],
-      "js": ["lib/insert-helpers.js", "content/genspark.js"],
+      "matches": [
+        "https://genspark.ai/*",
+        "https://www.genspark.ai/*"
+      ],
+      "js": [
+        "lib/insert-helpers.js",
+        "content/genspark.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://www.perplexity.ai/*", "https://perplexity.ai/*"],
-      "js": ["lib/insert-helpers.js", "content/perplexity.js"],
+      "matches": [
+        "https://www.perplexity.ai/*",
+        "https://perplexity.ai/*"
+      ],
+      "js": [
+        "lib/insert-helpers.js",
+        "content/perplexity.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://notebooklm.google.com/*"],
-      "js": ["lib/insert-helpers.js", "content/notebooklm.js"],
+      "matches": [
+        "https://notebooklm.google.com/*"
+      ],
+      "js": [
+        "lib/insert-helpers.js",
+        "content/notebooklm.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://grok.com/*", "https://www.grok.com/*"],
-      "js": ["lib/insert-helpers.js", "content/grok.js"],
+      "matches": [
+        "https://grok.com/*",
+        "https://www.grok.com/*"
+      ],
+      "js": [
+        "lib/insert-helpers.js",
+        "content/grok.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://docs.google.com/document/*"],
-      "js": ["lib/insert-helpers.js", "content/google-docs.js"],
+      "matches": [
+        "https://docs.google.com/document/*"
+      ],
+      "js": [
+        "lib/insert-helpers.js",
+        "content/google-docs.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["data/prompts.json", "data/industries.json", "data/ai-profiles.json", "data/diagram-types.json"],
+      "resources": [
+        "data/prompts.json",
+        "data/industries.json",
+        "data/ai-profiles.json",
+        "data/diagram-types.json",
+        "product.json"
+      ],
       "matches": [
         "https://claude.ai/*",
         "https://chatgpt.com/*",

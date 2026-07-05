@@ -94,6 +94,35 @@ async function initVersionLabel() {
   }
 }
 
+// 見出し・タイトル・概要文を product.json の branding に間接化する。
+// 各キー欠落・product.json 未読時は STRATEGY-KIT の現状文言を維持する（既存挙動を一切変えない）。
+async function initBranding() {
+  try {
+    const config = await resolveProductConfig(loadJson);
+    const branding = (config && config.branding) || {};
+    const name = branding.name || 'STRATEGY-KIT';
+    // audienceContext は「〜講座の受講者」想定なので「〜の受講者を主な対象とした」の形で文に馴染ませる。
+    // 欠落時は現状 STRATEGY-KIT の固定文言へフォールバックする（既存挙動を変えない）。
+    const audienceContext = branding.audienceContext || '';
+    const purposeLabel = branding.purposeLabel || 'マーケ戦略立案';
+
+    document.title = name + ' 設定';
+    const titleEl = document.getElementById('options-title');
+    if (titleEl) titleEl.textContent = name;
+    const aboutTool = document.getElementById('about-tool');
+    if (aboutTool) {
+      const audienceClause = audienceContext
+        ? audienceContext + 'を主な対象とした修了記念配布物'
+        : '職業訓練マーケティング戦略講座の修了記念配布物';
+      aboutTool.textContent =
+        name + ' は、' + audienceClause + 'です。' +
+        'マスタードキュメント中心の' + purposeLabel + 'を、複数AI横断で支援します。';
+    }
+  } catch (_) {
+    /* branding 解決失敗時は HTML の現状文言のまま */
+  }
+}
+
 function bindBackButtons() {
   function handleBack() {
     try {
@@ -470,6 +499,7 @@ function bindGeminiCard() {
 
 async function init() {
   bindBackButtons();
+  await initBranding();
   await initVersionLabel();
   await loadBusinessSettings();
   bindOAuthCard();

@@ -3,52 +3,50 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>STRATEGY-KIT v0.11 配布物</title>
+    <title>STRATEGY-KIT v0.12 配布物</title>
     <link rel="stylesheet" href="assets/style.css">
     <style>
       .step-card { background:#f8fafc;border-left:4px solid #0ea5e9;padding:16px 20px;margin:12px 0;border-radius:6px; }
       .step-card h4 { margin:0 0 8px;font-size:14px;color:#0369a1; }
-      .step-card ol { margin:8px 0 0 20px;font-size:13px;line-height:1.7; }
-      .alert-warn { background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;margin:12px 0;border-radius:6px;font-size:13px;line-height:1.7; }
+      .step-card ol { margin:8px 0 0 20px;font-size:13px;line-height:1.8; }
+      .alert-warn { background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;margin:12px 0;border-radius:6px;font-size:13px;line-height:1.75; }
       .alert-warn strong { color:#b45309; }
-      .alert-info { background:#dbeafe;border-left:4px solid #3b82f6;padding:12px 16px;margin:12px 0;border-radius:6px;font-size:13px;line-height:1.7; }
+      .alert-info { background:#dbeafe;border-left:4px solid #3b82f6;padding:12px 16px;margin:12px 0;border-radius:6px;font-size:13px;line-height:1.75; }
+      h1, h2, h3, h4 { overflow-wrap: break-word; word-break: normal; line-break: strict; }
+      p, li { overflow-wrap: break-word; word-break: normal; line-break: strict; }
     </style>
   </head>
   <body>
     <div class="page-shell">
       <header class="topbar">
-        <strong>STRATEGY-KIT v0.11.3 配布ページ</strong>
+        <strong>STRATEGY-KIT v0.12 配布ページ</strong>
       </header>
 
       <main>
         <section class="hero">
-          <span class="eyebrow">Major Update</span>
-          <h1>STRATEGY-KIT v0.11 配布物</h1>
-          <p class="lede">マーケティング戦略立案AI支援ツールのメジャーアップデート版。Apps Script ライブラリ化により受講者は1回 shim を貼るだけで以降のアップデートは自動反映されます。</p>
+          <span class="eyebrow">受講者向け配布</span>
+          <h1>STRATEGY-KIT v0.12 配布物</h1>
+          <p class="lede">マーケティング戦略立案を AI で支援する Chrome 拡張機能です。現行の v0.12 は、あなたの Google アカウントと直接つなぐ方式（OAuth 連携）。面倒な Apps Script のデプロイは不要になりました。</p>
           <div class="pill-row">
             <span class="chip">受講生向け</span>
             <span class="chip">Chrome 拡張</span>
-            <span class="chip">B2C/B2B 分岐</span>
-            <span class="chip">要点版運用</span>
-            <span class="chip">ICE 予算配分</span>
-            <span class="chip">ライブラリ自動更新</span>
+            <span class="chip">Google 連携</span>
+            <span class="chip">§0〜§9 の10フェーズ</span>
+            <span class="chip">無料枠OK</span>
           </div>
         </section>
 
         <section>
           <div class="section-card">
-            <h2>v0.9.x からの主要変更点</h2>
-            <ul>
-              <li><strong>Apps Script ライブラリ化</strong>— 受講者は薄い shim（110行）を1回貼るだけ。ロジック更新は山口さん側のライブラリで行われ自動反映</li>
-              <li><strong>マスタードキュメント = テンプレート Doc コピー方式</strong>（v3.0 雛形を Drive で <code>makeCopy</code>）— 見た目・テーブル・段落間隔が完全に揃う</li>
-              <li><strong>§N 要点版（500字以内）を全章に新設</strong>— 後続フェーズへの貼付はこれのみ。「★貼付★」のフルテキスト肥大化問題を根絶</li>
-              <li><strong>B2C / B2B 分岐</strong>— §1 ヒアリング／§4 STP／§7 ユニットエコノミクス／§8 KGI で業種タイプ別ガイド</li>
-              <li><strong>新規4セクション</strong>— §1-5 自己申告データ確度／§4-5 カスタマージャーニー／§7-6 競合リアクション分析／§7-7 予算ポートフォリオ（ICE スコア）</li>
-              <li><strong>phase-5 を3プロンプト分割</strong>— USP→4P/4C→コンセプト＋キャッチコピーの「往復運動」を強制</li>
-              <li><strong>数字3層化＋レンジ表示標準化</strong>— CAC/LTV/Payback は「8,000-14,000円」のようなレンジで提示</li>
-              <li><strong>[事実]タグ3段階化</strong>— 一次／複数／仮説／要確認／却下</li>
-              <li><strong>セキュリティ強化（任意）</strong>— Web App デプロイは「全員」のままだが、API トークン（合言葉）認証を任意で導入可能に。設定すれば URL が漏れても他人がアクセスできなくなる（STEP 8 参照）</li>
-            </ul>
+            <h2>まずはここから</h2>
+            <p>下の <strong>①拡張機能 ZIP</strong> をダウンロードして解凍し、<strong>②完全版セットアップガイド</strong>に沿って進めれば、最初のアウトプットまでたどり着けます。所要 15〜25 分です。</p>
+            <div style="margin: 14px 0;">
+              <a class="button" href="setup-guide-v0.12.html" target="_blank" rel="noopener">📖 完全版セットアップガイド（v0.12）を開く</a>
+            </div>
+            <div class="alert-warn">
+              <strong>⚠️ 事前準備：テストユーザー登録</strong><br>
+              現在はテスト中アプリのため、Google 連携できるのは<strong>あらかじめ登録された Gmail アドレスだけ</strong>です。使う予定の Gmail を講師（山口さん）に伝えて登録してもらってから始めてください。未登録だと連携時に「アクセスをブロック」と表示されます。詳細はセットアップガイドの STEP 2 を参照。
+            </div>
           </div>
         </section>
 
@@ -56,28 +54,26 @@
           <div class="section-card">
             <h2>配布物ダウンロード</h2>
             <div class="alert-info">
-              <strong>ℹ️ 配布方式について</strong>: Day10 配布時点では<strong>「パッケージ化されていない拡張機能」（Unpacked）として読み込む方式</strong>で運用します。Chrome Web Store への申請は並行して進めており、承認後に当ページにストアURLを追加します。
+              <strong>ℹ️ 配布方式について</strong>: Chrome Web Store への申請中のため、現在は<strong>「パッケージ化されていない拡張機能」（Unpacked）として読み込む方式</strong>で運用します。承認後に当ページへストア URL を追加します。
             </div>
 
             <div class="grid cards">
               <article class="link-card">
-                <h3>1. Chrome 拡張機能（ZIP・必須）</h3>
-                <p>解凍してから Chrome に「パッケージ化されていない拡張機能」として読み込みます。</p>
-                <a class="button" href="strategy-kit-v0.11.3.zip" download>拡張機能 ZIP（v0.11.3）</a>
+                <h3>1. Chrome 拡張機能 ZIP（必須）</h3>
+                <p>STRATEGY-KIT 本体。解凍してから Chrome に「パッケージ化されていない拡張機能」として読み込みます。</p>
+                <a class="button" href="https://github.com/ryuichiyamaguchi/strategy-kit/raw/main/strategy-kit-v0.12.22.zip" download>拡張機能 ZIP（v0.12.22）</a>
               </article>
 
               <article class="link-card">
-                <h3>2. GAS shim（必須）</h3>
-                <p>受講者の Apps Script プロジェクトに貼る薄いラッパ。ロジック本体はライブラリで自動更新されます。</p>
-                <div class="cta-actions">
-                  <a class="button" href="strategy-kit-v0.11.3-gas-shim.zip" download>GAS shim ZIP</a>
-                </div>
+                <h3>2. 完全版セットアップガイド（必須）</h3>
+                <p>ZIP の読み込みから Google 連携・§0 開始まで、スクショ・トラブル対処付きで説明しています。</p>
+                <a class="button-secondary" href="setup-guide-v0.12.html" target="_blank" rel="noopener">セットアップガイドを開く</a>
               </article>
 
               <article class="link-card">
-                <h3>3. マスタードキュメント雛形 v3.0（必須）</h3>
-                <p>戦略マスター文書の正本テンプレート。Google Drive にアップロードして「Google ドキュメントとして開く」とそのまま使えます。</p>
-                <a class="button" href="master-template/template_v3.0.md" download>v3.0 雛形 (.md)</a>
+                <h3>3. Gemini API 完全ガイド（任意）</h3>
+                <p>全自動生成を使う場合の API キー取得手順。IT 用語ゼロから解説しています。</p>
+                <a class="button-secondary" href="gemini-api-guide-v0.11.html" target="_blank" rel="noopener">Gemini API ガイドを開く</a>
               </article>
 
               <article class="link-card">
@@ -86,150 +82,87 @@
                 <a class="button-secondary" href="privacy-policy.html" target="_blank">プライバシーポリシーを見る</a>
               </article>
             </div>
+
+            <div class="alert-info" style="margin-top:16px;">
+              <strong>X-KIT / INSTAGRAM-KIT をお使いの方へ</strong>：X（旧Twitter）運用の <strong>X-KIT</strong> は
+              <a href="https://github.com/ryuichiyamaguchi/strategy-kit/raw/main/x-kit-v0.12.22.zip" download>x-kit-v0.12.22.zip</a>
+              を、Instagram 運用の <strong>INSTAGRAM-KIT</strong> は
+              <a href="https://github.com/ryuichiyamaguchi/strategy-kit/raw/main/instagram-kit-v0.12.22.zip" download>instagram-kit-v0.12.22.zip</a>
+              をダウンロードして解凍してください。セットアップ手順は STRATEGY-KIT と共通です（<a href="setup-guide-v0.12.html#sns-section" target="_blank" rel="noopener">ガイドの該当節</a>を参照）。
+            </div>
           </div>
         </section>
 
         <section>
           <div class="cta-card">
-            <h2>セットアップ手順</h2>
-            <p class="muted">所要時間 30〜45 分。一度設定すれば以降は何もしなくて済みます。下は概要版。スクショ・トラブルシューティング付きの完全版は次のリンクから。</p>
-            <div style="margin: 12px 0;">
-              <a class="button" href="setup-guide-v0.11.html" target="_blank" rel="noopener">📖 完全版セットアップガイドを開く</a>
-            </div>
+            <h2>セットアップの流れ（概要）</h2>
+            <p class="muted">所要 15〜25 分。むずかしいのは「Google 連携（STEP 2）」だけで、あとは数分で終わります。スクショ・トラブル対処付きの完全版は上のガイドから。</p>
 
             <div class="step-card">
-              <h4>STEP 1：マスター雛形を Google Docs に取り込む</h4>
+              <h4>STEP 1：拡張機能を Chrome に読み込む</h4>
               <ol>
-                <li><code>template_v3.0.md</code> を上記からダウンロード</li>
-                <li><a href="https://docs.google.com/document/u/0/create" target="_blank" rel="noopener">docs.google.com</a> で空白の Google ドキュメントを新規作成</li>
-                <li>メニュー「<strong>ファイル → 開く</strong>」→ ダイアログ上部の「<strong>アップロード</strong>」タブ → <code>template_v3.0.md</code> をドラッグ＆ドロップ（自動で Google Docs に変換されて新タブで開きます）</li>
-                <li>左上のタイトルを「<strong>テンプレート原本</strong>」などに変更し、URL をメモ（書き換えないこと）</li>
-              </ol>
-            </div>
-
-            <div class="step-card">
-              <h4>STEP 2：Apps Script で shim を準備</h4>
-              <ol>
-                <li>STEP 1 で作ったテンプレート原本 Doc とは<strong>別の</strong>新規 Google Doc を作成（作業用）</li>
-                <li>「拡張機能 → Apps Script」を開く</li>
-                <li>左サイドバー「ライブラリ」横の「＋」で <strong>StrategyKitLib スクリプトID</strong>（山口さんから配布）を入力 → 識別子は <code>StrategyKitLib</code>、バージョンは <strong>HEAD（開発モード）</strong></li>
-                <li>左サイドバー「ファイル」の <code>Code.gs</code> を全選択して、<code>strategy-kit-v0.11.3-gas-shim</code> 内の <code>Code.gs</code> の中身で置き換え</li>
-                <li>保存（Cmd/Ctrl + S）</li>
-              </ol>
-            </div>
-
-            <div class="step-card">
-              <h4>STEP 3：ウェブアプリとしてデプロイ</h4>
-              <ol>
-                <li>右上「デプロイ → 新しいデプロイ」</li>
-                <li>種類選択 →「ウェブアプリ」</li>
-                <li>説明: <code>STRATEGY-KIT v0.11</code></li>
-                <li>次のユーザーとして実行: <strong>自分</strong></li>
-                <li>アクセスできるユーザー: <strong>全員</strong>（Chrome 拡張からの fetch は「Google アカウント全員」設定だとログインリダイレクトに飛ばされて通らないため、ここは「全員」が必要です。代わりに STEP 8 のトークン認証で安全性を確保します）</li>
-                <li>デプロイ → 権限承認（後述の警告に注意）</li>
-                <li>表示された <strong>ウェブアプリ URL</strong> を控える</li>
-              </ol>
-
-              <div class="alert-warn" style="margin-top:8px;">
-                <strong>⚠️ 「Google で確認されていません」警告について</strong><br>
-                受講者自身がデプロイした自作アプリのため、初回承認時に警告が表示されます。これは正常です：<br>
-                「<strong>詳細</strong>」→「<strong>(自分のアカウント名)に移動（安全ではないページ）</strong>」をクリック → 権限承認を最後まで通します。
-              </div>
-            </div>
-
-            <div class="step-card">
-              <h4>STEP 4：Chrome 拡張機能を読み込む</h4>
-              <ol>
-                <li><a href="strategy-kit-v0.11.3.zip" download><strong>拡張機能 ZIP</strong></a> をダウンロード → 解凍</li>
+                <li>拡張機能 ZIP をダウンロード → <strong>解凍</strong></li>
                 <li>Chrome で <code>chrome://extensions/</code> を開く</li>
                 <li>右上「<strong>デベロッパーモード</strong>」を ON</li>
-                <li>左上「<strong>パッケージ化されていない拡張機能を読み込む</strong>」をクリック</li>
-                <li>解凍したフォルダ（<code>strategy-kit-v0.11.3/</code>）を選択</li>
-                <li>拡張機能アイコンが追加されたら成功</li>
+                <li>左上「<strong>パッケージ化されていない拡張機能を読み込む</strong>」→ 解凍したフォルダを選択</li>
+                <li>一覧に「STRATEGY-KIT Helper」が出れば成功</li>
               </ol>
             </div>
 
             <div class="step-card">
-              <h4>STEP 5：拡張機能のオプションに GAS URL を登録</h4>
+              <h4>STEP 2：Google アカウントを連携する</h4>
               <ol>
-                <li>拡張アイコンを右クリック → 「オプション」</li>
-                <li>「GAS Web App URL」欄に STEP 3 で得た URL を貼り付け</li>
-                <li>「保存」</li>
-              </ol>
-            </div>
-
-            <div class="step-card">
-              <h4>STEP 6：テンプレート原本を登録（初回のみ）</h4>
-              <ol>
-                <li>STEP 2 で作った作業用 Doc を再読込（必須・タブを閉じて開き直す）</li>
-                <li>メニューバーに「<strong>STRATEGY-KIT</strong>」が表示されることを確認</li>
-                <li>「STRATEGY-KIT → テンプレート原本セットアップ（初回のみ）」を実行</li>
-                <li>STEP 1 で作ったテンプレート原本 Doc の URL を入力</li>
+                <li>拡張機能アイコンをクリック → 右側にサイドパネルが開く</li>
+                <li>上部の帯「はじめに · 3 ステップ」から「<strong>Google 連携</strong>」をクリック</li>
+                <li>開いた設定ページで「<strong>連携 / 再連携</strong>」→ テストユーザー登録済みの Gmail でログイン → 許可</li>
+                <li>「状態確認」で「連携済み」になれば成功</li>
               </ol>
               <div class="alert-warn" style="margin-top:8px;">
-                <strong>⚠️ テンプレート原本 Doc では他のメニューを実行しないでください</strong>。新規案件は必ず「新規マスタードキュメント作成」から行います。
+                <strong>⚠️ 連携はテスト中アプリのため約 7 日で切れます。</strong>「未連携」と出たら故障ではなく、設定ページの「連携 / 再連携」を押し直せば復活します。未登録の Gmail は「アクセスをブロック」になるので講師に登録を依頼してください。
               </div>
             </div>
 
             <div class="step-card">
-              <h4>STEP 7：新規案件を作って動作確認</h4>
+              <h4>STEP 3：事業情報を入力する</h4>
               <ol>
-                <li>「STRATEGY-KIT → 新規マスタードキュメント作成 → 業種を選択」</li>
-                <li>店舗名・案件メタ情報を入力</li>
-                <li>新規 Doc が自動生成され、テンプレート原本がコピーされた状態になります</li>
-                <li>これがあなたの戦略マスター文書です</li>
+                <li>設定ページの「事業情報」で <strong>業種プリセット</strong> を選ぶ</li>
+                <li>「業種（自由入力）」「店舗・屋号」を入れて「保存」</li>
               </ol>
             </div>
 
             <div class="step-card">
-              <h4>STEP 8：API トークンで鍵を掛ける（任意・推奨）</h4>
-              <p class="muted">STEP 3 の Web App アクセス権を「全員」にしたので、URL を知っている人なら誰でもアクセスできる状態です。<strong>合言葉（API トークン）</strong>を設定すると、URL が漏れても他人がアクセスできなくなります。受講者数十名の限定配布で実害は低いのでスキップしても OK ですが、Slack/LINE で URL 共有してしまった経験がある方は推奨。</p>
+              <h4>STEP 4：マスタードキュメントを作る</h4>
               <ol>
-                <li>合言葉を決める（20 文字以上のランダムな文字列推奨。例: <code>nrg-2026-spring-7x9k</code>）</li>
-                <li>STEP 2 の Apps Script エディタを開く →「<strong>プロジェクトの設定</strong>」（歯車アイコン）→「<strong>スクリプト プロパティ</strong>」へ</li>
-                <li>「スクリプト プロパティを追加」→ プロパティ名 <code>SK_API_TOKEN</code>、値に手順 1 の合言葉 →「保存」</li>
-                <li>Chrome の拡張機能アイコンを右クリック →「オプション」→「<strong>API トークン（任意）</strong>」欄に同じ合言葉を入力 →「接続テスト」</li>
+                <li>設定ページの「マスタードキュメント」で「<strong>新規作成</strong>」をクリック</li>
+                <li>章立て（§0〜§9）の入った Google ドキュメントが自動生成される（テンプレの手動取り込みは不要）</li>
+                <li>「📄 開く」で確認</li>
               </ol>
-              <div class="alert-warn" style="margin-top:8px;">
-                <strong>⚠️ 合言葉は他人と共有しないでください。</strong>パスワードと同じ扱いです。忘れた／無効化したい時は GAS 側のスクリプトプロパティから <code>SK_API_TOKEN</code> を削除（拡張機能側の入力欄も空にする）すれば認証なしの動作に戻ります。
-              </div>
             </div>
 
-          </div>
-        </section>
-
-        <section>
-          <div class="section-card">
-            <h2>Gemini API キー登録（任意・全自動／半自動を使う場合）</h2>
-            <p>「API って何？」「Google AI Studio と Google Cloud の違いは？」「無料で使える？」など、初めての方の疑問を全部解説した詳しい手順書を用意しました。</p>
-            <div style="margin: 12px 0;">
-              <a class="button" href="gemini-api-guide-v0.11.html">📘 Gemini API 完全ガイドを開く（IT 用語ゼロから理解）</a>
+            <div class="step-card">
+              <h4>STEP 5：Gemini API キーを設定（任意・全自動を使う場合）</h4>
+              <ol>
+                <li>手動運用のみならスキップ可</li>
+                <li><a href="gemini-api-guide-v0.11.html" target="_blank" rel="noopener">Gemini API ガイド</a>に沿って <code>AIza…</code> のキーを取得</li>
+                <li>設定ページ「Gemini 設定」で登録（学習用途は「セキュア学習モード」推奨）</li>
+              </ol>
             </div>
 
-            <p class="muted" style="font-size:13px;">— 急ぎの方向けの簡略版手順 —</p>
-            <ol>
-              <li>Google AI Studio で API キーを取得 → <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a></li>
-              <li>Apps Script プロジェクト → プロジェクト設定（歯車アイコン）→「スクリプト プロパティ」</li>
-              <li>「スクリプト プロパティを追加」→ プロパティ <code>GEMINI_API_KEY</code>、値に取得したキー</li>
-              <li>保存</li>
-            </ol>
-
-            <div class="alert-info">
-              <strong>無料枠の制限</strong>: Gemini-2.5-flash は分あたり10リクエスト・1日250リクエスト。半自動モードは問題なく動作しますが、全自動モードは連続実行で分あたり制限に引っかかる可能性があります（フェーズ間に7秒以上の待機が必要）。クレジットカード未登録なら絶対に課金されません。
+            <div class="step-card">
+              <h4>STEP 6：§0 を始める</h4>
+              <ol>
+                <li>サイドパネルの「フェーズ」タブから「§0」を実行</li>
+                <li>結果をマスタードキュメントに記録（人間が選んで転記）</li>
+                <li>あとは §1 → §9 まで同じ要領で進める</li>
+              </ol>
             </div>
           </div>
         </section>
 
         <section>
           <div class="section-card">
-            <h2>v0.9.x との併存</h2>
-            <p>すでに v0.9.x で運用中の案件があれば、v0.11 と並行運用できます：</p>
-            <ul>
-              <li>Chrome 拡張機能: 別 ID として両方インストール可能（<code>STRATEGY-KIT Helper</code> vs 旧 <code>STRATEGY-KIT Helper v0.10</code> 等）</li>
-              <li>chrome.storage キー: v0.11 は <code>gasWebAppUrl_v10</code>、旧 v0.9.x は <code>gasWebAppUrl</code> で分離</li>
-              <li>GAS: 別 Doc にバインドした別プロジェクトとして併存（同一プロジェクトに両 Code.gs を貼ると関数衝突）</li>
-              <li>旧 <code>strategy-kit-v0.9.x</code> 受講者の運用中案件はそのまま継続可能</li>
-            </ul>
+            <h2>v0.11 以前をお使いだった方へ</h2>
+            <p>v0.11 までは、Apps Script のライブラリ登録・shim の貼り付け・Web App のデプロイ・拡張機能への GAS URL 登録が必要でした。<strong>現行の v0.12 では、これらの作業はすべて不要</strong>になりました。Google 連携（STEP 2）だけで動きます。旧バージョンの手順書（setup-guide-v0.11.html）は参照しないでください。</p>
           </div>
         </section>
 
