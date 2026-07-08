@@ -109,16 +109,72 @@ export function buildAppendToDocumentEndRequests(doc, text) {
   ];
 }
 
+const PLACEHOLDER_BODY = '（未保存）';
+
+// セクション本文から先頭の見出し行（"§7. タイトル" / "§7-4. タイトル" 等）を1行だけ落とす。
+function stripLeadingSectionHeading(text) {
+  const lines = String(text || '').split('\n');
+  while (lines.length && !lines[0].trim()) lines.shift();
+  if (lines.length && /^§?-?\d+(?:-\d+)?[.．、）)\s]/.test(lines[0].trim())) {
+    lines.shift();
+  }
+  return lines.join('\n').trim();
+}
+
+// 「本文がまだ書かれていない未保存プレースホルダ or 空」か。
+// 保守的判定: 見出し行を除いた残りが空 or 「（未保存）」のときだけ true。
+// 実データが入っているセクションを誤ってプレースホルダ扱いしないことを最優先する。
+export function isPlaceholderSectionBody(text) {
+  const body = stripLeadingSectionHeading(text);
+  return body === '' || body === PLACEHOLDER_BODY;
+}
+
+// トップ番号セクション(§N)配下のサブマーカー(§N-1〜§N-M)の本文を連結して返す。
+// 全自動で §7 が §7-1〜§7-5 に分割され、トップ級 §7 本体が「（未保存）」で残る構造に対応する。
+export function aggregateSubsectionText(doc, sectionNo, markers) {
+  const all = (markers && markers.length) ? markers : collectSectionMarkers(doc);
+  const prefix = String(sectionNo) + '-';
+  const subMarkers = all.filter((m) => {
+    const key = String(m.key);
+    return key.indexOf(prefix) === 0 && /^-?\d+-\d+$/.test(key);
+  });
+  if (!subMarkers.length) return { text: '', subKeys: [] };
+
+  const parts = [];
+  const subKeys = [];
+  for (const sub of subMarkers) {
+    const later = all.filter((m) => m.startIndex > sub.startIndex);
+    const endIndex = later.length ? later[0].startIndex : computeEndIndex(doc);
+    const raw = getTextInRange(doc, sub.markerEndIndex, endIndex).trim();
+    if (raw && !isPlaceholderSectionBody(raw)) {
+      parts.push(raw);
+      subKeys.push(sub.key);
+    }
+  }
+  return { text: parts.join('\n\n'), subKeys };
+}
+
 export function getSectionText(doc, sectionNo, options = {}) {
   const range = findSectionRange(doc, sectionNo, options);
-  if (range.status !== 'ok') {
-    return { status: range.status, text: '', range };
+  if (range.status === 'ok') {
+    const text = getTextInRange(doc, range.startIndex, range.endIndex);
+    // トップ級本文が未保存プレースホルダで、サブマーカー(§N-M)に実体があれば連結して返す。
+    if (isPlaceholderSectionBody(text)) {
+      const agg = aggregateSubsectionText(doc, sectionNo, range.markers);
+      if (agg.text) {
+        return { status: 'ok', text: agg.text, range, aggregatedSubsectionKeys: agg.subKeys };
+      }
+    }
+    return { status: 'ok', text, range };
   }
-  return {
-    status: 'ok',
-    text: getTextInRange(doc, range.startIndex, range.endIndex),
-    range,
-  };
+  // トップ級マーカー自体が無くても、サブマーカーに実体があれば救済して連結する。
+  if (range.status === 'missing-current-marker') {
+    const agg = aggregateSubsectionText(doc, sectionNo, range.markers);
+    if (agg.text) {
+      return { status: 'ok', text: agg.text, range, aggregatedSubsectionKeys: agg.subKeys };
+    }
+  }
+  return { status: range.status, text: '', range };
 }
 
 export function buildSectionTextMap(doc, sectionNos, options = {}) {

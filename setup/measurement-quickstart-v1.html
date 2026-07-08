@@ -1,0 +1,889 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>計測クイックスタート v1｜STRATEGY-KIT §8 の数字を取りに行く</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <style>
+      /* 日本語の折り返し配慮：長い見出し・本文が不自然に割れないように */
+      h1, h2, h3 {
+        overflow-wrap: break-word;
+        word-break: normal;
+        line-break: strict;
+      }
+      p, li, .step-summary, .faq-a, .faq-q, .step-done, .step-warn, .step-tip {
+        overflow-wrap: break-word;
+        word-break: normal;
+        line-break: strict;
+      }
+      /* setup-guide から踏襲した部品 */
+      .step-summary {
+        display: inline-flex;
+        padding: 5px 12px;
+        border-radius: 999px;
+        background: var(--marigold-soft);
+        color: #7a4a0a;
+        font-size: 0.88rem;
+        font-weight: 700;
+        margin-bottom: 14px;
+      }
+      .step-section-title {
+        margin: 24px 0 8px;
+        font-family: 'Manrope', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+      ol.detail-steps {
+        margin: 10px 0 0;
+        padding-left: 1.4em;
+      }
+      ol.detail-steps li {
+        margin-bottom: 8px;
+        line-height: 1.8;
+      }
+      ol.detail-steps code, ul.plain-list code, .faq-a code, p code, td code, li code {
+        background: rgba(40, 89, 67, 0.09);
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 0.92em;
+      }
+      .step-tip {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-left: 4px solid rgba(40, 89, 67, 0.5);
+        border-radius: var(--radius-sm);
+        background: rgba(40, 89, 67, 0.07);
+        font-size: 0.96rem;
+        line-height: 1.75;
+      }
+      .step-warn {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-left: 4px solid var(--marigold);
+        border-radius: var(--radius-sm);
+        background: var(--alert-bg);
+        font-size: 0.96rem;
+        line-height: 1.75;
+      }
+      .step-warn strong { color: #92600f; }
+      .step-done {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: var(--radius-sm);
+        background: rgba(40, 89, 67, 0.09);
+        font-size: 0.96rem;
+        line-height: 1.7;
+      }
+      .step-done strong { color: var(--forest-deep); }
+      .ui-chip {
+        display: inline-block;
+        padding: 1px 8px;
+        border-radius: 6px;
+        background: rgba(40, 89, 67, 0.1);
+        color: var(--forest-deep);
+        font-weight: 700;
+        font-size: 0.92em;
+        white-space: nowrap;
+      }
+      .flow-map {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .flow-map-item {
+        flex: 1 1 150px;
+        padding: 12px 14px;
+        border: 1px solid rgba(40, 89, 67, 0.15);
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.7);
+        font-size: 0.92rem;
+        line-height: 1.55;
+      }
+      .flow-map-item strong {
+        display: block;
+        color: var(--forest-deep);
+        font-size: 0.82rem;
+        letter-spacing: 0.04em;
+        margin-bottom: 2px;
+      }
+      .faq-block { margin-top: 14px; }
+      .faq-item {
+        border: 1px solid rgba(40, 89, 67, 0.13);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        margin-bottom: 10px;
+      }
+      .faq-q {
+        padding: 14px 16px;
+        background: rgba(40, 89, 67, 0.06);
+        font-weight: 700;
+        font-size: 0.97rem;
+        color: var(--forest-deep);
+      }
+      .faq-a {
+        padding: 14px 16px;
+        font-size: 0.97rem;
+        line-height: 1.75;
+        background: rgba(255, 255, 255, 0.6);
+      }
+      .faq-label {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--marigold-soft);
+        color: #7a4a0a;
+        font-size: 0.84rem;
+        font-weight: 700;
+        margin-right: 6px;
+      }
+      .version-note {
+        margin-top: 28px;
+        padding-top: 18px;
+        border-top: 1px solid rgba(40, 89, 67, 0.12);
+        color: var(--ink-soft);
+        font-size: 0.93rem;
+      }
+      /* このガイド固有の部品 */
+      .why-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .why-item {
+        padding: 16px 18px;
+        border: 1px solid rgba(40, 89, 67, 0.15);
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.7);
+        font-size: 0.96rem;
+        line-height: 1.7;
+      }
+      .why-item strong {
+        display: block;
+        color: var(--forest-deep);
+        font-size: 1rem;
+        margin-bottom: 4px;
+      }
+      /* 取得手段の対応表・ダッシュボード表 */
+      .table-scroll {
+        margin: 14px 0 0;
+        overflow-x: auto;
+        border: 1px solid rgba(40, 89, 67, 0.14);
+        border-radius: var(--radius-sm);
+        background: #fffdf7;
+      }
+      table.grid-table {
+        border-collapse: collapse;
+        width: 100%;
+        min-width: 560px;
+        font-size: 0.92rem;
+      }
+      table.grid-table th, table.grid-table td {
+        border: 1px solid rgba(40, 89, 67, 0.12);
+        padding: 8px 12px;
+        text-align: left;
+        line-height: 1.6;
+        vertical-align: top;
+      }
+      table.grid-table thead th {
+        background: rgba(40, 89, 67, 0.08);
+        color: var(--forest-deep);
+        font-family: 'Manrope', sans-serif;
+        font-size: 0.86rem;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+      }
+      table.grid-table tbody tr:nth-child(even) td {
+        background: rgba(40, 89, 67, 0.03);
+      }
+      .preset-name {
+        display: inline-block;
+        padding: 1px 8px;
+        border-radius: 6px;
+        background: var(--marigold-soft);
+        color: #7a4a0a;
+        font-weight: 700;
+        font-size: 0.9em;
+        white-space: nowrap;
+      }
+      /* 手段カード */
+      .method-card {
+        margin-top: 18px;
+        padding: 20px 22px;
+        border: 1px solid rgba(40, 89, 67, 0.14);
+        border-left: 5px solid var(--forest);
+        border-radius: var(--radius-sm);
+        background: var(--card);
+      }
+      .method-card h3 {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
+      }
+      .method-num {
+        display: inline-grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        background: var(--marigold);
+        color: #fff;
+        font: 800 0.9rem/1 'Manrope', sans-serif;
+      }
+      .method-badge {
+        display: inline-block;
+        margin-left: 4px;
+        padding: 2px 9px;
+        border-radius: 999px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        vertical-align: middle;
+      }
+      .badge-online { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; }
+      .badge-offline { background: rgba(216, 140, 31, 0.16); color: #92600f; }
+      /* 週次レビュー タイムライン */
+      .timeline {
+        margin-top: 16px;
+        border-left: 3px solid rgba(40, 89, 67, 0.25);
+        padding-left: 0;
+        list-style: none;
+      }
+      .timeline li {
+        position: relative;
+        margin: 0 0 16px 0;
+        padding: 0 0 0 20px;
+      }
+      .timeline li::before {
+        content: '';
+        position: absolute;
+        left: -8px;
+        top: 4px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--marigold);
+        border: 2px solid #fffdf7;
+      }
+      .timeline .tl-time {
+        display: inline-block;
+        font-family: 'Manrope', sans-serif;
+        font-weight: 800;
+        font-size: 0.82rem;
+        letter-spacing: 0.04em;
+        color: var(--forest-deep);
+        background: rgba(40, 89, 67, 0.08);
+        padding: 2px 8px;
+        border-radius: 6px;
+        margin-right: 6px;
+      }
+      .tl-phase {
+        font-weight: 700;
+        color: var(--forest-deep);
+      }
+      .mini-note {
+        color: var(--ink-soft);
+        font-size: 0.9rem;
+        margin-top: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <strong>計測クイックスタート v1</strong>
+        <a href="strategy-kit-hub.html">配布ページへ戻る</a>
+      </header>
+
+      <main>
+
+        <!-- ヒーロー -->
+        <section class="hero">
+          <span class="eyebrow">§8 まで進んだ方向け</span>
+          <h1>計測クイックスタート<br>——「翌週の数字」を取りに行く</h1>
+          <p class="lede">§8 で決めた KPI は、実際に数字が集まって初めて役に立ちます。このガイドは、来週の月曜に「先週はどうだった？」の数字を実際に見られる状態を、最小の手間で作るためのものです。ツールを全部そろえる必要はありません。あなたに関係する取得手段だけ選んでください。</p>
+          <div class="pill-row">
+            <span class="chip">§8-3 とつながる</span>
+            <span class="chip">紙でもOK</span>
+            <span class="chip">無料の範囲で</span>
+            <span class="chip">15分レビュー付き</span>
+          </div>
+        </section>
+
+        <!-- なぜ計測か（1画面） -->
+        <section>
+          <div class="section-card">
+            <h2>なぜ「計測」から始めるのか</h2>
+            <p>§8 で作った KPI ツリーは、とても大事なのに、ひとつだけ落とし穴があります。<strong>数字が手元に集まらない指標は、どれだけきれいに設計しても動きません。</strong>「先週のリーチは？」「今週の新規来店は？」——その数字が取れないと、§9 の週次 PDCA（振り返り）はそこで止まってしまいます。</p>
+            <div class="why-grid">
+              <div class="why-item">
+                <strong>設計だけでは回らない</strong>
+                KPI は「目標の数字」。計測は「今の実際の数字」。両方そろって初めて、差を見て手を打てます。
+              </div>
+              <div class="why-item">
+                <strong>取れる数字しか使えない</strong>
+                理想の指標より、まず「毎週ちゃんと数えられる指標」を優先します。完璧なデータより、続く記録です。
+              </div>
+              <div class="why-item">
+                <strong>15分で回せる形に</strong>
+                大がかりな分析基盤は要りません。スプレッドシート1枚と、週15分の振り返りがあれば PDCA は回り始めます。
+              </div>
+            </div>
+            <div class="step-tip">
+              このガイドのゴールは「GA4 を使いこなす」ことではありません。<strong>§8-3 の測定設計テーブルの空欄を埋め、§9 の週次レビューで見る数字を実際に用意すること</strong>です。ここだけ意識して進めてください。
+            </div>
+          </div>
+        </section>
+
+        <!-- 全体の流れ・取得手段の選び方 -->
+        <section>
+          <div class="section-card">
+            <h2>あなたが使う「取得手段」を選ぶ</h2>
+            <p>数字の取り方（＝取得手段）は、STRATEGY-KIT では次の <strong>5 種類</strong>にまとめています。§8-3 の「取得手段」の欄でも、この 5 つの名前から選ぶようになっています。<strong>全部やる必要はありません。</strong>あなたの事業に関係する 2〜3 個だけで十分です。</p>
+
+            <div class="table-scroll">
+              <table class="grid-table">
+                <thead>
+                  <tr>
+                    <th>取得手段（§8-3 の名前）</th>
+                    <th>向いている数字</th>
+                    <th>こんな事業に</th>
+                    <th>このガイドの該当</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="preset-name">GA4</span></td>
+                    <td>Web サイト・予約ページの訪問数、問い合わせ数</td>
+                    <td>ホームページ／予約サイトがある</td>
+                    <td>① GA4 最小設定</td>
+                  </tr>
+                  <tr>
+                    <td><span class="preset-name">SNSインサイト</span></td>
+                    <td>投稿のリーチ・保存・プロフィール来訪</td>
+                    <td>Instagram・X で集客している</td>
+                    <td>② SNSインサイト</td>
+                  </tr>
+                  <tr>
+                    <td><span class="preset-name">POS・レジ</span></td>
+                    <td>客数・客単価・売上・再来</td>
+                    <td>店舗でレジ会計がある（飲食・小売・ジム等）</td>
+                    <td>③ POS・レジ／予約台帳・カルテ</td>
+                  </tr>
+                  <tr>
+                    <td><span class="preset-name">予約台帳・カルテ</span></td>
+                    <td>予約数・来店数・リピート回数</td>
+                    <td>予約制（サロン・整体・教室・クリニック等）</td>
+                    <td>③ POS・レジ／予約台帳・カルテ</td>
+                  </tr>
+                  <tr>
+                    <td><span class="preset-name">アンケート・現場ヒアリング</span></td>
+                    <td>来店きっかけ・認知経路（他で取れない数字）</td>
+                    <td>どんな事業でも（オフライン集客の裏取り）</td>
+                    <td>⑤ アンケート・現場ヒアリング</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="step-tip">
+              このほかに <strong>④ UTM 最小規約</strong>という「共通のちょっとした工夫」があります。これは取得手段そのものではなく、<span class="preset-name">GA4</span> や <span class="preset-name">SNSインサイト</span> で「どこから来たお客さんか（チラシ？SNS？LINE？）」を見分けられるようにするための下ごしらえです。チラシや SNS からサイトに誘導している方だけ、④ も読んでください。
+            </div>
+
+            <p class="step-section-title">このガイドの並び</p>
+            <div class="flow-map">
+              <div class="flow-map-item"><strong>①</strong>GA4 最小設定</div>
+              <div class="flow-map-item"><strong>②</strong>SNSインサイト</div>
+              <div class="flow-map-item"><strong>③</strong>POS・レジ／予約台帳・カルテ</div>
+              <div class="flow-map-item"><strong>④</strong>UTM 最小規約（任意）</div>
+              <div class="flow-map-item"><strong>⑤</strong>アンケート・現場ヒアリング</div>
+              <div class="flow-map-item"><strong>まとめ</strong>KPI ダッシュボード＋週15分レビュー</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ① GA4 -->
+        <section>
+          <div class="section-card">
+            <h2>取得手段別セットアップ</h2>
+            <p>関係するものだけ進めてください。どれも「まず 1 個だけ」を目標にしています。最初から完璧を狙わないのがコツです。</p>
+
+            <!-- 手段① -->
+            <div class="method-card">
+              <h3><span class="method-num">1</span>GA4 最小設定<span class="method-badge badge-online">オンライン</span></h3>
+              <p class="mini-note">対応する取得手段：<span class="preset-name">GA4</span>｜ホームページ・予約ページの訪問や問い合わせを数えたい方向け。</p>
+
+              <p>GA4（Google アナリティクス 4）は、あなたのサイトに何人来て、何をしたかを無料で記録してくれる Google のサービスです。<strong>「初めて聞いた」で大丈夫です。</strong>ここでは「①測り始める」「②大事な1件を数える」「③どこで見るか」の 3 つだけやります。</p>
+
+              <p class="step-section-title">① 測り始める（プロパティを作る）</p>
+              <ol class="detail-steps">
+                <li>Google アカウントでログインした状態で <a href="https://analytics.google.com/" target="_blank" rel="noopener">analytics.google.com</a> を開きます（§8 まで進んだ方なら、拡張機能で使っている Google アカウントでOK）。</li>
+                <li>案内に沿って「<strong>測定を開始</strong>」→ アカウント名（会社名や屋号でOK）→「<strong>プロパティ</strong>」の名前（サイト名でOK）を入力します。</li>
+                <li>「データストリーム」で「<strong>ウェブ</strong>」を選び、あなたのサイトの URL を入れると、<code>G-</code> から始まる<strong>測定 ID</strong>と、貼り付け用のタグ（数行のコード）が表示されます。</li>
+                <li>そのタグを、サイトの管理画面に貼ります。<strong>作り方によって貼る場所が違います</strong>ので、下のヒントを見てください。</li>
+              </ol>
+              <div class="step-tip">
+                <strong>サイトの種類ごとの貼り方（よくある3パターン）:</strong>
+                <ul class="plain-list" style="margin-top:8px;line-height:1.9;">
+                  <li><strong>WordPress</strong>: 「Site Kit by Google」などの無料プラグインを入れ、測定 ID を入れるだけ。コードを触らずにつながります。</li>
+                  <li><strong>Wix・ペライチ・STUDIO 等の作成サービス</strong>: 管理画面の「設定 → マーケティング／アナリティクス連携」に <code>G-</code> の測定 ID を入れる欄があります。</li>
+                  <li><strong>自分で HTML を触れる場合</strong>: 表示された貼り付けタグを、各ページの <code>&lt;head&gt;</code> の中に貼ります。</li>
+                </ul>
+                貼る場所が分からないサービスを使っている場合は、「（サービス名） GA4 連携」で検索すると公式手順が見つかります。
+              </div>
+
+              <p class="step-section-title">② 大事な1件を数える（コンバージョンを1個だけ）</p>
+              <p>アクセス数だけ見ても打ち手にはつながりません。<strong>「これが増えたら売上に近づく」という行動を1つだけ</strong>選んで、それを数える設定にします。多くの事業ではこのどれかです。</p>
+              <ul class="plain-list" style="line-height:1.9;">
+                <li>予約ボタンのクリック／予約完了ページの表示</li>
+                <li>問い合わせフォームの送信完了</li>
+                <li>電話番号のタップ（スマホ）</li>
+                <li>LINE 追加ボタンのクリック</li>
+              </ul>
+              <ol class="detail-steps">
+                <li>GA4 の左メニュー「<strong>管理</strong>（歯車）」→「<strong>イベント</strong>」または「<strong>キーイベント</strong>」を開きます。</li>
+                <li>目的の行動（例：予約完了ページの表示）を<strong>キーイベント（旧・コンバージョン）</strong>として登録します。まずは<strong>1個だけ</strong>で十分です。</li>
+              </ol>
+              <div class="step-warn">
+                <strong>設定直後は数字が「0」でも正常です。</strong>GA4 はデータの反映に <strong>最大 24〜48 時間</strong>かかります。今日設定して今日0でも壊れていません。翌日以降に確認してください。
+              </div>
+
+              <p class="step-section-title">③ どこで見るか（毎週見る場所）</p>
+              <ol class="detail-steps">
+                <li>左メニュー「<strong>レポート</strong>」→「<strong>エンゲージメント</strong>」で、ページごとの表示回数が見られます。</li>
+                <li>「<strong>集客</strong>」→「<strong>トラフィック獲得</strong>」で、<strong>どこから来たか</strong>（検索・SNS・直接）が分かります。④ の UTM を設定すると、ここでチラシや LINE も見分けられます。</li>
+                <li>設定した<strong>キーイベントの回数</strong>が、あなたが毎週見る一番大事な数字です。これを後述のダッシュボードに転記します。</li>
+              </ol>
+              <div class="step-done">
+                <strong>ここまでで OK:</strong> 測定 ID をサイトに貼れて、キーイベントが1個登録できていれば、GA4 の最小設定は完了です。翌週から「訪問数」と「キーイベント数」が取れます。
+              </div>
+            </div>
+
+            <!-- 手段② -->
+            <div class="method-card">
+              <h3><span class="method-num">2</span>SNSインサイト<span class="method-badge badge-online">オンライン</span></h3>
+              <p class="mini-note">対応する取得手段：<span class="preset-name">SNSインサイト</span>｜Instagram・X で集客している方向け。アプリの中だけで完結します。</p>
+
+              <p>「インサイト」は、SNS アプリが無料で見せてくれる<strong>投稿やアカウントの成績表</strong>です。特別な連携は不要で、アプリの画面を見るだけです。ただし <strong>Instagram は「プロアカウント」への切り替えが必要</strong>な点だけ注意してください。</p>
+
+              <p class="step-section-title">Instagram の場合</p>
+              <ol class="detail-steps">
+                <li>プロフィール右上のメニュー →「<strong>設定とプライバシー</strong>」→「<strong>アカウントの種類とツール</strong>」→「<strong>プロアカウントに切り替える</strong>」（無料）。ビジネスまたはクリエイターを選びます。</li>
+                <li>切り替え後、各投稿の下に「<strong>インサイトを見る</strong>」が出ます。ここで<strong>リーチ（見られた人数）・保存数・プロフィールへのアクセス</strong>が分かります。</li>
+                <li>アカウント全体の数字は、プロフィール画面の「<strong>プロフェッショナルダッシュボード</strong>」から。過去7日／30日のリーチやフォロワー増減が見られます。</li>
+              </ol>
+
+              <p class="step-section-title">X（旧Twitter）の場合</p>
+              <ol class="detail-steps">
+                <li>各ポストの下に表示される「<strong>アナリティクスを表示</strong>」（棒グラフのアイコン）で、<strong>インプレッション・エンゲージメント・プロフィールアクセス</strong>が見られます。</li>
+                <li>アカウント全体は、メニューの「<strong>アナリティクス</strong>」（PC・プレミアム等で利用範囲が変わります）から確認します。</li>
+              </ol>
+
+              <div class="step-tip">
+                毎週見る数字は<strong>「リーチ（インプレッション）」と「プロフィールアクセス」の2つ</strong>で十分です。全部の数字を追う必要はありません。§8-2 の KPI（例：リーチ→プロフィール来訪→フォロー）の一番上の数字として、毎週ダッシュボードに転記します。
+              </div>
+              <div class="step-warn">
+                インサイトの数字は<strong>時間が経つと古い投稿ぶんが見づらくなる</strong>ことがあります。毎週決まった曜日に「先週ぶん」をメモしておくのが確実です（後述の週15分レビューでまとめて記録します）。
+              </div>
+              <div class="step-done">
+                <strong>ここまでで OK:</strong> Instagram はプロアカウントに切り替わっていて、投稿インサイトが見られる。X はポストのアナリティクスが開ける。これで毎週の SNS 数字が取れます。
+              </div>
+            </div>
+
+            <!-- 手段③ -->
+            <div class="method-card">
+              <h3><span class="method-num">3</span>POS・レジ／予約台帳・カルテ<span class="method-badge badge-offline">オフライン</span></h3>
+              <p class="mini-note">対応する取得手段：<span class="preset-name">POS・レジ</span>・<span class="preset-name">予約台帳・カルテ</span>｜店舗・予約制の事業向け。<strong>紙でも成立します。</strong></p>
+
+              <p>売上・客数・再来といった<strong>オフラインの数字</strong>は、じつは一番大事な KGI（最終目標の数字）につながります。ネットの数字が無くても、ここが取れていれば PDCA は回せます。高価な POS レジは不要です。<strong>手書きの記録で十分</strong>です。</p>
+
+              <p class="step-section-title">すでにレジ・予約システムがある場合</p>
+              <ul class="plain-list" style="line-height:1.9;">
+                <li>多くの POS（Airレジ・Square・スマレジ等）や予約システムには「<strong>日次／週次の売上・客数レポート</strong>」があります。まずはその画面を開けるようにするだけでOK。</li>
+                <li>毎週、週合計の<strong>客数・売上・（分かれば）新規／再来の内訳</strong>をダッシュボードに転記します。</li>
+              </ul>
+
+              <p class="step-section-title">紙・手書きで始める場合（記録テンプレ）</p>
+              <p>レジや予約システムが無くても、次の「正の字カウント」だけで始められます。1日1枚、レジ横やカウンターに置いてください。</p>
+              <div class="table-scroll">
+                <table class="grid-table">
+                  <thead>
+                    <tr>
+                      <th>日付</th>
+                      <th>来店・予約数（正の字）</th>
+                      <th>うち新規（初来店）</th>
+                      <th>売上合計</th>
+                      <th>ひとことメモ（天気・イベント等）</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>7/7（月）</td>
+                      <td>正 正 一（＝11）</td>
+                      <td>正（＝5）</td>
+                      <td>48,000</td>
+                      <td>雨・チラシ配布日</td>
+                    </tr>
+                    <tr>
+                      <td>7/8（火）</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="step-tip">
+                <strong>「新規かどうか」を聞くのが難しいときは</strong>、会計時に「初めてのご来店ですか？」と一言添えるだけでOK。§8-1 の KGI が「再来率」の方は、この新規／再来の内訳がそのまま必要な数字になります。
+              </div>
+              <div class="step-warn">
+                紙の記録は<strong>週に1回、必ずスプレッドシートに合計を打ち込んでください。</strong>紙のままだと週をまたいで比較できません。「毎週月曜に先週ぶんを入力」を習慣にすると続きます。
+              </div>
+              <div class="step-done">
+                <strong>ここまでで OK:</strong> レジレポートを開けるか、紙テンプレで日々の客数・売上・新規を数えられる。週合計をスプレッドシートに移せる。これでオフラインの数字が取れます。
+              </div>
+            </div>
+
+            <!-- 手段④ -->
+            <div class="method-card">
+              <h3><span class="method-num">4</span>UTM 最小規約（任意）<span class="method-badge badge-online">オンライン</span></h3>
+              <p class="mini-note">下ごしらえのテク｜チラシ・SNS・LINE などからサイトへ誘導している方向け。①②を「どこから来たか」で分けられます。</p>
+
+              <p>UTM とは、リンクの末尾に<strong>「これはチラシ経由のリンクですよ」という目印</strong>を付ける仕組みです。この目印を付けておくと、GA4 の「集客」レポートで<strong>チラシ・SNS・LINE を別々に数えられる</strong>ようになります。難しく考えず、<strong>3種類だけ</strong>決めれば十分です。</p>
+
+              <p class="step-section-title">最小ルール：この3つだけ決める</p>
+              <p>リンクの後ろに <code>?utm_source=●●&utm_medium=▲▲</code> を付けます。<code>source</code>（どこから）だけ使い分ければ実用上は足ります。</p>
+              <div class="table-scroll">
+                <table class="grid-table">
+                  <thead>
+                    <tr>
+                      <th>流入元</th>
+                      <th>リンクの末尾に付ける目印</th>
+                      <th>使う場面</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>チラシ・紙</td>
+                      <td><code>?utm_source=flyer&amp;utm_medium=print</code></td>
+                      <td>チラシの QR コードの行き先 URL に付ける</td>
+                    </tr>
+                    <tr>
+                      <td>SNS（プロフィールのリンク）</td>
+                      <td><code>?utm_source=instagram&amp;utm_medium=sns</code></td>
+                      <td>Instagram・X のプロフィール URL に付ける</td>
+                    </tr>
+                    <tr>
+                      <td>LINE</td>
+                      <td><code>?utm_source=line&amp;utm_medium=message</code></td>
+                      <td>LINE 配信メッセージ内のリンクに付ける</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="step-tip">
+                目印付きのリンクは、<a href="https://ga-dev-tools.google/campaign-url-builder/" target="_blank" rel="noopener">Google の「Campaign URL Builder」</a>に元 URL と上記の値を入れると自動で作れます。手打ちでミスしがちな記号（<code>?</code> と <code>&amp;</code>）を間違えずに済みます。作ったチラシ用の長い URL は、無料の QR コード作成サービスで QR にすると配布しやすくなります。
+              </div>
+              <div class="step-warn">
+                UTM は<strong>「どこから来たか」を分けたい人だけ</strong>の任意ステップです。まだ Web 誘導をしていない、または流入元を分ける必要がなければ、飛ばして構いません。
+              </div>
+              <div class="step-done">
+                <strong>ここまでで OK:</strong> チラシ・SNS・LINE の3種に目印付きリンクを用意できれば完了。GA4 の「集客 → トラフィック獲得」で、それぞれ別の行として数えられるようになります。
+              </div>
+            </div>
+
+            <!-- 手段⑤ -->
+            <div class="method-card">
+              <h3><span class="method-num">5</span>アンケート・現場ヒアリング<span class="method-badge badge-offline">オフライン</span></h3>
+              <p class="mini-note">対応する取得手段：<span class="preset-name">アンケート・現場ヒアリング</span>｜「何を見て来たか」は、これでしか取れません。全事業におすすめ。</p>
+
+              <p>GA4 も SNS も「ネットの中の動き」しか分かりません。でも実際のお客さんは<strong>「チラシを見て」「友達に聞いて」「たまたま通りかかって」</strong>来ています。この<strong>来店きっかけ（認知経路）</strong>は、直接聞くのが一番正確です。難しいアンケート用紙は不要です。</p>
+
+              <p class="step-section-title">いちばん簡単なやり方：会計時にひとこと</p>
+              <ol class="detail-steps">
+                <li>会計や予約受付のとき、「<strong>失礼ですが、何で当店をお知りになりましたか？</strong>」と一言聞きます。</li>
+                <li>スタッフが手元の「正の字シート」に、選択肢ごとにチェックを入れるだけ。お客さんに書いてもらう必要はありません。</li>
+              </ol>
+              <div class="table-scroll">
+                <table class="grid-table">
+                  <thead>
+                    <tr>
+                      <th>来店きっかけ</th>
+                      <th>今週のカウント（正の字）</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Instagram / X などの SNS</td><td>正 正（＝10）</td></tr>
+                    <tr><td>チラシ・ポスティング</td><td>正 一（＝6）</td></tr>
+                    <tr><td>紹介・口コミ（知人）</td><td>正（＝5）</td></tr>
+                    <tr><td>通りがかり・看板</td><td>三（＝3）</td></tr>
+                    <tr><td>その他（検索・食べログ等）</td><td>&nbsp;</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="step-tip">
+                QR コードで無料の <strong>Google フォーム</strong>にしてもOKですが、<strong>最初は紙の正の字が最も回収率が高い</strong>です（お客さんの手を止めないため）。集計だけ週次でスプレッドシートに入れれば、SNS やチラシの「本当の効き目」が見えてきます。
+              </div>
+              <div class="step-done">
+                <strong>ここまでで OK:</strong> 来店きっかけを聞く一言と、選択肢の正の字シートを用意できれば完了。オンラインの数字だけでは分からない「本当の流入元」が毎週取れます。
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- KPI ダッシュボード雛形 -->
+        <section>
+          <div class="section-card">
+            <h2>KPI ダッシュボード雛形（Google スプレッドシート）</h2>
+            <p>取れるようになった数字を<strong>1 枚のスプレッドシートに集約</strong>します。むずかしい関数は要りません。シートを <strong>2 枚</strong>だけ作ってください。<strong>1枚目は §8-3 の測定設計テーブルをそのまま写す</strong>ための表、<strong>2枚目は毎週の実測値を書き足していく</strong>表です。</p>
+
+            <p class="step-section-title">シート1「測定設計」（§8-3 をそのまま転記）</p>
+            <p>§8-3 で作った測定設計テーブルの中身を、この列にそのまま写します。列名を1行目に入れておくと、あとから見返しやすくなります。</p>
+            <div class="table-scroll">
+              <table class="grid-table">
+                <thead>
+                  <tr>
+                    <th>指標</th>
+                    <th>取得手段</th>
+                    <th>測定頻度</th>
+                    <th>責任者</th>
+                    <th>基準値</th>
+                    <th>目標値</th>
+                    <th>しきい値</th>
+                    <th>次回見直し日</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>新規来店数</td>
+                    <td><span class="preset-name">POS・レジ</span></td>
+                    <td>週次</td>
+                    <td>店長</td>
+                    <td>週20人</td>
+                    <td>週30人</td>
+                    <td>週15人を割ったら要対策</td>
+                    <td>9/30</td>
+                  </tr>
+                  <tr>
+                    <td>Instagram リーチ</td>
+                    <td><span class="preset-name">SNSインサイト</span></td>
+                    <td>週次</td>
+                    <td>SNS担当</td>
+                    <td>週3,000</td>
+                    <td>週5,000</td>
+                    <td>前週比 −20% で投稿見直し</td>
+                    <td>9/30</td>
+                  </tr>
+                  <tr>
+                    <td>予約完了（サイト）</td>
+                    <td><span class="preset-name">GA4</span></td>
+                    <td>週次</td>
+                    <td>店長</td>
+                    <td>週8件</td>
+                    <td>週12件</td>
+                    <td>週5件を割ったら導線確認</td>
+                    <td>9/30</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="step-tip">
+              「取得手段」の列には、§8-3 と同じ 5 つの名前（<span class="preset-name">GA4</span>／<span class="preset-name">SNSインサイト</span>／<span class="preset-name">POS・レジ</span>／<span class="preset-name">予約台帳・カルテ</span>／<span class="preset-name">アンケート・現場ヒアリング</span>）のどれかを入れてください。§8-3 とダッシュボードで<strong>言葉をそろえておく</strong>と、どの数字をどこから取るのか迷わなくなります。<br>
+              <span class="mini-note">この見出し行をスプレッドシートに写すには、下のコピーボタンが便利です（貼り付けると自動で列に分かれます）。</span>
+            </div>
+            <div class="code-block">
+              <div class="code-head">
+                <strong>シート1 の見出し行（スプレッドシートに貼り付け）</strong>
+                <button class="copy-button" data-copy="指標&#9;取得手段&#9;測定頻度&#9;責任者&#9;基準値&#9;目標値&#9;しきい値&#9;次回見直し日">コピー</button>
+              </div>
+              <pre><code>指標  取得手段  測定頻度  責任者  基準値  目標値  しきい値  次回見直し日</code></pre>
+            </div>
+
+            <p class="step-section-title">シート2「週次記録」（毎週1行ずつ足す）</p>
+            <p>いちばん左に「週（月曜の日付）」、その右に<strong>シート1で決めた指標の名前をそのまま横に並べます</strong>。あとは毎週、その週の実測値を1行足していくだけ。一番右に「気づき（要因分析メモ）」の欄を作っておくのがコツです。</p>
+            <div class="table-scroll">
+              <table class="grid-table">
+                <thead>
+                  <tr>
+                    <th>週（月曜）</th>
+                    <th>新規来店数</th>
+                    <th>Instagram リーチ</th>
+                    <th>予約完了</th>
+                    <th>気づき（なぜこの数字か・要因分析メモ）</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>6/30</td>
+                    <td>18</td>
+                    <td>2,800</td>
+                    <td>7</td>
+                    <td>雨が続いた。リールの保存が伸びた回だけ来店増。</td>
+                  </tr>
+                  <tr>
+                    <td>7/7</td>
+                    <td>24</td>
+                    <td>4,100</td>
+                    <td>9</td>
+                    <td>チラシ配布週。UTM で flyer 経由の予約を3件確認。</td>
+                  </tr>
+                  <tr>
+                    <td>7/14</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="code-block">
+              <div class="code-head">
+                <strong>シート2 の見出し行（指標名はご自身のものに置き換え）</strong>
+                <button class="copy-button" data-copy="週（月曜）&#9;新規来店数&#9;Instagramリーチ&#9;予約完了&#9;気づき（要因分析メモ）">コピー</button>
+              </div>
+              <pre><code>週（月曜）  新規来店数  Instagramリーチ  予約完了  気づき（要因分析メモ）</code></pre>
+            </div>
+            <div class="step-tip">
+              この「週次記録」シートが、次の<strong>週15分レビュー</strong>と <strong>§9 の週次 PDCA</strong>で毎週見る画面になります。数字を横に並べておくと、前の週と比べて増えた・減ったが一目で分かります。グラフは慣れてからで十分です。
+            </div>
+            <div class="step-warn">
+              <strong>数字が取れなかった週は、空欄のままにせず「未計測」と書いてください。</strong>「0（ゼロだった）」と「未計測（測れなかった）」はまったく意味が違います。ここを混ぜると、あとで振り返るときに誤解のもとになります。
+            </div>
+          </div>
+        </section>
+
+        <!-- 週次15分レビュー -->
+        <section>
+          <div class="section-card">
+            <h2>週次15分レビュー会テンプレ</h2>
+            <p>計測がそろったら、<strong>週に1回・15分</strong>だけ数字を見る時間を作ります。これが §9 の週次 PDCA の「<strong>Check（見て・なぜかを考える）→ Act（次の手を決める）</strong>」そのものです。ひとりでも、スタッフとでもOK。曜日と時間を固定するのが続けるコツです（例：毎週月曜の朝9時）。</p>
+
+            <p class="step-section-title">進行台本（15分）</p>
+            <ul class="timeline">
+              <li>
+                <span class="tl-time">事前 1分</span><span class="tl-phase">数字を埋める</span>
+                <div>GA4・SNS インサイト・レジ／台帳から先週ぶんの数字を、ダッシュボードの「週次記録」に転記しておく（レビュー直前でOK）。</div>
+              </li>
+              <li>
+                <span class="tl-time">00:00–03:00</span><span class="tl-phase">見る（先週どうだった？）</span>
+                <div>各指標を「シート1」の<strong>目標値・しきい値</strong>と見比べる。○（達成）／△（あと少し）／×（しきい値割れ）を口に出すだけ。§9 の Plan・Do の結果確認にあたります。</div>
+              </li>
+              <li>
+                <span class="tl-time">03:00–08:00</span><span class="tl-phase">なぜ？（要因を1行で）</span>
+                <div>×や大きく動いた指標について「<strong>なぜこの数字になったか</strong>」の仮説を最低1行、気づき欄に書く。例：「チラシ配布週だから新規が増えた」。<strong>これが §9-1 の Check「要因分析仮説欄」です。</strong>正解でなくてよい、仮説でOK。</div>
+              </li>
+              <li>
+                <span class="tl-time">08:00–13:00</span><span class="tl-phase">どうする？（しきい値で判断）</span>
+                <div>§8 で決めた<strong>しきい値</strong>と照らして、あらかじめ決めた対応を実行するか判断する。例：「リーチが前週比 −20% を割った → 今週は投稿頻度を増やす」。感覚ではなく<strong>数字で</strong>決めるのが §9 の Act のルールです。</div>
+              </li>
+              <li>
+                <span class="tl-time">13:00–15:00</span><span class="tl-phase">次の1手を決めて記録</span>
+                <div>「今週やること」を<strong>1つだけ</strong>決め、担当と、次回見る数字をメモする。§9-5 の改善ログ（試したこと・結果・学び・次アクション）の1行になります。</div>
+              </li>
+            </ul>
+            <div class="step-tip">
+              §9 では、この週次レビューの中で<strong>マスタードキュメントの [仮説] 行も毎週最低3件</strong>取り上げ、「昇格／継続／削除」を判定します（§9-3 採否判断ルーチン）。計測がそろっていると、この判定に使う実測値が手元にある状態になります。まずは数字を見る習慣を15分で固定するところから始めてください。
+            </div>
+            <div class="step-warn">
+              <strong>レビューを長くしすぎないこと。</strong>15分で終わらないときは、見る指標が多すぎるサインです。§8-2 のとおり、KPI は施策1本につき1〜2個まで。<strong>まず3指標くらいに絞る</strong>と、毎週続けられます。
+            </div>
+          </div>
+        </section>
+
+        <!-- FAQ -->
+        <section>
+          <div class="section-card">
+            <h2>よくある詰まり（FAQ）</h2>
+            <div class="faq-block">
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q1</span>数字が取れない週があった。どうすれば？</div>
+                <div class="faq-a">
+                  空欄のままにせず「<strong>未計測</strong>」と書いてください。測り忘れた週があっても PDCA は止まりません。翌週からまた記録すればOKです。大事なのは「0（実際にゼロ）」と「未計測（測れなかった）」を分けて書くことです。
+                </div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q2</span>GA4 を設定したのに数字が「0」のまま</div>
+                <div class="faq-a">
+                  設定直後は正常です。GA4 はデータ反映に<strong>最大 24〜48 時間</strong>かかります。まず「レポート → リアルタイム」で、自分でサイトを開いたときに1が立つか確認してください。リアルタイムにも出ない場合は、測定 ID の貼り付け場所が違う可能性があります（①の「サイトの種類ごとの貼り方」を再確認）。
+                </div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q3</span>Instagram のインサイトが見当たらない</div>
+                <div class="faq-a">
+                  個人アカウントのままだと表示されません。「設定 → アカウントの種類とツール → <strong>プロアカウントに切り替える</strong>」（無料）を行ってください。切り替え後、しばらくすると過去の投稿にもインサイトが表示されるようになります。
+                </div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q4</span>何を測ればいいか分からない・指標が多すぎる</div>
+                <div class="faq-a">
+                  <strong>§8-3 の測定設計テーブルで決めた指標だけ</strong>を測ってください。それ以上は増やさないのが正解です。迷ったら「§8-1 の KGI に一番近い数字（売上・新規・再来など）」1つと、「その手前の数字（リーチ・訪問など）」1つの、<strong>合計2〜3個</strong>から始めます。
+                </div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q5</span>レジも予約システムも無い。数字が取れない</div>
+                <div class="faq-a">
+                  紙で十分です。③の「正の字カウント」テンプレをレジ横に置き、日々の客数・新規・売上を数えてください。<span class="preset-name">予約台帳・カルテ</span>がある業種は、そこから週合計を数えればOK。<strong>手書きでも、毎週スプレッドシートに合計を入れれば立派な計測です。</strong>
+                </div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q6</span>毎週の記録が続かない</div>
+                <div class="faq-a">
+                  原因はたいてい「測る指標が多い」か「時間が決まっていない」のどちらかです。指標を<strong>3つまで</strong>に絞り、<strong>曜日と時間を固定</strong>（例：毎週月曜9時）してください。1回15分の週次レビューの中で記録もまとめて行うと、別作業になりません。
+                </div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q"><span class="faq-label">Q7</span>有料ツールや API キーは必要？</div>
+                <div class="faq-a">
+                  <strong>不要です。</strong>このガイドは GA4・SNS インサイト・Google スプレッドシート・紙という<strong>無料の範囲</strong>で完結します。有料の分析ツールや API キーは、必要になってから検討すれば十分です（STRATEGY-KIT の Gemini 設定とは別の話で、計測には要りません）。
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 次に -->
+        <section>
+          <div class="section-card">
+            <h2>これで準備完了です</h2>
+            <p>あなたに関係する取得手段を設定し、ダッシュボードのシートを2枚作り、週15分のレビュー時間を決めたら、計測の準備は完了です。<strong>翌週の月曜には、実際の数字を見ながら §9 の PDCA を回し始められます。</strong></p>
+            <div class="pill-row" style="margin-top:16px;">
+              <a class="button" href="strategy-kit-hub.html">配布ページへ戻る</a>
+              <a class="button-secondary" href="setup-guide-v0.12.html">セットアップガイドを見る</a>
+            </div>
+            <p class="version-note">
+              計測クイックスタート v1 &nbsp;/&nbsp; §8（KPI ツリー）到達者向け &nbsp;/&nbsp; STRATEGY-KIT・X-KIT・INSTAGRAM-KIT 共通<br>
+              うまくいかないときは、職業訓練校の窓口（山口さん）まで。どの取得手段のどこで詰まっているか、表示画面のスクリーンショットを添えると解決が早くなります。
+            </p>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <script>
+      document.querySelectorAll('[data-copy]').forEach(function (button) {
+        button.addEventListener('click', async function () {
+          var text = button.getAttribute('data-copy');
+          try {
+            await navigator.clipboard.writeText(text);
+            button.textContent = 'コピー済み';
+            setTimeout(function () {
+              button.textContent = 'コピー';
+            }, 1600);
+          } catch (e) {
+            button.textContent = '失敗';
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

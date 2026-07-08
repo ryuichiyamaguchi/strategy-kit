@@ -573,7 +573,7 @@
     function updateModeUI() {
       modelRow.style.display = radioFull.checked ? 'flex' : 'none';
       descP.textContent = radioFull.checked
-        ? '§0〜§9 を Gemini API で順番に自動生成し、マスター本体に直接保存します。ユニットエコノミクスはFinance Gateで数値検査し、残る不足は要確認として完走します。'
+        ? '§0〜§9 を Gemini API で順番に自動生成し、マスター本体に直接保存します。ユニットエコノミクスはFinance Gateで記入漏れと数値の算術整合（獲得人数=予算÷CAC・粗利LTV/CAC・Payback整合）まで検査し、矛盾があればその章で停止します（再試行で埋め直せます）。'
         : '入力情報をベースに、各フェーズを順番に進めます。AIに送信→出力を貼付→次へ、を繰り返すことで、人間が選別しながらマスター本体へ保存します。';
       refreshCurrentActionCache().then(refreshAutomationPrimaryAction).catch(function () {
         refreshAutomationPrimaryAction();
@@ -2609,7 +2609,8 @@
       return { bodyText: bodyText, model: effectiveModel, financeGate: null, financeGateWarning: false };
     }
 
-    let validation = financeGate.validateUnitEconomicsOutput(bodyText);
+    // 記入漏れ（presence）＋算術整合（arithmetic）を束ねて検査する。
+    let validation = financeGate.validateUnitEconomics(bodyText);
     if (!validation.ok) {
       const repairPrompt = financeGate.buildUnitEconomicsRepairPrompt({
         originalPrompt: promptText,
@@ -2623,15 +2624,17 @@
         temperature: 0.1,
       });
       bodyText = requireGeneratedBody_(res);
-      validation = financeGate.validateUnitEconomicsOutput(bodyText);
+      validation = financeGate.validateUnitEconomics(bodyText);
     }
 
     if (!validation.ok) {
-      bodyText = financeGate.appendUnitEconomicsWarning({
-        bodyText: bodyText,
-        validation: validation,
-      });
-      return { bodyText: bodyText, model: effectiveModel, financeGate: validation, financeGateWarning: true };
+      // 再試行しても数値矛盾・記入漏れが残る場合は warning-done で握りつぶさず、
+      // 空応答と同じ failed マーカー + retry UI 経路へ落とす（完走は再試行で担保）。
+      const detail = [
+        ...(validation.missing || []),
+        ...(validation.violations || []),
+      ].join(' / ');
+      throw new Error('Finance Gate 不合格: ' + (detail || '数値検査に不合格'));
     }
 
     return { bodyText: bodyText, model: effectiveModel, financeGate: validation, financeGateWarning: false };
@@ -2684,7 +2687,6 @@
 
     // R4: 失敗章のトラッキング（最後にまとめて再試行できるようにする）
     const failedSections = []; // [{ no, title, reason }]
-    const financeWarningSections = []; // [{ no, title, missing }]
 
     // R4: ユーザー向けエラーメッセージへの整形
     function humanizeGeminiError(e) {
@@ -2830,14 +2832,7 @@
           usedModel = generated.model;
           accumulated[unit.accKey] = bodyText.slice(0, 2000);
           phaseOutputs.push(bodyText);
-          if (generated.financeGateWarning) {
-            financeWarningSections.push({
-              no: unit.sectionNo,
-              title: unit.title,
-              missing: (generated.financeGate && generated.financeGate.missing) || [],
-            });
-            window.SK_CORE.showToast('ユニットエコノミクスに要確認項目があります。完走を優先します。', 'warn', 5000);
-          } else if (generated.financeGate) {
+          if (generated.financeGate) {
             window.SK_CORE.showToast('ユニットエコノミクス Finance Gate 通過', false, 2500);
           }
         } catch (e) {
@@ -2906,15 +2901,7 @@
       }
       clearAutomationState();
       hideCurrentLocation();
-      if (financeWarningSections.length > 0) {
-        const labels = financeWarningSections.map(function (section) {
-          return '§' + section.no;
-        }).join('・');
-        ui.progressLabel.textContent = '✅ 全章完了（要確認: ' + labels + '）';
-        window.SK_CORE.showToast('全章完了。要確認章があります: ' + labels, 'warn', 7000);
-      } else {
-        window.SK_CORE.showToast('全章完了。マスター本体に保存しました', false, 5000);
-      }
+      window.SK_CORE.showToast('全章完了。マスター本体に保存しました', false, 5000);
     }
   }
 
@@ -3050,9 +3037,6 @@
         bodyText = generated.bodyText;
         usedModel = generated.model;
         accumulated[unit.accKey] = bodyText.slice(0, 2000);
-        if (generated.financeGateWarning) {
-          window.SK_CORE.showToast('ユニットエコノミクスに要確認項目があります。done として保存します。', 'warn', 5000);
-        }
       } catch (e) {
         const msg = (e && e.message) ? e.message : String(e);
         stillFailed.push({ no: f.no, title: f.title, reason: msg.slice(0, 120) });

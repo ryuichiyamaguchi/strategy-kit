@@ -130,8 +130,11 @@
       const no = normalizeSectionNo(noWithPrefix);
       if (!no) continue;
       const result = sectionsMod.getSectionText(doc, Number(no), { allowLastSectionNo: 99 });
-      if (result.status === 'ok' && result.text.trim()) {
-        parts.push('## §' + no + '\n\n' + result.text.trim());
+      const cleanText = result.status === 'ok' ? (result.text || '').trim() : '';
+      // 未保存プレースホルダ本文（「（未保存）」だけ等）は found にしない。
+      // getSectionText 側でサブ §N-M があれば実体へ集約されるため、ここに来るのは実体無しのケース。
+      if (cleanText && !sectionsMod.isPlaceholderSectionBody(cleanText)) {
+        parts.push('## §' + no + '\n\n' + cleanText);
         foundNos.push(no);
       } else {
         missingNos.push(no);
@@ -920,6 +923,246 @@
     throw new Error('HTMLカード用のJSONを解析できませんでした。AI応答が ```json ... ``` 形式か確認してください。');
   }
 
+  // 「実体が無い」とみなす値。空図解を成功扱いしない検証(F6)と、要入力表示の判定に使う。
+  const DIAGRAM_BLANK_TOKENS = new Set([
+    '記載なし', '未設定', '目標未設定', '施策なし', '要入力', '要確認', '未記入', '未定', 'なし',
+    '（未記入）', '（未保存）', 'tbd', 'n/a', 'na', '-', 'ー', '—', '－', '◯', '○', '?', '？',
+  ]);
+
+  function isBlankValue(value) {
+    if (value == null) return true;
+    const s = String(value).trim();
+    if (!s) return true;
+    return DIAGRAM_BLANK_TOKENS.has(s) || DIAGRAM_BLANK_TOKENS.has(s.toLowerCase());
+  }
+
+  function filledCount(items) {
+    return ensureArray(items).filter(function (v) { return !isBlankValue(v); }).length;
+  }
+
+  function cardValidationBase(typeLabel, sourceHint) {
+    return { ok: true, typeLabel: typeLabel, sourceHint: sourceHint, issues: [] };
+  }
+
+  // F6: 図解タイプ別に必須キー・最小配列数・実体密度を検証。閾値未満は成功にせずエラー扱い。
+  function validateCardData(format, data) {
+    const d = (data && typeof data === 'object') ? data : {};
+    switch (format) {
+      case 'html-card-swot': {
+        const r = cardValidationBase('SWOT 4象限カード', '§3（SWOT / クロスSWOT）');
+        let total = 0;
+        [['strengths', '強み'], ['weaknesses', '弱み'], ['opportunities', '機会'], ['threats', '脅威']].forEach(function (s) {
+          const n = filledCount(d[s[0]]);
+          total += n;
+          if (n < 1) r.issues.push(s[1] + 'が空です');
+        });
+        if (total < 6) r.issues.push('4象限の合計項目が' + total + '件で、配布に足る密度（6件以上）に達していません');
+        r.ok = r.issues.length === 0;
+        return r;
+      }
+      case 'html-card-4p4c': {
+        const r = cardValidationBase('4P / 4C 比較表', '§5（価値設計の4P/4C）');
+        const rows = ensureArray(d.rows).filter(function (row) {
+          const cells = ensureMatrixRow(row, 3);
+          return !isBlankValue(cells[1]) && !isBlankValue(cells[2]);
+        });
+        if (rows.length < 3) r.issues.push('企業側・顧客側が両方埋まった行が' + rows.length + '行で、必要な3行に達していません');
+        r.ok = r.issues.length === 0;
+        return r;
+      }
+      case 'html-card-persona': {
+        const r = cardValidationBase('ペルソナカード', '§4（ペルソナ）');
+        if (isBlankValue(d.name)) r.issues.push('ペルソナ名が空です');
+        if (filledCount(d.pains) < 1) r.issues.push('ペイン（悩み）が空です');
+        if (filledCount(d.goals) < 1) r.issues.push('ゴールが空です');
+        r.ok = r.issues.length === 0;
+        return r;
+      }
+      case 'html-card-journey': {
+        const r = cardValidationBase('カスタマージャーニー', '§4-5（顧客行動・詰まりポイント）');
+        const stages = ensureArray(d.stages).filter(function (st) {
+          return st && !isBlankValue(st.stage) && !isBlankValue(st.action);
+        });
+        if (stages.length < 3) r.issues.push('行動が埋まった段階が' + stages.length + '件で、必要な3段階に達していません');
+        r.ok = r.issues.length === 0;
+        return r;
+      }
+      case 'html-card-kpi-tree': {
+        const r = cardValidationBase('KPIツリーカード', '§8（KPIツリー / KGI・中間KPI）');
+        if (isBlankValue(d.kgi)) r.issues.push('KGI（最上位目標）が空です');
+        const branches = ensureArray(d.branches).filter(function (b) { return b && !isBlankValue(b.kpi); });
+        if (branches.length < 2) r.issues.push('中間KPIの枝が' + branches.length + '件で、必要な2件に達していません');
+        r.ok = r.issues.length === 0;
+        return r;
+      }
+      case 'html-card-competitor': {
+        const r = cardValidationBase('競合比較表', '§2（競合）・§3（統合）');
+        const rows = ensureArray(d.rows).filter(function (row) {
+          const cells = ensureMatrixRow(row, 5);
+          return !isBlankValue(cells[0]) && !isBlankValue(cells[4]);
+        });
+        if (rows.length < 2) r.issues.push('比較対象と狙う余地が埋まった行が' + rows.length + '行で、必要な2行に達していません');
+        r.ok = r.issues.length === 0;
+        return r;
+      }
+      case 'html-card-checklist': {
+        const r = cardValidationBase('業種別チェックリスト', '§2・§6・§7');
+        const items = ensureArray(d.items).filter(function (it) { return it && !isBlankValue(it.title); });
+        if (items.length < 3) r.issues.push('チェック項目が' + items.length + '件で、必要な3件に達していません');
+        r.ok = r.issues.length === 0;
+        return r;
+      }
+      case 'html-card-cross-3c': {
+        const r = cardValidationBase('クロス3C分析', '§2-4（クロス3C / KSF・競争優位）');
+        [['customer', '顧客'], ['company', '自社'], ['competitor', '競合']].forEach(function (s) {
+          if (filledCount(d[s[0]]) < 1) r.issues.push(s[1] + 'の要素が空です');
+        });
+        if (filledCount(d.all_three) < 1) r.issues.push('中央（KSF・競争優位）が空です');
+        r.ok = r.issues.length === 0;
+        return r;
+      }
+      case 'html-card-unit-economics': {
+        const r = cardValidationBase('ユニットエコノミクスカード', '§7-4（ユニットエコノミクス要約表）');
+        if (isBlankValue(d.verdict)) r.issues.push('採否判定（GO / 条件付GO / NO-GO）が空です');
+        const metricKeys = ['budget', 'cac', 'ltvRevenue', 'ltvGross', 'ltvCacRatio', 'payback', 'breakeven', 'verdict'];
+        const filled = metricKeys.filter(function (k) { return !isBlankValue(d[k]); }).length;
+        if (filled < 4) r.issues.push('要約表の指標が' + filled + '/8 件しか埋まっておらず、判断に足る密度（4件以上）に達していません');
+        r.ok = r.issues.length === 0;
+        return r;
+      }
+      default:
+        return cardValidationBase('', '');
+    }
+  }
+
+  function stripCodeFence(text) {
+    const t = String(text || '').trim();
+    const m = t.match(/^```[a-zA-Z]*\s*\n([\s\S]*?)```$/);
+    return (m ? m[1] : t).trim();
+  }
+
+  function isBalancedBrackets(code) {
+    const opens = { '(': 0, '[': 0, '{': 0 };
+    const closeToOpen = { ')': '(', ']': '[', '}': '{' };
+    for (let i = 0; i < code.length; i++) {
+      const ch = code[i];
+      if (ch === '(' || ch === '[' || ch === '{') opens[ch]++;
+      else if (closeToOpen[ch]) {
+        const o = closeToOpen[ch];
+        if (opens[o] <= 0) return false;
+        opens[o]--;
+      }
+    }
+    return opens['('] === 0 && opens['['] === 0 && opens['{'] === 0;
+  }
+
+  const MERMAID_HEADER_SPECS = {
+    'mermaid-mindmap': { re: /^mindmap\b/, label: 'mindmap' },
+    'mermaid-flowchart': { re: /^(?:flowchart|graph)\s+(?:LR|TD|TB|RL|BT)\b/, label: 'flowchart LR' },
+    'mermaid-quadrant': { re: /^quadrantChart\b/, label: 'quadrantChart' },
+  };
+
+  function mermaidFormatKey(format) {
+    if (typeof format !== 'string') return 'mermaid';
+    if (format.indexOf('mermaid-mindmap') === 0) return 'mermaid-mindmap';
+    if (format.indexOf('mermaid-flowchart') === 0) return 'mermaid-flowchart';
+    if (format.indexOf('mermaid-quadrant') === 0) return 'mermaid-quadrant';
+    return 'mermaid';
+  }
+
+  // F7: レンダリング前に Mermaid の最小グラマーを検証。無効なら保存・コピー導線を出さずエラー扱い。
+  function validateMermaidCode(rawCode, format) {
+    const issues = [];
+    const code = stripCodeFence(rawCode);
+    if (!code) return { ok: false, issues: ['Mermaidコードが空です'] };
+
+    const lines = code.split('\n')
+      .map(function (l) { return l.replace(/\s+$/, ''); })
+      .filter(function (l) { return l.trim() && l.trim().indexOf('%%') !== 0; });
+    if (!lines.length) return { ok: false, issues: ['Mermaidの本文がありません'] };
+
+    const header = lines[0].trim();
+    const key = mermaidFormatKey(format);
+    const spec = MERMAID_HEADER_SPECS[key];
+    if (spec) {
+      if (!spec.re.test(header)) {
+        issues.push('先頭が「' + spec.label + '」で始まっていません（AIが図解を拒否した説明文の可能性）。1行目: ' + header.slice(0, 40));
+      }
+    } else if (!/^(?:mindmap|flowchart|graph|quadrantChart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|journey)\b/.test(header)) {
+      issues.push('先頭が Mermaid のダイアグラム宣言で始まっていません。1行目: ' + header.slice(0, 40));
+    }
+    if (lines.length < 2) issues.push('宣言行のみでノード・エッジがありません');
+    if (!isBalancedBrackets(code)) issues.push('括弧 () [] {} の対応が崩れています（ラベル内の半角記号が原因の可能性）');
+
+    if (key === 'mermaid-flowchart') {
+      const dangling = lines.slice(1).some(function (l) {
+        return /(-->|---|-\.->|==>|===)\s*(?:\|[^|]*\|)?\s*$/.test(l.trim());
+      });
+      if (dangling) issues.push('行き先ノードが欠けた矢印があります（例: "A -->" で途切れ）');
+    }
+    if (key === 'mermaid-quadrant') {
+      const hasAxisOrPoint = lines.slice(1).some(function (l) {
+        return /(x-axis|y-axis|quadrant-[1-4]|:\s*\[)/.test(l);
+      });
+      if (!hasAxisOrPoint) issues.push('軸（x-axis / y-axis）やプロット点が1つもありません');
+    }
+    return { ok: issues.length === 0, issues: issues };
+  }
+
+  // 生成結果を描画する前の門番。html-card は JSON パース+密度検証、mermaid は構文検証。
+  function preflightDiagram(diagram, code) {
+    if (isHtmlCardFormat(diagram.format)) {
+      let data;
+      try {
+        data = parseJsonPayload(code);
+      } catch (e) {
+        return { ok: false, kind: 'card', reason: 'parse', typeLabel: diagram.label || 'HTMLカード', sourceHint: '', issues: [e.message] };
+      }
+      const v = validateCardData(diagram.format, data);
+      return {
+        ok: v.ok, kind: 'card', reason: 'validation', data: data,
+        typeLabel: v.typeLabel || diagram.label || 'HTMLカード',
+        sourceHint: v.sourceHint, issues: v.issues,
+      };
+    }
+    const v = validateMermaidCode(code, diagram.format);
+    return { ok: v.ok, kind: 'mermaid', reason: 'mermaid', code: code, typeLabel: diagram.label || 'Mermaid', sourceHint: '', issues: v.issues };
+  }
+
+  function renderDiagramShortfall(resultArea, diagram, preflight) {
+    const el = window.SK_CORE.el;
+    const box = el('div', {
+      class: 'sk-diagram-shortfall',
+      style: 'border:1px solid #fecaca;background:#fef2f2;border-radius:10px;padding:12px 14px;margin:6px 0',
+    });
+    box.appendChild(el('p', {
+      style: 'font-size:12px;color:#b91c1c;font-weight:700;margin:0 0 6px',
+      text: '「' + (preflight.typeLabel || diagram.label) + '」は図解にするには中身が不足しています',
+    }));
+    box.appendChild(el('p', {
+      class: 'muted-note',
+      style: 'margin:0 0 6px',
+      text: preflight.reason === 'mermaid'
+        ? 'Mermaidコードとして成立していないため、保存・コピー導線は出していません。'
+        : (preflight.reason === 'parse'
+          ? 'AIの応答をJSONとして解釈できませんでした。'
+          : 'スカスカな図をそのまま配布しないよう、生成を止めています。'),
+    }));
+    const ul = el('ul', { style: 'margin:0 0 8px;padding-left:18px' });
+    (preflight.issues || []).slice(0, 8).forEach(function (msg) {
+      ul.appendChild(el('li', { style: 'font-size:12px;line-height:1.7;color:#7f1d1d', text: msg }));
+    });
+    box.appendChild(ul);
+    box.appendChild(el('p', {
+      class: 'muted-note',
+      style: 'margin:0',
+      text: preflight.sourceHint
+        ? '先に ' + preflight.sourceHint + ' の本文を具体的な名詞・数字で厚くしてから、もう一度この図解を生成してください。'
+        : '先に元になった章の本文を具体的に厚くしてから、もう一度生成してください。',
+    }));
+    resultArea.appendChild(box);
+  }
+
   function renderBadge(text, modifier) {
     return '<span class="sk-diagram-badge' + (modifier ? ' ' + modifier : '') + '">' + escapeHtml(text) + '</span>';
   }
@@ -1008,13 +1251,21 @@
     const stages = ensureArray(data.stages);
     const body = stages.length ? stages.map(function (stage) {
       const title = stage && stage.stage ? stage.stage : '段階';
+      // §4-5 由来の「詰まりポイント」を主役にし、感情はソースに無いので任意（推定明示）に留める。
+      const frictionLine = stage && !isBlankValue(stage.friction)
+        ? '<p><strong>詰まりポイント:</strong> ' + escapeHtml(stage.friction) + '</p>'
+        : '';
+      const emotionLine = stage && !isBlankValue(stage.emotion)
+        ? '<p class="sk-diagram-journey-emotion"><strong>感情（推定）:</strong> ' + escapeHtml(stage.emotion) + '</p>'
+        : '';
       return ''
         + '<article class="sk-diagram-journey-step">'
         + '<div class="sk-diagram-journey-step__head">' + escapeHtml(title) + '</div>'
         + '<p><strong>行動:</strong> ' + escapeHtml(stage && stage.action ? stage.action : '記載なし') + '</p>'
-        + '<p><strong>感情:</strong> ' + escapeHtml(stage && stage.emotion ? stage.emotion : '記載なし') + '</p>'
+        + frictionLine
         + '<p><strong>接点:</strong> ' + escapeHtml(stage && stage.touchpoint ? stage.touchpoint : '記載なし') + '</p>'
         + '<p><strong>打ち手:</strong> ' + escapeHtml(stage && stage.opportunity ? stage.opportunity : '記載なし') + '</p>'
+        + emotionLine
         + '</article>';
     }).join('') : '<article class="sk-diagram-journey-step"><div class="sk-diagram-journey-step__head">段階</div><p>記載なし</p></article>';
 
@@ -1102,7 +1353,7 @@
   }
 
   function renderCross3cCard(data) {
-    const focusSummary = ensureArray(data.all_three).slice(0, 2).join(' / ') || '三者が重なる領域を主戦場候補として確認';
+    const focusSummary = ensureArray(data.all_three).slice(0, 2).join(' / ') || '中央＝KSF・競争優位を確認';
     return ''
       + '<div class="sk-diagram-card sk-cross-3c">'
       + '<div class="sk-diagram-card__header">'
@@ -1124,13 +1375,13 @@
       + '<text x="182" y="337">自社</text>'
       + '<text x="122" y="192" class="sk-3c-svg__hint">刺さる</text>'
       + '<text x="238" y="192" class="sk-3c-svg__hint">奪回</text>'
-      + '<text x="186" y="250" class="sk-3c-svg__hint">主戦場</text>'
+      + '<text x="176" y="250" class="sk-3c-svg__hint">KSF/優位</text>'
       + '</svg>'
       + '<div class="sk-3c-legend" aria-hidden="true">'
       + '<span class="is-customer">顧客</span>'
       + '<span class="is-company">自社</span>'
       + '<span class="is-competitor">競合</span>'
-      + '<span class="is-focus">中央 = 三者が重なる注目領域</span>'
+      + '<span class="is-focus">中央 = KSF・競争優位</span>'
       + '</div>'
       + '</div>'
       + '<div class="sk-3c-grid">'
@@ -1139,10 +1390,104 @@
       + '<section class="sk-3c-zone"><h4>自社のみ</h4><ul>' + renderList(data.company) + '</ul></section>'
       + '<section class="sk-3c-zone"><h4>顧客∩自社（刺さる）</h4><ul>' + renderList(data.customer_company) + '</ul></section>'
       + '<section class="sk-3c-zone"><h4>顧客∩競合（取られている）</h4><ul>' + renderList(data.customer_competitor) + '</ul></section>'
-      + '<section class="sk-3c-zone"><h4>自社∩競合（レッドオーシャン）</h4><ul>' + renderList(data.company_competitor) + '</ul></section>'
-      + '<section class="sk-3c-zone sk-3c-zone--all"><h4>3つ全て（三つ巴）</h4><ul>' + renderList(data.all_three) + '</ul></section>'
+      + '<section class="sk-3c-zone"><h4>自社∩競合（重複領域）</h4><ul>' + renderList(data.company_competitor) + '</ul></section>'
+      + '<section class="sk-3c-zone sk-3c-zone--all"><h4>中央（KSF・競争優位）</h4><ul>' + renderList(data.all_three) + '</ul></section>'
       + '</div>'
       + '<p class="sk-3c-insight"><strong>戦略的示唆:</strong> ' + escapeHtml(data.insight || '記載なし') + '</p>'
+      + '</div>';
+  }
+
+  // レンジ文字列（"8,000-14,000円" 等）から下限/上限/中央値を保守的に取り出す。
+  // 数字が拾えなければ null（対比バーは描かず、値のテキストだけ表示 = 捏造しない）。
+  function parseMetricNumbers(value) {
+    if (isBlankValue(value)) return null;
+    const nums = (String(value).replace(/,/g, '').match(/\d+(?:\.\d+)?/g) || [])
+      .map(Number).filter(function (n) { return !isNaN(n); });
+    if (!nums.length) return null;
+    const lo = Math.min.apply(null, nums);
+    const hi = Math.max.apply(null, nums);
+    return { lo: lo, hi: hi, mid: (lo + hi) / 2 };
+  }
+
+  function ueMetricText(value) {
+    return isBlankValue(value) ? '要入力' : String(value);
+  }
+
+  function ueVerdictModifier(verdict) {
+    const v = String(verdict || '');
+    if (/NO[\s-]?GO|見送り|却下/i.test(v)) return 'is-nogo';
+    if (/条件付|条件|再検|保留/.test(v)) return 'is-hold';
+    if (/GO|採用/i.test(v)) return 'is-go';
+    return 'is-unknown';
+  }
+
+  // OPT-2: §7-4 ユニットエコノミクス要約表を1枚のダッシュボードにする。
+  function renderUnitEconomicsCard(data) {
+    const d = (data && typeof data === 'object') ? data : {};
+    const verdictText = ueMetricText(d.verdict);
+    const verdictMod = ueVerdictModifier(d.verdict);
+
+    const cac = parseMetricNumbers(d.cac);
+    const ltvGross = parseMetricNumbers(d.ltvGross);
+    let barsHtml;
+    if (cac && ltvGross) {
+      const maxVal = Math.max(cac.mid, ltvGross.mid, 1);
+      const cacPct = Math.max(4, Math.round((cac.mid / maxVal) * 100));
+      const ltvPct = Math.max(4, Math.round((ltvGross.mid / maxVal) * 100));
+      const healthy = ltvGross.mid >= cac.mid;
+      barsHtml = ''
+        + '<div class="sk-ue-bars">'
+        + '<div class="sk-ue-bar-row"><span class="sk-ue-bar-label">CAC</span>'
+        + '<span class="sk-ue-bar"><span class="sk-ue-bar-fill is-cac" style="width:' + cacPct + '%"></span></span>'
+        + '<span class="sk-ue-bar-value">' + escapeHtml(ueMetricText(d.cac)) + '</span></div>'
+        + '<div class="sk-ue-bar-row"><span class="sk-ue-bar-label">粗利LTV</span>'
+        + '<span class="sk-ue-bar"><span class="sk-ue-bar-fill ' + (healthy ? 'is-ltv-ok' : 'is-ltv-warn') + '" style="width:' + ltvPct + '%"></span></span>'
+        + '<span class="sk-ue-bar-value">' + escapeHtml(ueMetricText(d.ltvGross)) + '</span></div>'
+        + (healthy ? '' : '<p class="sk-ue-bar-warn">粗利LTVがCACを下回っています（赤字構造の可能性）</p>')
+        + '</div>';
+    } else {
+      barsHtml = ''
+        + '<div class="sk-ue-bars sk-ue-bars--text">'
+        + '<div class="sk-ue-bar-row"><span class="sk-ue-bar-label">CAC</span><span class="sk-ue-bar-value">' + escapeHtml(ueMetricText(d.cac)) + '</span></div>'
+        + '<div class="sk-ue-bar-row"><span class="sk-ue-bar-label">粗利LTV</span><span class="sk-ue-bar-value">' + escapeHtml(ueMetricText(d.ltvGross)) + '</span></div>'
+        + '</div>';
+    }
+
+    const metricsHtml = [
+      ['投下予算', d.budget],
+      ['売上LTV', d.ltvRevenue],
+      ['Payback月数', d.payback],
+      ['損益分岐', d.breakeven],
+    ].map(function (m) {
+      const blank = isBlankValue(m[1]);
+      return ''
+        + '<div class="sk-ue-metric' + (blank ? ' is-missing' : '') + '">'
+        + '<span class="sk-ue-metric-label">' + escapeHtml(m[0]) + '</span>'
+        + '<strong class="sk-ue-metric-value">' + escapeHtml(blank ? '要入力' : String(m[1])) + '</strong>'
+        + '</div>';
+    }).join('');
+
+    const ratioBlank = isBlankValue(d.ltvCacRatio);
+    const caseLabel = isBlankValue(d.caseLabel) ? '' : String(d.caseLabel);
+
+    return ''
+      + '<div class="sk-diagram-card sk-ue-card">'
+      + '<div class="sk-diagram-card__header">'
+      + '<div><p class="sk-diagram-card__eyebrow">UNIT ECONOMICS</p><h3>' + escapeHtml(d.title || 'ユニットエコノミクス要約') + '</h3>'
+      + (caseLabel ? '<p class="sk-ue-case">' + escapeHtml(caseLabel) + '</p>' : '')
+      + '</div>'
+      + '<span class="sk-ue-verdict ' + verdictMod + '">' + escapeHtml(verdictText) + '</span>'
+      + '</div>'
+      + '<p class="sk-diagram-card__summary">' + escapeHtml(d.summary || '投下予算・CAC・LTV・Payback から採否を1枚で判断') + '</p>'
+      + '<div class="sk-ue-hero">'
+      + '<div class="sk-ue-ratio' + (ratioBlank ? ' is-missing' : '') + '">'
+      + '<span class="sk-ue-ratio-label">LTV / CAC 比（粗利）</span>'
+      + '<strong class="sk-ue-ratio-value">' + escapeHtml(ratioBlank ? '要入力' : String(d.ltvCacRatio)) + '</strong>'
+      + '<span class="sk-ue-ratio-note">健全ライン: 3倍以上</span>'
+      + '</div>'
+      + barsHtml
+      + '</div>'
+      + '<div class="sk-ue-metrics">' + metricsHtml + '</div>'
       + '</div>';
   }
 
@@ -1164,13 +1509,15 @@
         return renderChecklistCard(data);
       case 'html-card-cross-3c':
         return renderCross3cCard(data);
+      case 'html-card-unit-economics':
+        return renderUnitEconomicsCard(data);
       default:
         return '<div class="sk-diagram-card"><div class="sk-diagram-card__header"><div><p class="sk-diagram-card__eyebrow">DIAGRAM</p><h3>' + escapeHtml(data.title || '図解') + '</h3></div></div><p>' + escapeHtml(data.summary || 'レンダラー未対応') + '</p></div>';
     }
   }
 
-  function renderHtmlCardResult(resultArea, diagram, rawPayload) {
-    const data = parseJsonPayload(rawPayload);
+  function renderHtmlCardResult(resultArea, diagram, rawPayload, parsedData) {
+    const data = parsedData || parseJsonPayload(rawPayload);
     const markup = renderHtmlCardMarkup(diagram.format, data);
     const previewWrap = document.createElement('div');
     previewWrap.className = 'sk-diagram-render';
@@ -1739,6 +2086,13 @@
     clear(resultArea);
     restoreInlineNotice(resultArea);
 
+    // 描画前に門番検証(F6/F7)。空図解・壊れた Mermaid は成功扱いにせず、保存/コピー導線も出さない。
+    const preflight = preflightDiagram(diagram, code);
+    if (!preflight.ok) {
+      renderDiagramShortfall(resultArea, diagram, preflight);
+      return;
+    }
+
     resultArea.appendChild(
       el('h3', {
         style: 'font-size:13px;margin:8px 0 6px;color:#0f766e',
@@ -1757,7 +2111,7 @@
     let renderMeta;
     try {
       if (isHtmlCardFormat(diagram.format)) {
-        renderMeta = renderHtmlCardResult(resultArea, diagram, code);
+        renderMeta = renderHtmlCardResult(resultArea, diagram, code, preflight.data);
       } else {
         renderMeta = {
           exportText: code,
