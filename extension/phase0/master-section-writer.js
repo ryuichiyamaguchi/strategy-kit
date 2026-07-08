@@ -10,6 +10,7 @@ const VALID_STATUSES = new Set(['done', 'failed', 'todo', 'partial']);
 
 export function buildMasterSectionBlock({
   sectionKey,
+  displayKey,
   title,
   body = '',
   status = 'done',
@@ -19,9 +20,13 @@ export function buildMasterSectionBlock({
   updatedAt,
 } = {}) {
   const key = requireSectionKey(sectionKey);
+  // 見出しに出す「番号」は displayKey（表示専用・§7-4 等の実番号）を優先し、無ければ内部キー key。
+  // SK-SECTION / SK-STATUS マーカー・章順比較・retry 突合は全て key（内部キー=sectionNo）のまま
+  // なので、既存 §7-2 文書との互換（マーカー一致で in-place 置換）を壊さない。
+  const headingKey = (displayKey != null && String(displayKey).trim()) ? String(displayKey).trim() : key;
   const safeStatus = VALID_STATUSES.has(status) ? status : 'done';
   const safeTitle = String(title || '').trim() || '(無題)';
-  const heading = `§${key}. ${safeTitle}\n`;
+  const heading = `§${headingKey}. ${safeTitle}\n`;
   const statusMarker = buildStatusMarker({
     key,
     status: safeStatus,
@@ -154,6 +159,7 @@ export async function writeMasterSection({
   storageArea = chrome.storage.sync,
   sectionKey,
   sectionNo,
+  displayNo,
   title,
   body,
   status = 'done',
@@ -178,6 +184,7 @@ export async function writeMasterSection({
   const doc = await docsClient.getDocument(documentId);
   const sectionBlock = buildMasterSectionBlock({
     sectionKey: key,
+    displayKey: displayNo, // 見出し表示専用（§7-4 等）。マーカー/突合キーは key のまま。
     title,
     body,
     status,

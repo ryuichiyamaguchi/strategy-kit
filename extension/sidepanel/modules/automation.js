@@ -573,7 +573,7 @@
     function updateModeUI() {
       modelRow.style.display = radioFull.checked ? 'flex' : 'none';
       descP.textContent = radioFull.checked
-        ? '§0〜§9 を Gemini API で順番に自動生成し、マスター本体に直接保存します。ユニットエコノミクスはFinance Gateで記入漏れと数値の算術整合（獲得人数=予算÷CAC・粗利LTV/CAC・Payback整合）まで検査し、矛盾があればその章で停止します（再試行で埋め直せます）。'
+        ? '§0〜§9 を Gemini API で順番に自動生成し、マスター本体に直接保存します。ユニットエコノミクスはFinance Gateで数値の算術整合（獲得人数=予算÷CAC・粗利LTV/CAC・Payback整合）まで検査し、合わなければ自動で数字を再計算（最大2回）。それでも残る不足は⚠要確認として明示しつつ完走します。'
         : '入力情報をベースに、各フェーズを順番に進めます。AIに送信→出力を貼付→次へ、を繰り返すことで、人間が選別しながらマスター本体へ保存します。';
       refreshCurrentActionCache().then(refreshAutomationPrimaryAction).catch(function () {
         refreshAutomationPrimaryAction();
@@ -2536,11 +2536,15 @@
     if (phase.prompts && phase.prompts.length > 0) {
       if (shouldSplitPhaseForFinanceGate(phase)) {
         return phase.prompts.map(function (prompt, index) {
+          // sectionNo は配列 index 由来の内部キー（resume/retry/accKey/master 見出しの契約・不変）。
+          // displayNo/displayLabel は UI・進捗・失敗・サマリ表示専用（prompt の実番号・名）。
           return {
             phase: phase,
             prompt: prompt,
             promptText: buildSubPrompt(prompt, accumulated, formInputs),
             sectionNo: phase.no + '-' + (index + 1),
+            displayNo: prompt.no || (phase.no + '-' + (index + 1)),
+            displayLabel: prompt.label,
             title: prompt.label,
             logTitle: '§' + phase.no + '-' + (index + 1) + ' ' + prompt.label,
             accKey: '§' + phase.no + '-' + (index + 1) + '（' + prompt.label + '）',
@@ -2555,6 +2559,8 @@
           return buildSubPrompt(p, accumulated, formInputs);
         }).join('\n\n---\n\n'),
         sectionNo: String(phase.no),
+        displayNo: String(phase.no),
+        displayLabel: phase.title,
         title: phase.title,
         logTitle: phaseLabel,
         accKey: '§' + phase.no,
@@ -2567,6 +2573,8 @@
       prompt: { id: 'phase-' + phase.no + '-placeholder' },
       promptText: buildSubPrompt({ body: '以下のフェーズについてマーケ戦略の観点から分析・提案してください:\n' + phaseLabel }, accumulated, formInputs),
       sectionNo: String(phase.no),
+      displayNo: String(phase.no),
+      displayLabel: phase.title,
       title: phase.title,
       logTitle: phaseLabel,
       accKey: '§' + phase.no,
@@ -2609,9 +2617,13 @@
       return { bodyText: bodyText, model: effectiveModel, financeGate: null, financeGateWarning: false };
     }
 
-    // 記入漏れ（presence）＋算術整合（arithmetic）を束ねて検査する。
+    // 記入漏れ（presence・repair/要確認注記用）＋算術整合（arithmetic・合否の主軸）を束ねて検査する。
+    // 不合格なら最大 MAX_FINANCE_REPAIRS 回まで repair を回し、ok になった時点で即 return する
+    // （初回含め最大 3 回 Gemini 呼び出し）。空応答は各回とも requireGeneratedBody_ で throw する。
+    const MAX_FINANCE_REPAIRS = 2;
     let validation = financeGate.validateUnitEconomics(bodyText);
-    if (!validation.ok) {
+    let financeRepairs = 0;
+    while (!validation.ok && financeRepairs < MAX_FINANCE_REPAIRS) {
       const repairPrompt = financeGate.buildUnitEconomicsRepairPrompt({
         originalPrompt: promptText,
         outputText: bodyText,
@@ -2625,19 +2637,17 @@
       });
       bodyText = requireGeneratedBody_(res);
       validation = financeGate.validateUnitEconomics(bodyText);
+      financeRepairs += 1;
     }
 
-    if (!validation.ok) {
-      // 再試行しても数値矛盾・記入漏れが残る場合は warning-done で握りつぶさず、
-      // 空応答と同じ failed マーカー + retry UI 経路へ落とす（完走は再試行で担保）。
-      const detail = [
-        ...(validation.missing || []),
-        ...(validation.violations || []),
-      ].join(' / ');
-      throw new Error('Finance Gate 不合格: ' + (detail || '数値検査に不合格'));
+    if (validation.ok) {
+      return { bodyText: bodyText, model: effectiveModel, financeGate: validation, financeGateWarning: false };
     }
 
-    return { bodyText: bodyText, model: effectiveModel, financeGate: validation, financeGateWarning: false };
+    // MAX_FINANCE_REPAIRS 回 repair してもなお不合格 → 最良出力に ⚠要確認 注記（記入漏れ＋数値矛盾）を
+    // 付けて完走する（停止しない・安全網）。曖昧な数字を黙って流さず、確認すべき点を本文に明示する。
+    bodyText = financeGate.appendUnitEconomicsWarning({ bodyText: bodyText, validation: validation });
+    return { bodyText: bodyText, model: effectiveModel, financeGate: validation, financeGateWarning: true };
   }
 
   async function runFullAuto(formInputs, ctrl, model, ui, opts) {
@@ -2686,7 +2696,9 @@
     }
 
     // R4: 失敗章のトラッキング（最後にまとめて再試行できるようにする）
-    const failedSections = []; // [{ no, title, reason }]
+    const failedSections = []; // [{ no, displayNo, title, displayLabel, reason }]
+    // 安全網で ⚠要確認 のまま完走した小節（停止ではなく完走サマリで「要確認」表示する）
+    const financeWarningSections = []; // [{ no, displayNo, title, displayLabel, missing, violations }]
 
     // R4: ユーザー向けエラーメッセージへの整形
     function humanizeGeminiError(e) {
@@ -2713,12 +2725,15 @@
       throw new Error('Intentional full-auto failure for live smoke: §' + forced);
     }
 
-    async function stopFullAutoAtFailure(sectionNo, title, reason, resumeIndex, failedSections) {
-      const noLabel = String(sectionNo || '');
+    async function stopFullAutoAtFailure(sectionNo, title, reason, resumeIndex, failedSections, displayNo, displayLabel) {
+      const noLabel = String(sectionNo || ''); // master 見出し・resume/retry の内部キー（不変）
+      const dispNo = String(displayNo || sectionNo || ''); // ユーザー可視の小節番号（§7-4 等）
+      const dispLabel = String(displayLabel || title || '');
       stopSavingOverlay();
       try {
         await appendMasterSectionDirect_({
           sectionNo: noLabel,
+          displayNo: dispNo, // 見出し表示は実番号（§7-4）。マーカー/突合キーは sectionNo(noLabel)。
           title: title || '生成エラー',
           status: 'failed',
           errorCode: 'FULL_AUTO_FAIL',
@@ -2729,8 +2744,8 @@
       } catch (markerError) {
         console.warn('[STRATEGY-KIT] failed to write master failure marker:', markerError);
       }
-      ui.progressLabel.textContent = '⚠️ §' + noLabel + ' で失敗しました。手動で続行してください。';
-      setCurrentLocationText('§' + noLabel + ' で失敗しました', '手動で修正または再実行してから続行してください');
+      ui.progressLabel.textContent = '⚠️ §' + dispNo + ' ' + dispLabel + ' で失敗しました。手動で続行してください。';
+      setCurrentLocationText('§' + dispNo + ' ' + dispLabel + ' で失敗しました', '手動で修正または再実行してから続行してください');
       saveAutomationState(resumeIndex, accumulated, 'full');
       if (typeof ui.onFailedSectionsChange === 'function') {
         ui.onFailedSectionsChange(failedSections);
@@ -2738,8 +2753,8 @@
       showRetryUI(ui.chainArea, failedSections, function () {
         retryFailedSections(formInputs, ctrl, model, ui, accumulated, failedSections, financeModel);
       });
-      window.SK_CORE.showToast('§' + noLabel + ' で失敗しました。手動で続行してください。', true, 7000);
-      appendAutomationErrorLog(ui.logArea, '§' + noLabel + ' ' + title + ' の実行エラー', new Error(reason));
+      window.SK_CORE.showToast('§' + dispNo + ' ' + dispLabel + ' で失敗しました。手動で続行してください。', true, 7000);
+      appendAutomationErrorLog(ui.logArea, '§' + dispNo + ' ' + dispLabel + ' の実行エラー', new Error(reason));
     }
 
     const financeModel = (opts && opts.financeModel) || 'gemini-3.1-pro-preview';
@@ -2748,7 +2763,7 @@
     let effectiveStartIndex = startIndex;
 
     if (retrySections.length > 0) {
-      ui.progressLabel.textContent = '失敗章を埋め直しています…';
+      ui.progressLabel.textContent = '失敗した小節を埋め直しています…';
       await retryFailedSections(formInputs, ctrl, model, ui, accumulated, retrySections, financeModel);
       if (opts && opts.retryOnly) {
         return;
@@ -2795,8 +2810,8 @@
         }
       } catch (e) {
         const human = humanizeGeminiError(e);
-        const failed = [{ no: phase.no, title: phase.title, reason: human }];
-        await stopFullAutoAtFailure(phase.no, phase.title, human, i, failed);
+        const failed = [{ no: phase.no, displayNo: String(phase.no), title: phase.title, displayLabel: phase.title, reason: human }];
+        await stopFullAutoAtFailure(phase.no, phase.title, human, i, failed, String(phase.no), phase.title);
         return;
       }
       const phaseOutputs = [];
@@ -2805,14 +2820,16 @@
       for (let unitIndex = 0; unitIndex < units.length; unitIndex++) {
         if (ctrl.cancelled) break;
         const unit = units[unitIndex];
-        const unitLabel = unit.logTitle || phaseLabel;
+        const unitLabel = unit.logTitle || phaseLabel; // 内部ログ用（sectionNo=§7-2 由来）
+        // ユーザー可視の表示名は displayNo/displayLabel（実番号 §7-4）から作る。
+        const unitDisplayTitle = '§' + (unit.displayNo || unit.sectionNo) + ' ' + (unit.displayLabel || unit.title);
         const gateLabel = financeGate.isFinanceGatePrompt(unit.prompt)
           ? 'Finance Gate'
           : 'Gemini';
         if (units.length > 1) {
           ui.progressLabel.textContent =
-            '§' + phase.no + ' 分割実行中: ' + unitLabel + '（' + (unitIndex + 1) + '/' + units.length + '・' + gateLabel + '）';
-          setCurrentLocationText('いま ' + unitLabel + ' を全自動生成中', gateLabel);
+            '§' + phase.no + ' 分割実行中: ' + unitDisplayTitle + '（' + (unitIndex + 1) + '/' + units.length + '・' + gateLabel + '）';
+          setCurrentLocationText('いま ' + unitDisplayTitle + ' を全自動生成中', gateLabel);
         }
 
         let bodyText = '';
@@ -2832,15 +2849,26 @@
           usedModel = generated.model;
           accumulated[unit.accKey] = bodyText.slice(0, 2000);
           phaseOutputs.push(bodyText);
-          if (generated.financeGate) {
+          if (generated.financeGateWarning) {
+            // 2回 repair してなお不合格 → ⚠要確認 注記付きで完走（停止しない）。
+            financeWarningSections.push({
+              no: unit.sectionNo,
+              displayNo: unit.displayNo,
+              title: unit.title,
+              displayLabel: unit.displayLabel,
+              missing: (generated.financeGate && generated.financeGate.missing) || [],
+              violations: (generated.financeGate && generated.financeGate.violations) || [],
+            });
+            window.SK_CORE.showToast('§' + (unit.displayNo || unit.sectionNo) + ' ' + (unit.displayLabel || unit.title) + ' に要確認項目があります。完走を優先します。', 'warn', 5000);
+          } else if (generated.financeGate) {
             window.SK_CORE.showToast('ユニットエコノミクス Finance Gate 通過', false, 2500);
           }
         } catch (e) {
           console.error('[STRATEGY-KIT] ' + unitLabel + ' 生成エラー:', e);
           const human = humanizeGeminiError(e);
           phaseFailed = true;
-          failedSections.push({ no: unit.sectionNo, title: unit.title, reason: human });
-          await stopFullAutoAtFailure(unit.sectionNo, unit.title, human, i, failedSections);
+          failedSections.push({ no: unit.sectionNo, displayNo: unit.displayNo, title: unit.title, displayLabel: unit.displayLabel, reason: human });
+          await stopFullAutoAtFailure(unit.sectionNo, unit.title, human, i, failedSections, unit.displayNo, unit.displayLabel);
           return;
         }
 
@@ -2848,6 +2876,7 @@
         try {
           await appendMasterSectionDirect_({
             sectionNo: unit.sectionNo,
+            displayNo: unit.displayNo, // 見出し表示は実番号（§7-4）。マーカー/突合キーは sectionNo。
             title: unit.title,
             body: bodyText,
             status: 'done',
@@ -2857,13 +2886,14 @@
           console.error('[STRATEGY-KIT] ' + unitLabel + ' マスター書き込みエラー:', e);
           const human = humanizeGeminiError(e);
           if (!phaseFailed) {
-            failedSections.push({ no: unit.sectionNo, title: unit.title, reason: 'マスター書き込み失敗: ' + human });
+            failedSections.push({ no: unit.sectionNo, displayNo: unit.displayNo, title: unit.title, displayLabel: unit.displayLabel, reason: 'マスター書き込み失敗: ' + human });
           }
-          await stopFullAutoAtFailure(unit.sectionNo, unit.title, 'マスター書き込み失敗: ' + human, i, failedSections);
+          await stopFullAutoAtFailure(unit.sectionNo, unit.title, 'マスター書き込み失敗: ' + human, i, failedSections, unit.displayNo, unit.displayLabel);
           return;
         }
 
-        appendPhaseLog(ui.logArea, { no: unit.sectionNo, title: unitLabel }, bodyText, 'gemini-' + usedModel);
+        // 完了ログ（文書には残らない診断表示）はユーザー可視の実番号・ラベルで出す。
+        appendPhaseLog(ui.logArea, { no: unit.displayNo || unit.sectionNo, title: unit.displayLabel || unit.title }, bodyText, 'gemini-' + usedModel);
         if (unitIndex < units.length - 1 && !ctrl.cancelled) {
           await new Promise(function (resolve) { setTimeout(resolve, 1000); });
         }
@@ -2888,11 +2918,11 @@
     }
 
     if (!ctrl.cancelled) {
-      // R4: 失敗章があった場合の再試行 UI
+      // R4: 失敗小節があった場合の再試行 UI（失敗は途中で return するため通常ここには到達しない）
       if (failedSections.length > 0) {
-        ui.progressLabel.textContent = '⚠️ 完了（' + total + '/' + total + ' 中、' + failedSections.length + '章で失敗）';
+        ui.progressLabel.textContent = '⚠️ 完了（' + total + '/' + total + ' 中、' + failedSections.length + '件の小節で失敗）';
         showRetryUI(ui.chainArea, failedSections, function () {
-          // 再試行: 失敗章だけを再実行する
+          // 再試行: 失敗した小節だけを再実行する
           retryFailedSections(formInputs, ctrl, model, ui, accumulated, failedSections, financeModel);
         });
       } else {
@@ -2901,7 +2931,17 @@
       }
       clearAutomationState();
       hideCurrentLocation();
-      window.SK_CORE.showToast('全章完了。マスター本体に保存しました', false, 5000);
+      // 安全網で ⚠要確認 のまま完走した小節がある場合は、停止（赤カード）ではなく
+      // 非停止の「要確認」情報表示＋warn toast にする（DoD1 止まらない／曖昧なまま黙って流さない）。
+      if (financeWarningSections.length > 0) {
+        const labels = financeWarningSections.map(function (section) {
+          return '§' + (section.displayNo || section.no);
+        }).join('・');
+        ui.progressLabel.textContent = '✅ 全章完了（要確認: ' + labels + '）';
+        window.SK_CORE.showToast('全章完了。要確認の小節があります: ' + labels, 'warn', 7000);
+      } else {
+        window.SK_CORE.showToast('全章完了。マスター本体に保存しました', false, 5000);
+      }
     }
   }
 
@@ -2939,13 +2979,13 @@
     });
     wrap.appendChild(el('div', {
       style: 'font-size:12px;font-weight:700;color:#b91c1c;margin-bottom:6px',
-      text: '⚠️ ' + failedSections.length + '章で失敗しました（マスターには failed マーカーを書き込みました）',
+      text: '⚠️ ' + failedSections.length + '件の小節で失敗しました（マスターには failed マーカーを書き込みました）',
     }));
     const list = el('ul', {
       style: 'font-size:11px;color:#7f1d1d;margin:4px 0 8px;padding-left:18px;line-height:1.5',
     });
     failedSections.forEach(function (f) {
-      list.appendChild(el('li', { text: '§' + f.no + ' ' + f.title + ' — ' + f.reason }));
+      list.appendChild(el('li', { text: '§' + (f.displayNo || f.no) + ' ' + (f.displayLabel || f.title) + ' — ' + f.reason }));
     });
     wrap.appendChild(list);
 
@@ -2959,7 +2999,7 @@
     const openMasterBtn = el('button', {
       class: 'btn btn-ghost',
       type: 'button',
-      text: '📄 マスターを開いて失敗章を確認',
+      text: '📄 マスターを開いて失敗した小節を確認',
       style: 'font-size:12px',
       on: { click: async function () {
         try {
@@ -2976,7 +3016,7 @@
     });
     wrap.appendChild(el('p', {
       style: 'font-size:11px;color:#7f1d1d;margin:0 0 8px;line-height:1.5',
-      text: '実行ボタンが失敗章を埋める表示に変わります。',
+      text: '実行ボタンが失敗した小節を埋める表示に変わります。',
     }));
     wrap.appendChild(el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' }, openMasterBtn, dismissBtn));
     container.appendChild(wrap);
@@ -2997,6 +3037,8 @@
         prompt: prompt,
         promptText: buildSubPrompt(prompt, accumulated, formInputs),
         sectionNo: phase.no + '-' + subNo,
+        displayNo: prompt.no || (phase.no + '-' + subNo),
+        displayLabel: prompt.label,
         title: prompt.label,
         logTitle: '§' + phase.no + '-' + subNo + ' ' + prompt.label,
         accKey: '§' + phase.no + '-' + subNo + '（' + prompt.label + '）',
@@ -3018,9 +3060,11 @@
       const f = failedSections[i];
       const unit = resolveFailedUnit(f, phases, accumulated, formInputs);
       if (!unit) continue;
-      const phaseLabel = unit.logTitle || ('§' + unit.phase.no + ' ' + unit.phase.title);
+      const phaseLabel = unit.logTitle || ('§' + unit.phase.no + ' ' + unit.phase.title); // 内部ログ用
+      // ユーザー可視の表示名は displayNo/displayLabel（実番号 §7-4）から作る。
+      const displayTitle = '§' + (unit.displayNo || f.displayNo || unit.sectionNo) + ' ' + (unit.displayLabel || f.displayLabel || unit.title);
 
-      ui.progressLabel.textContent = '再試行中: ' + phaseLabel + '（' + (i + 1) + '/' + failedSections.length + '）';
+      ui.progressLabel.textContent = '再試行中: ' + displayTitle + '（' + (i + 1) + '/' + failedSections.length + '）';
 
       let bodyText = '';
       let usedModel = model;
@@ -3037,24 +3081,29 @@
         bodyText = generated.bodyText;
         usedModel = generated.model;
         accumulated[unit.accKey] = bodyText.slice(0, 2000);
+        if (generated.financeGateWarning) {
+          // 2回 repair してなお不合格でも throw せず ⚠要確認 注記付きで done 保存する。
+          window.SK_CORE.showToast('§' + (unit.displayNo || unit.sectionNo) + ' に要確認項目があります。done として保存します。', 'warn', 5000);
+        }
       } catch (e) {
         const msg = (e && e.message) ? e.message : String(e);
-        stillFailed.push({ no: f.no, title: f.title, reason: msg.slice(0, 120) });
+        stillFailed.push({ no: f.no, displayNo: f.displayNo, title: f.title, displayLabel: f.displayLabel, reason: msg.slice(0, 120) });
         continue;
       }
 
       try {
         await appendMasterSectionDirect_({
           sectionNo: unit.sectionNo,
+          displayNo: unit.displayNo || f.displayNo, // 見出し表示は実番号（§7-4）。突合キーは sectionNo。
           title: unit.title,
           body: bodyText,
           status: 'done',
           aiUsed: 'gemini-' + usedModel + '（再試行）',
         });
         successCount++;
-        appendPhaseLog(ui.logArea, { no: unit.sectionNo, title: phaseLabel + '（再試行）' }, bodyText, 'gemini-' + usedModel);
+        appendPhaseLog(ui.logArea, { no: unit.displayNo || f.displayNo || unit.sectionNo, title: (unit.displayLabel || unit.title) + '（再試行）' }, bodyText, 'gemini-' + usedModel);
       } catch (e) {
-        stillFailed.push({ no: f.no, title: f.title, reason: 'マスター再書き込み失敗: ' + (e.message || '').slice(0, 80) });
+        stillFailed.push({ no: f.no, displayNo: f.displayNo, title: f.title, displayLabel: f.displayLabel, reason: 'マスター再書き込み失敗: ' + (e.message || '').slice(0, 80) });
       }
 
       if (i < failedSections.length - 1) {
@@ -3064,7 +3113,7 @@
 
     if (stillFailed.length === 0) {
       ui.progressLabel.textContent = '✅ 再試行完了（' + successCount + '/' + failedSections.length + '）';
-      window.SK_CORE.showToast('失敗章を全て再生成しました', false, 4000);
+      window.SK_CORE.showToast('失敗した小節を全て再生成しました', false, 4000);
       if (typeof ui.onFailedSectionsChange === 'function') {
         ui.onFailedSectionsChange([]);
       }

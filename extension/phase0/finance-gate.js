@@ -199,6 +199,11 @@ const ARITHMETIC_DEFAULTS = {
   tolerance: 0.25, // レンジ整合の許容幅（±25%）
 };
 
+// 要約表が持つべき短期枠の下限。プロンプト（phase-7-unit-economics）は
+// 「短期3枠（Quick Win 1 / Quick Win 2 / 地道）」を必須とし要約表テンプレートも 3列固定なので 3。
+// 存在する枠だけ算術検査すると 1列表でも 9行が合えば通ってしまう穴を塞ぐ（DoD2「9ラベル×3枠」）。
+const DEFAULT_MIN_SUMMARY_SLOTS = 3;
+
 const NUMERIC_SUMMARY_LABELS = [
   '投下予算',
   'CAC',
@@ -239,53 +244,71 @@ function classifyVerdict(cell) {
 }
 
 // 要約表（| 指標 | Quick Win 1 | … | の形式）を抽出し、列=枠 / 行=指標 のマップにする。
+// ヘッダ検出は堅牢化してある（A1 対策）:
+//   - 先頭セルが「指標」または「項目」（項目名 等の前方一致も含む）ならヘッダ行とみなす。
+//   - 明示ヘッダが無くても、ブロック内に既知ラベルが 2 つ以上並ぶ表なら先頭行をヘッダにフォールバック。
+// いずれも「先頭セルの語」を検出キーにしているだけで、9固定ラベル契約（行ラベル）は不変。
 export function parseUnitEconomicsSummary(text) {
   const lines = String(text || '').split(/\r?\n/);
-  const tableRows = [];
-  let headerCols = null;
+  // 連続する表行を1ブロックにまとめる（区切り行 |---| は捨てるがブロックは分断しない）。
+  const blocks = [];
+  let current = null;
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed.startsWith('|')) {
-      if (headerCols && tableRows.length) break; // 表が途切れたら終了
+      if (current && current.length) { blocks.push(current); current = null; }
       continue;
     }
     const cells = trimmed.replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
     if (cells.every((c) => /^:?-{2,}:?$/.test(c) || c === '')) continue; // 区切り行
-    const first = cells[0] || '';
-    if (!headerCols) {
-      if (/指標/.test(first)) {
-        headerCols = cells.slice(1).filter(Boolean);
-      }
-      continue;
-    }
-    tableRows.push(cells);
+    if (!current) current = [];
+    current.push(cells);
   }
-  if (!headerCols || !headerCols.length) return { found: false, slots: [] };
+  if (current && current.length) blocks.push(current);
 
   const norm = (s) => String(s || '').replace(/\s/g, '');
+  const HEADER_FIRST = /指標|項目/;
   // 長いラベルを優先（"LTV_CAC比(粗利)" が "CAC" に食われないよう完全一致→前方一致の順で照合）。
   const labelsByLen = UNIT_ECONOMICS_SUMMARY_LABELS.slice().sort((a, b) => norm(b).length - norm(a).length);
-  const rowByLabel = new Map();
-  for (const cells of tableRows) {
-    const rl = norm(cells[0]);
-    const matched =
+  const matchLabel = (cell) => {
+    const rl = norm(cell);
+    return (
       UNIT_ECONOMICS_SUMMARY_LABELS.find((l) => rl === norm(l)) ||
-      labelsByLen.find((l) => rl.startsWith(norm(l)));
-    if (matched && !rowByLabel.has(matched)) rowByLabel.set(matched, cells.slice(1));
-  }
-  if (!rowByLabel.has('採否判定') || !rowByLabel.has('投下予算')) {
-    return { found: false, slots: [] };
-  }
+      labelsByLen.find((l) => rl.startsWith(norm(l))) ||
+      null
+    );
+  };
 
-  const slots = headerCols.map((name, j) => {
-    const metrics = {};
-    for (const label of UNIT_ECONOMICS_SUMMARY_LABELS) {
-      const row = rowByLabel.get(label);
-      metrics[label] = row ? (row[j] || '') : '';
+  // 要約表とみなせる最初のブロックを採用する。
+  for (const rows of blocks) {
+    let headerIndex = rows.findIndex((cells) => HEADER_FIRST.test(cells[0] || ''));
+    if (headerIndex === -1) {
+      // フォールバック: 既知ラベルが 2 つ以上並ぶブロックは先頭行をヘッダ扱いにする。
+      const knownLabelCount = rows.filter((cells) => matchLabel(cells[0])).length;
+      if (knownLabelCount >= 2) headerIndex = 0;
+      else continue;
     }
-    return { name, metrics };
-  });
-  return { found: true, slots };
+    const headerCols = rows[headerIndex].slice(1).filter(Boolean);
+    if (!headerCols.length) continue;
+
+    const rowByLabel = new Map();
+    for (const cells of rows.slice(headerIndex + 1)) {
+      const matched = matchLabel(cells[0]);
+      if (matched && !rowByLabel.has(matched)) rowByLabel.set(matched, cells.slice(1));
+    }
+    if (!rowByLabel.has('採否判定') || !rowByLabel.has('投下予算')) continue;
+
+    const slots = headerCols.map((name, j) => {
+      const metrics = {};
+      for (const label of UNIT_ECONOMICS_SUMMARY_LABELS) {
+        const row = rowByLabel.get(label);
+        metrics[label] = row ? (row[j] || '') : '';
+      }
+      return { name, metrics };
+    });
+    return { found: true, slots };
+  }
+  return { found: false, slots: [] };
 }
 
 function rangesOverlap(a, b, tolerance) {
@@ -398,13 +421,45 @@ function fmt(range) {
   return range.low === range.high ? String(round(range.low)) : `${round(range.low)}-${round(range.high)}`;
 }
 
-// 記入漏れ（presence）と算術整合（arithmetic）を束ねた総合検証。
-// automation.js の Finance Gate はこれを使う。
+// 総合検証（automation.js の Finance Gate はこれを使う）。表基準（機械可読の「ユニットエコノミクス
+// 要約表」= 9固定ラベル）を単一の真実源にする。合否（ok）の材料は次の3つだけ:
+//   1. arithmetic（9ラベル×各枠の数値有無・採否・算術一致）
+//   2. 列(枠)契約 — 短期3枠（Quick Win 1 / Quick Win 2 / 地道）が揃っているか
+//   3. 全体の先送り文（DEFERRAL）検出
+//
+// 返り値の振り分け（repair プロンプト / 安全網の注記の質を上げるため）:
+//   - missing（記入漏れ）… 空セル指摘「◯が数値で埋まっていません」＋ 全体 DEFERRAL ＋ 欠落枠
+//   - violations（数値矛盾）… 上記以外の算術整合違反（獲得人数=予算÷CAC 不一致・誤GO 等）
+//
+// 旧 prose-presence（validateUnitEconomicsOutput の枠内メトリクス検査）は返り値からも外す。理由:
+// プロンプトが枠本文を `### 入力` サブ見出しの下に置くため findSlotSections がスロットを切り詰め、
+// プロンプト完全準拠の出力ですら偽の「◯の数値レンジがありません／セクションがありません」を大量に生む。
+// これを repair/warning に流すと修復の注意を削り、安全網の本文注記を誤らせるため排除する。
 export function validateUnitEconomics(text, options = {}) {
-  const presence = validateUnitEconomicsOutput(text, options);
-  const arithmetic = validateUnitEconomicsArithmetic(text, options);
-  const missing = presence.missing || [];
-  const violations = arithmetic.violations || [];
+  const source = String(text || '');
+  const arithmetic = validateUnitEconomicsArithmetic(source, options);
+  const allViolations = arithmetic.violations || [];
+
+  const isEmptyCell = (v) => v.indexOf('数値で埋まっていません') !== -1;
+  const missing = [];
+  const violations = [];
+  if (DEFERRAL_PATTERN.test(source)) {
+    missing.push('全体: 数値試算の先送り文があります');
+  }
+  for (const v of allViolations) {
+    (isEmptyCell(v) ? missing : violations).push(v);
+  }
+
+  // 列(枠)契約: 存在する枠だけ検査すると 1列表でも 9行が合えば通ってしまうので、枠数の下限を課す。
+  const minSlots = Number.isFinite(options.minSlots) ? options.minSlots : DEFAULT_MIN_SUMMARY_SLOTS;
+  const parsed = parseUnitEconomicsSummary(source);
+  if (parsed.found && parsed.slots.length < minSlots) {
+    const names = parsed.slots.map((s) => s.name).filter(Boolean).join(' / ') || '（なし）';
+    missing.push(
+      `要約表: 短期${minSlots}枠（Quick Win 1 / Quick Win 2 / 地道）が必要ですが ${parsed.slots.length} 枠しかありません（検出: ${names}／欠落した枠を数値入りで追加してください）`
+    );
+  }
+
   return {
     ok: missing.length === 0 && violations.length === 0,
     missing,
@@ -422,12 +477,27 @@ export function buildUnitEconomicsRepairPrompt({
   const violations = (validation.violations || []).map((item) => `- ${item}`).join('\n');
   return [
     `Finance Gate 不合格です。以下の不足・数値矛盾を修正し、${sectionLabel}だけを全文で書き直してください。`,
+    '下記は自動検査が検出した未解決項目です。ここが埋まる／整合するまで直してください（特に【数値矛盾】は電卓で計算し直してから要約表へ転記）。',
     '',
-    '【不足項目（記入漏れ）】',
+    '【不足項目（記入漏れ・未解決）】',
     missing || '- なし',
     '',
-    '【数値矛盾（算術整合違反）】',
+    '【数値矛盾（算術整合違反・未解決）】',
     violations || '- なし',
+    '',
+    '【記入済みの要約表サンプル（この構造をそのままコピーし、数字だけ自案件の値に置換する）】',
+    '| 指標 | Quick Win 1 | Quick Win 2 | 地道 |',
+    '|---|---|---|---|',
+    '| 投下予算 | 100,000-200,000円 | 80,000-150,000円 | 30,000-60,000円 |',
+    '| CAC | 8,000-12,000円 | 6,000-10,000円 | 3,000-6,000円 |',
+    '| 想定獲得人数 | 8-25人 | 8-25人 | 5-20人 |',
+    '| 売上LTV | 200,000-300,000円 | 180,000-260,000円 | 150,000-220,000円 |',
+    '| 粗利LTV | 80,000-120,000円 | 72,000-104,000円 | 60,000-88,000円 |',
+    '| LTV_CAC比(粗利) | 7-15倍 | 7-17倍 | 10-29倍 |',
+    '| Payback月数 | 1-3ヶ月 | 1-3ヶ月 | 1-2ヶ月 |',
+    '| 損益分岐 | 20-30人 | 20-30人 | 15-25人 |',
+    '| 採否判定 | GO | GO | GO |',
+    '※ 上のサンプルはヘッダ `| 指標 | Quick Win 1 | Quick Win 2 | 地道 |` を一字一句そのままにし、9行すべてを数字レンジで埋める。◯・空欄・要確認 を一つも残さない。縦持ち表にしない。',
     '',
     '【必須条件】',
     '- Quick Win 1 / Quick Win 2 / 地道 をすべて出す（旧表記の Quick Win 3 は地道として扱う）',
@@ -452,15 +522,20 @@ export function appendUnitEconomicsWarning({
   validation = { missing: [] },
 } = {}) {
   const missing = Array.isArray(validation.missing) ? validation.missing : [];
+  const violations = Array.isArray(validation.violations) ? validation.violations : [];
   const warningLines = [
     '⚠ 要確認: Finance Gate 警告',
-    '以下の数値項目が不足しています。全自動は完走優先で続行しました。後でこの章を確認してください。',
-    ...(missing.length
-      ? missing.map((item) => `- ${item}`)
-      : ['- 不足項目を再確認してください']),
-    '',
-    '---',
-    '',
+    '以下の項目が自動検査で未解決のまま、全自動は完走を優先して続行しました。曖昧な数字を確定させるため、後でこの章を確認してください。',
   ];
+  if (missing.length) {
+    warningLines.push('【記入漏れ】', ...missing.map((item) => `- ${item}`));
+  }
+  if (violations.length) {
+    warningLines.push('【数値矛盾（算術整合違反）】', ...violations.map((item) => `- ${item}`));
+  }
+  if (!missing.length && !violations.length) {
+    warningLines.push('- 不足項目を再確認してください');
+  }
+  warningLines.push('', '---', '');
   return warningLines.join('\n') + String(bodyText || '').trim();
 }
