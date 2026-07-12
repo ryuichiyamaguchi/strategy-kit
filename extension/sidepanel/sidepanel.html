@@ -134,7 +134,6 @@
             </button>
           </aside>
 
-          <section id="engagement-mode" class="card engagement-mode-card" aria-labelledby="engagement-mode-title"></section>
         </div>
       </div>
 
@@ -243,28 +242,20 @@
       </div>
     </section>
 
-    <!-- ============== Tab Bar (Wave 4: 単段3タブ、セグメント廃止) ============== -->
+    <!-- ============== Navigation Studio: bottom navigation ============== -->
     <nav class="navshell sk-shell-tabs">
-      <div class="tabs" role="tablist" aria-label="作業タブ">
+      <div class="tabs" role="tablist" aria-label="メインナビゲーション">
         <button id="tab-btn-phases" class="tab-btn is-active" role="tab" data-tab="phases" aria-selected="true">
           <svg class="icon icon-sm tab-icon" aria-hidden="true"><use href="#i-phases"/></svg>
-          <span class="tab-label">フェーズ</span>
-          <span class="tab-sub">手動で進める</span>
-        </button>
-        <button id="tab-btn-automation" class="tab-btn" role="tab" data-tab="automation" aria-selected="false">
-          <svg class="icon icon-sm tab-icon" aria-hidden="true"><use href="#i-auto"/></svg>
-          <span class="tab-label">自動化</span>
-          <span class="tab-sub">AIにまとめて任せる</span>
+          <span class="tab-label">戦略</span>
         </button>
         <button id="tab-btn-research" class="tab-btn" role="tab" data-tab="research" aria-selected="false">
           <svg class="icon icon-sm tab-icon" aria-hidden="true"><use href="#i-research"/></svg>
           <span class="tab-label">リサーチ</span>
-          <span class="tab-sub">1次→2次→統合</span>
         </button>
         <button id="tab-btn-diagram" class="tab-btn" role="tab" data-tab="diagram" aria-selected="false">
           <svg class="icon icon-sm tab-icon" aria-hidden="true"><use href="#i-diagram"/></svg>
-          <span class="tab-label">スライド</span>
-          <span class="tab-sub">NotebookLM に渡す</span>
+          <span class="tab-label">成果物</span>
         </button>
       </div>
     </nav>
@@ -272,9 +263,17 @@
     <!-- ============== Tab content panes ============== -->
     <section id="tab-content-anchor" class="content sk-shell-work" tabindex="-1">
       <div id="tab-phases" class="tab-content is-active" role="tabpanel" aria-labelledby="tab-btn-phases">
+        <div class="strategy-view-switch" role="group" aria-label="戦略の進め方">
+          <button class="strategy-view-btn is-active" type="button" data-strategy-view="phases" aria-pressed="true">自分で進める</button>
+          <button class="strategy-view-btn" type="button" data-strategy-view="automation" aria-pressed="false">
+            <svg class="icon icon-xs" aria-hidden="true"><use href="#i-auto"/></svg>
+            全自動を管理
+          </button>
+        </div>
+        <section id="engagement-mode" class="card engagement-mode-card" aria-labelledby="engagement-mode-title"></section>
         <section class="phase-section">
           <div class="phase-section-head">
-            <h2 class="phase-section-title">フェーズ</h2>
+            <h2 class="phase-section-title">戦略フェーズ</h2>
             <p class="phase-section-meta">§0 から順に。記入済みは右側にチェック。</p>
           </div>
           <ul id="phase-list" class="phase-list" role="list"></ul>
@@ -311,7 +310,14 @@
         </section>
       </div>
 
-      <div id="tab-automation" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-automation">
+      <div id="tab-automation" class="tab-content" role="tabpanel" aria-label="全自動を管理">
+        <div class="strategy-view-switch" role="group" aria-label="戦略の進め方">
+          <button class="strategy-view-btn" type="button" data-strategy-view="phases" aria-pressed="false">自分で進める</button>
+          <button class="strategy-view-btn is-active" type="button" data-strategy-view="automation" aria-pressed="true">
+            <svg class="icon icon-xs" aria-hidden="true"><use href="#i-auto"/></svg>
+            全自動を管理
+          </button>
+        </div>
         <section id="mod-automation-slot" class="card mod-slot hidden"></section>
         <section id="automation-empty" class="empty-card hidden">
           <h3 class="empty-state-title">自動化はまだ無効</h3>

@@ -144,6 +144,15 @@ chrome.action.onClicked.addListener(async (tab) => {
 
 // サイドパネルから「現在のタブにプロンプトを挿入してほしい」リクエストを受ける
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === 'GET_TASK_MONITOR_CONTEXT') {
+    sendResponse({
+      ok: !!sender?.tab?.id,
+      tabId: sender?.tab?.id || null,
+      origin: getOrigin(sender?.tab?.url) || null,
+    });
+    return false;
+  }
+
   if (message?.type === 'OPEN_OR_FOCUS_AI_TAB') {
     (async () => {
       try {

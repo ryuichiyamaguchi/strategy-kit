@@ -2043,6 +2043,7 @@ function openBusinessSettings() {
 
 function switchTab(name, options = {}) {
   state.settings.lastTab = name;
+  const navigationName = name === 'automation' ? 'phases' : name;
   const shouldPersist = options.persist !== false && sidepanelInitialized;
   if (shouldPersist) {
     persistSettings();
@@ -2050,9 +2051,14 @@ function switchTab(name, options = {}) {
   }
   requestAnimationFrame(function () {
     for (const btn of document.querySelectorAll('.tab-btn')) {
-      const isOn = btn.dataset.tab === name;
+      const isOn = btn.dataset.tab === navigationName;
       btn.classList.toggle('is-active', isOn);
       btn.setAttribute('aria-selected', String(isOn));
+    }
+    for (const btn of document.querySelectorAll('[data-strategy-view]')) {
+      const isOn = btn.dataset.strategyView === name;
+      btn.classList.toggle('is-active', isOn);
+      btn.setAttribute('aria-pressed', String(isOn));
     }
     for (const cnt of document.querySelectorAll('.tab-content')) {
       cnt.classList.toggle('is-active', cnt.id === `tab-${name}`);
@@ -2091,6 +2097,10 @@ function bindTabs() {
       next.focus({ preventScroll: true });
       switchTab(next.dataset.tab);
     });
+  }
+
+  for (const btn of document.querySelectorAll('[data-strategy-view]')) {
+    btn.addEventListener('click', () => switchTab(btn.dataset.strategyView));
   }
 
   switchTab(state.settings.lastTab || 'phases', { persist: false });
@@ -2628,19 +2638,14 @@ function renderContextBarProgress() {
   const filled = filledNos.length;
   const partial = partialNos.length;
   const remaining = Math.max(0, totalPhases - filled - partial);
+  const rate = totalPhases > 0 ? Math.min(100, Math.round((filled / totalPhases) * 100)) : 0;
 
-  // 既存カウンタ更新
-  clearChildren(countEl);
-  countEl.appendChild(document.createTextNode(String(filled)));
-  const t = document.createElement('span');
-  t.className = 'contextbar-progress-total';
-  t.textContent = `/${totalPhases}`;
-  countEl.appendChild(t);
+  // Mission Control は全体率、内訳は下の説明行に集約する。
+  countEl.textContent = `${rate}%`;
 
   // 進捗バー fill 更新
   const barFill = document.getElementById('contextbar-bar-fill');
   if (barFill) {
-    const rate = totalPhases > 0 ? Math.min(100, Math.round((filled / totalPhases) * 100)) : 0;
     barFill.style.width = rate + '%';
   }
 
@@ -2711,6 +2716,7 @@ function activateNextActionFromHost(host) {
   if (!host) return;
   const act = host.dataset.action;
   if (act === 'open-mode') {
+    switchTab('phases');
     state.modeLocal.statusClusterExpanded = true;
     renderStatusCluster();
     renderModeSelector();

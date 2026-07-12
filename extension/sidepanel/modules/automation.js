@@ -6,6 +6,67 @@
 
 (function () {
   const DRAFT_DECISION_CANCELLED = 'DRAFT_DECISION_CANCELLED';
+  const TASK_MONITOR_STORAGE_KEY = 'sk_task_monitor_v1';
+  const TASK_MONITOR_ALLOWED_ORIGINS = new Set([
+    'https://claude.ai',
+    'https://chatgpt.com',
+    'https://chat.openai.com',
+    'https://gemini.google.com',
+    'https://manus.im',
+    'https://www.manus.im',
+    'https://genspark.ai',
+    'https://www.genspark.ai',
+    'https://www.perplexity.ai',
+    'https://perplexity.ai',
+    'https://notebooklm.google.com',
+    'https://grok.com',
+    'https://www.grok.com',
+    'https://docs.google.com',
+  ]);
+  let taskMonitorWrite_ = Promise.resolve();
+  let taskMonitorTarget_ = null;
+
+  async function captureTaskMonitorTarget_() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      const tab = tabs && tabs[0];
+      const origin = tab?.url ? new URL(tab.url).origin : null;
+      taskMonitorTarget_ = tab?.id && TASK_MONITOR_ALLOWED_ORIGINS.has(origin)
+        ? { targetTabId: tab.id, targetOrigin: origin }
+        : null;
+    } catch (_) {
+      taskMonitorTarget_ = null;
+    }
+    return taskMonitorTarget_;
+  }
+
+  function publishTaskMonitor_(snapshot) {
+    const input = snapshot || {};
+    const allowedStatuses = new Set(['idle', 'running', 'retrying', 'paused', 'blocked', 'completed']);
+    const payload = {
+      visible: true,
+      provider: 'Gemini',
+      relativeTime: 'いま',
+      updatedAt: Date.now(),
+      status: allowedStatuses.has(input.status) ? input.status : 'running',
+      taskLabel: String(input.taskLabel || '処理内容を確認しています'),
+      taskCount: input.taskCount ? String(input.taskCount) : '',
+      eta: input.eta ? String(input.eta) : '',
+      lastEvent: String(input.lastEvent || '状態を更新しました'),
+    };
+    if (input.visible === false || payload.status === 'idle') payload.visible = false;
+    if (taskMonitorTarget_) Object.assign(payload, taskMonitorTarget_);
+    taskMonitorWrite_ = taskMonitorWrite_
+      .catch(function () {})
+      .then(function () {
+        return chrome.storage.local.set({ [TASK_MONITOR_STORAGE_KEY]: payload });
+      })
+      .catch(function (error) {
+        console.warn('[STRATEGY-KIT] task monitor update failed:', error);
+      });
+    if (payload.status === 'idle') taskMonitorTarget_ = null;
+    return taskMonitorWrite_;
+  }
 
   // 生成物タイトル等のブランド表記を product.json の branding.footerLabel に間接化する。
   // SK_CORE.getFooterLabel 経由（未読・未定義時は STRATEGY-KIT へフォールバック）。
@@ -1999,6 +2060,7 @@
         persistAutomationDraft();
 
         const isFullAuto = radioFull.checked;
+        if (isFullAuto) await captureTaskMonitorTarget_();
 
         const startIndex = (freshRunStartOverride != null)
           ? freshRunStartOverride
@@ -2042,6 +2104,13 @@
           setCurrentLocationText(mode + 'でエラーが発生しました', 'Google連携とマスターの状態を確認してください');
           const help = describeAutomationError(e);
           progressLabel.textContent = '⚠ ' + mode + 'で停止しました: ' + help.short;
+          if (isFullAuto) {
+            publishTaskMonitor_({
+              status: 'blocked',
+              taskLabel: '全自動処理が停止しました',
+              lastEvent: mode + 'の実行エラー',
+            });
+          }
           appendAutomationErrorLog(logArea, mode + 'の実行エラー', e);
           window.SK_CORE.showToast(mode + 'を実行中にエラーが発生しました。' + help.short, true, 6000);
         } finally {
@@ -2661,6 +2730,11 @@
     // B8: 全章完了済みなら再実行しない
     if (startIndex >= phases.length) {
       ui.progressLabel.textContent = 'すでに全章完了しています。マスターを確認してください。';
+      publishTaskMonitor_({
+        status: 'completed',
+        taskLabel: '戦略書への保存が完了しています',
+        lastEvent: 'マスタードキュメントを確認できます',
+      });
       return;
     }
 
@@ -2674,6 +2748,7 @@
     const masterReady = await ensureFullAutoMasterTarget_(ui, skipBackup);
     if (masterReady === 'cancelled') {
       ui.progressLabel.textContent = 'キャンセルされました。';
+      publishTaskMonitor_({ status: 'idle', visible: false });
       return;
     }
 
@@ -2745,6 +2820,11 @@
         console.warn('[STRATEGY-KIT] failed to write master failure marker:', markerError);
       }
       ui.progressLabel.textContent = '⚠️ §' + dispNo + ' ' + dispLabel + ' で失敗しました。手動で続行してください。';
+      publishTaskMonitor_({
+        status: 'blocked',
+        taskLabel: '§' + dispNo + ' ' + dispLabel + ' で停止',
+        lastEvent: '保存地点から再開できます',
+      });
       setCurrentLocationText('§' + dispNo + ' ' + dispLabel + ' で失敗しました', '手動で修正または再実行してから続行してください');
       saveAutomationState(resumeIndex, accumulated, 'full');
       if (typeof ui.onFailedSectionsChange === 'function') {
@@ -2764,6 +2844,12 @@
 
     if (retrySections.length > 0) {
       ui.progressLabel.textContent = '失敗した小節を埋め直しています…';
+      publishTaskMonitor_({
+        status: 'retrying',
+        taskLabel: '失敗した小節を再試行中',
+        taskCount: retrySections.length + '件を確認',
+        lastEvent: '保存済みの章はそのまま維持します',
+      });
       await retryFailedSections(formInputs, ctrl, model, ui, accumulated, retrySections, financeModel);
       if (opts && opts.retryOnly) {
         return;
@@ -2780,6 +2866,11 @@
     for (let i = effectiveStartIndex; i < phases.length; i++) {
       if (ctrl.cancelled) {
         ui.progressLabel.textContent = 'キャンセルされました（' + i + '/' + total + ' 完了）';
+        publishTaskMonitor_({
+          status: 'paused',
+          taskLabel: '全自動処理を中断しました',
+          lastEvent: '§' + phases[i].no + ' から再開できます',
+        });
         saveAutomationState(i, accumulated, 'full');
         setCurrentLocationText('全自動を中断しました', '§' + phases[i].no + ' から再開できます');
         return;
@@ -2794,6 +2885,12 @@
       // R4: より詳細な進捗表示（章番号 + 進捗率）
       const pct = Math.round((i / total) * 100);
       ui.progressLabel.textContent = '§' + phase.no + ' ' + phase.title + ' を生成中…（' + (i + 1) + '/' + total + '・' + pct + '%）';
+      publishTaskMonitor_({
+        status: 'running',
+        taskLabel: '§' + phase.no + ' ' + phase.title + ' を準備中',
+        eta: 'Geminiで生成します',
+        lastEvent: '前の章までマスターへ保存済み',
+      });
       setCurrentLocationText('いま §' + phase.no + ' を全自動生成中', 'ステップ ' + (i + 1) + '/' + total);
       window.SK_CORE.showToast('§' + phase.no + ' 実行中…', false, 1500);
 
@@ -2831,6 +2928,13 @@
             '§' + phase.no + ' 分割実行中: ' + unitDisplayTitle + '（' + (unitIndex + 1) + '/' + units.length + '・' + gateLabel + '）';
           setCurrentLocationText('いま ' + unitDisplayTitle + ' を全自動生成中', gateLabel);
         }
+        publishTaskMonitor_({
+          status: 'running',
+          taskLabel: unitDisplayTitle + ' を生成中',
+          taskCount: (unitIndex + 1) + ' / ' + units.length + '項目',
+          eta: gateLabel + 'で処理中',
+          lastEvent: phaseLabel + ' の現在タスク',
+        });
 
         let bodyText = '';
         let usedModel = model;
@@ -2894,6 +2998,13 @@
 
         // 完了ログ（文書には残らない診断表示）はユーザー可視の実番号・ラベルで出す。
         appendPhaseLog(ui.logArea, { no: unit.displayNo || unit.sectionNo, title: unit.displayLabel || unit.title }, bodyText, 'gemini-' + usedModel);
+        publishTaskMonitor_({
+          status: 'running',
+          taskLabel: unitDisplayTitle + ' を保存しました',
+          taskCount: (unitIndex + 1) + ' / ' + units.length + '項目',
+          eta: unitIndex < units.length - 1 ? '次の項目へ進みます' : '次の章へ進みます',
+          lastEvent: 'Google Docsへ保存済み',
+        });
         if (unitIndex < units.length - 1 && !ctrl.cancelled) {
           await new Promise(function (resolve) { setTimeout(resolve, 1000); });
         }
@@ -2905,11 +3016,17 @@
 
       if (ctrl.cancelled) {
         ui.progressLabel.textContent = 'キャンセルされました';
+        publishTaskMonitor_({
+          status: 'paused',
+          taskLabel: '全自動処理を中断しました',
+          lastEvent: '現在の保存地点から再開できます',
+        });
         saveAutomationState(i, accumulated, 'full');
         return;
       }
 
       ui.progressBarInner.style.width = (((i + 1) / total) * 100) + '%';
+      if (window.SK_CORE?.emit) window.SK_CORE.emit('master-doc-changed');
 
       // レートリミット回避のためフェーズ間に1秒待機（最後のフェーズ以外）
       if (i < phases.length - 1 && !ctrl.cancelled) {
@@ -2927,6 +3044,11 @@
         });
       } else {
         ui.progressLabel.textContent = '✅ 全章完了（' + total + '/' + total + '）';
+        publishTaskMonitor_({
+          status: 'completed',
+          taskLabel: '戦略書への保存が完了',
+          lastEvent: '全章をGoogle Docsへ保存しました',
+        });
         clearRetryCards(ui.chainArea);
       }
       clearAutomationState();
@@ -3054,6 +3176,12 @@
 
     let successCount = 0;
     const stillFailed = [];
+    publishTaskMonitor_({
+      status: 'retrying',
+      taskLabel: '失敗した小節を再試行中',
+      taskCount: failedSections.length + '件を確認',
+      lastEvent: '保存済みの章はそのまま維持します',
+    });
 
     for (let i = 0; i < failedSections.length; i++) {
       if (ctrl.cancelled) break;
@@ -3065,6 +3193,13 @@
       const displayTitle = '§' + (unit.displayNo || f.displayNo || unit.sectionNo) + ' ' + (unit.displayLabel || f.displayLabel || unit.title);
 
       ui.progressLabel.textContent = '再試行中: ' + displayTitle + '（' + (i + 1) + '/' + failedSections.length + '）';
+      publishTaskMonitor_({
+        status: 'retrying',
+        taskLabel: displayTitle + ' を再試行中',
+        taskCount: (i + 1) + ' / ' + failedSections.length + '件',
+        eta: 'Geminiで再生成中',
+        lastEvent: '失敗した小節だけを再実行します',
+      });
 
       let bodyText = '';
       let usedModel = model;
@@ -3113,13 +3248,25 @@
 
     if (stillFailed.length === 0) {
       ui.progressLabel.textContent = '✅ 再試行完了（' + successCount + '/' + failedSections.length + '）';
+      publishTaskMonitor_({
+        status: 'completed',
+        taskLabel: '再試行した小節を保存しました',
+        lastEvent: successCount + '件をGoogle Docsへ保存済み',
+      });
       window.SK_CORE.showToast('失敗した小節を全て再生成しました', false, 4000);
       if (typeof ui.onFailedSectionsChange === 'function') {
         ui.onFailedSectionsChange([]);
       }
       clearRetryCards(ui.chainArea);
+      if (window.SK_CORE?.emit) window.SK_CORE.emit('master-doc-changed');
     } else {
       ui.progressLabel.textContent = '⚠️ 再試行: ' + successCount + '/' + failedSections.length + ' 成功';
+      publishTaskMonitor_({
+        status: 'blocked',
+        taskLabel: '再試行できなかった小節があります',
+        taskCount: stillFailed.length + '件が未完了',
+        lastEvent: successCount + '件は保存済み',
+      });
       if (typeof ui.onFailedSectionsChange === 'function') {
         ui.onFailedSectionsChange(stillFailed);
       }
@@ -3331,6 +3478,7 @@
       ui.chainArea._skCurrentStep = null;
       appendPhaseLog(ui.logArea, { no: phase.no, title: subLabel }, userOutput.text, userOutput.aiUsed);
       ui.progressBarInner.style.width = ((i + 1) / total * 100) + '%';
+      if (window.SK_CORE?.emit) window.SK_CORE.emit('master-doc-changed');
       setCurrentLocationText(
         '保存完了',
         subLabel + ' を保存しました / 次のステップへ進みます'
