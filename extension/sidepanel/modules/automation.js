@@ -1179,6 +1179,7 @@
       style: 'display:none',
     });
     const cancelBtn = el('button', {
+      id: 'sk-auto-cancel',
       class: 'btn btn-ghost',
       type: 'button',
       text: 'キャンセル',

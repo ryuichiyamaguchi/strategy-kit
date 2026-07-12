@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="sidepanel.css" />
   </head>
-  <body class="sk-booting">
+  <body class="sk-booting is-mission-overview">
     <a href="#tab-content-anchor" class="skip-link">本文へスキップ</a>
     <!-- ============== SVG Icon Sprite ============== -->
     <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -38,8 +38,72 @@
     </svg>
 
     <main class="sk-shell">
+    <section id="mission-overview" class="mission-overview" aria-label="STRATEGY-KIT Mission Control">
+      <header class="mission-panel-header">
+        <div class="mission-panel-brand">
+          <span id="mission-brand-mark" class="mission-brand-mark">SK</span>
+          <strong id="mission-brand-name">STRATEGY-KIT</strong>
+        </div>
+        <button id="mission-settings" class="mission-settings" type="button" aria-label="設定を開く">•••</button>
+      </header>
+
+      <section class="mission-project-context">
+        <span>対象プロジェクト</span>
+        <strong id="mission-project-name">プロジェクトを読み込み中</strong>
+      </section>
+
+      <section class="mission-overall-card">
+        <div class="mission-overall-head">
+          <div><span>戦略ルート</span><strong>戦略完成まで</strong></div>
+          <strong id="mission-overall-percent" class="mission-overall-percent">0%</strong>
+        </div>
+        <p id="mission-overall-meta">0 / 10フェーズ完了</p>
+        <div id="mission-overall-progress" class="mission-overall-progress" role="progressbar" aria-label="戦略完成まで" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <span id="mission-overall-progress-bar"></span>
+        </div>
+        <ol id="mission-phase-route" class="mission-phase-route" aria-label="10フェーズの進捗">
+          <li class="is-current" aria-label="§0 現在"></li><li aria-label="§1 未着手"></li><li aria-label="§2 未着手"></li><li aria-label="§3 未着手"></li><li aria-label="§4 未着手"></li><li aria-label="§5 未着手"></li><li aria-label="§6 未着手"></li><li aria-label="§7 未着手"></li><li aria-label="§8 未着手"></li><li aria-label="§9 未着手"></li>
+        </ol>
+      </section>
+
+      <section class="mission-current-phase">
+        <div class="mission-current-phase-head">
+          <strong id="mission-current-phase-title">§0 事業理解</strong>
+          <span id="mission-current-phase-status">開始前</span>
+        </div>
+        <p id="mission-current-phase-description">初期設定を確認して戦略づくりを始めます。</p>
+      </section>
+
+      <section id="mission-state-details" class="mission-state-details" aria-labelledby="mission-state-title">
+        <h2 id="mission-state-title">次の一手</h2>
+        <dl>
+          <div data-mission-detail-row="1"><dt id="mission-detail-1-label">現在地点</dt><dd id="mission-detail-1-value">§0 事業理解</dd></div>
+          <div data-mission-detail-row="2"><dt id="mission-detail-2-label">進め方</dt><dd id="mission-detail-2-value">手動で進める</dd></div>
+          <div data-mission-detail-row="3" hidden><dt id="mission-detail-3-label"></dt><dd id="mission-detail-3-value"></dd></div>
+        </dl>
+      </section>
+
+      <section class="mission-activity-section">
+        <h2>活動履歴</h2>
+        <ul id="mission-activity-log"></ul>
+      </section>
+
+      <div class="mission-action-bar">
+        <button id="mission-primary-action" type="button">このフェーズを開く</button>
+        <div id="mission-secondary-actions"></div>
+      </div>
+
+      <nav class="mission-panel-nav" aria-label="主要機能">
+        <button class="is-active" type="button" data-mission-tab="overview" aria-current="page">戦略</button>
+        <button type="button" data-mission-tab="research">リサーチ</button>
+        <button type="button" data-mission-tab="diagram">成果物</button>
+      </nav>
+    </section>
+
+    <div id="legacy-shell" class="legacy-shell">
     <!-- ============== Top Bar ============== -->
     <header class="topbar sk-shell-header">
+      <button id="mission-back" class="mission-back-btn" type="button" aria-label="戦略の概要へ戻る">‹ 概要</button>
       <div class="brand" id="brand-root" aria-label="STRATEGY-KIT">
         <span class="brand-logo" id="brand-logo" aria-hidden="true">SK</span>
         <span class="brand-text">
@@ -480,6 +544,7 @@
       <section id="mod-research-saver-slot" class="card mod-slot hidden"></section>
       <section id="mod-progress-tracker-slot" class="card mod-slot hidden"></section>
     </section>
+    </div>
     </main>
 
     <!-- ============== Command Palette (Cmd+K) ============== -->

@@ -190,6 +190,9 @@ const state = {
   },
 };
 
+const MISSION_TASK_STORAGE_KEY = 'sk_task_monitor_v1';
+let missionTaskSnapshot = null;
+
 let metaSyncTimer = null;
 let metaSyncInFlight = false;
 let lastMetaSyncSignature = '';
@@ -2010,6 +2013,231 @@ function renderBusinessSettingsReadout() {
   }
 }
 
+function missionEl(id) {
+  return document.getElementById(id);
+}
+
+function getLiveMissionTask() {
+  const snapshot = missionTaskSnapshot;
+  if (!snapshot || snapshot.visible === false || snapshot.status === 'idle') return null;
+  const updatedAt = Number(snapshot.updatedAt || 0);
+  if (!updatedAt || Date.now() - updatedAt > 10 * 60 * 1000) return null;
+  return snapshot;
+}
+
+function missionStatusLabel(status) {
+  return {
+    running: '全自動 · 実行中',
+    retrying: '全自動 · 再試行中',
+    paused: '全自動 · 一時停止',
+    blocked: '全自動 · 保留',
+    completed: '全自動 · 完了',
+    ready: '開始前',
+  }[status] || '開始前';
+}
+
+function renderMissionRoute(phases, filledSet, partialSet, currentNo) {
+  const route = missionEl('mission-phase-route');
+  if (!route) return;
+  clearChildren(route);
+  for (const phase of phases) {
+    const no = String(phase.no);
+    const item = document.createElement('li');
+    const isDone = filledSet.has(no);
+    const isCurrent = !isDone && (partialSet.has(no) || no === currentNo);
+    item.className = isDone ? 'is-done' : isCurrent ? 'is-current' : '';
+    item.setAttribute('aria-label', `§${no} ${isDone ? '完了' : isCurrent ? '現在' : '未着手'}`);
+    route.appendChild(item);
+  }
+}
+
+function renderMissionDetails(title, items) {
+  const titleEl = missionEl('mission-state-title');
+  if (titleEl) titleEl.textContent = title;
+  for (let index = 0; index < 3; index++) {
+    const row = document.querySelector(`[data-mission-detail-row="${index + 1}"]`);
+    const label = missionEl(`mission-detail-${index + 1}-label`);
+    const value = missionEl(`mission-detail-${index + 1}-value`);
+    const item = items[index];
+    if (row) row.hidden = !item;
+    if (label) label.textContent = item ? item[0] : '';
+    if (value) value.textContent = item ? item[1] : '';
+  }
+}
+
+function renderMissionActivity(phases, filledSet, currentPhase, task) {
+  const list = missionEl('mission-activity-log');
+  if (!list) return;
+  clearChildren(list);
+  const activity = [];
+  const completed = phases.filter((phase) => filledSet.has(String(phase.no)));
+  if (completed.length) {
+    const phase = completed[completed.length - 1];
+    activity.push({ done: true, title: `§${phase.no} ${phase.title}`, detail: 'Google Docsへ保存済み' });
+  }
+  if (task) {
+    activity.push({
+      done: task.status === 'completed',
+      title: task.taskLabel || `§${currentPhase.no} ${currentPhase.title}`,
+      detail: task.lastEvent || '全自動で処理中',
+    });
+  } else if (currentPhase) {
+    activity.push({ done: false, title: `§${currentPhase.no} ${currentPhase.title}`, detail: '次に進めるフェーズ' });
+  }
+  for (const item of activity.slice(-3)) {
+    const row = document.createElement('li');
+    if (item.done) row.className = 'is-done';
+    const title = document.createElement('strong');
+    title.textContent = item.title;
+    const detail = document.createElement('span');
+    detail.textContent = item.detail;
+    row.append(title, detail);
+    list.appendChild(row);
+  }
+}
+
+function renderMissionActions(action, status) {
+  const primary = missionEl('mission-primary-action');
+  const secondary = missionEl('mission-secondary-actions');
+  if (!primary || !secondary) return;
+  const labels = {
+    setup: '初期設定を完了する',
+    automation: '実行詳細を見る',
+    phase: 'このフェーズを開く',
+    master: '戦略書を開く',
+  };
+  primary.textContent = labels[action] || labels.phase;
+  primary.dataset.action = action;
+  clearChildren(secondary);
+  if (status === 'running' || status === 'retrying') {
+    for (const [label, secondaryAction] of [['一時停止', 'pause'], ['停止', 'stop']]) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.dataset.action = secondaryAction;
+      secondary.appendChild(button);
+    }
+  } else if (status === 'blocked' || status === 'paused') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = '再開';
+    button.dataset.action = 'automation';
+    secondary.appendChild(button);
+  }
+}
+
+function renderMissionControl() {
+  const phases = getVisiblePhases();
+  if (!phases.length) return;
+  const filledSet = new Set((state.progressFilledNos || []).map(String));
+  const partialSet = new Set((state.progressPartialNos || []).map(String));
+  const total = phases.length;
+  const completed = phases.filter((phase) => filledSet.has(String(phase.no))).length;
+  const partial = phases.filter((phase) => partialSet.has(String(phase.no)) && !filledSet.has(String(phase.no))).length;
+  const currentPhase =
+    phases.find((phase) => partialSet.has(String(phase.no)) && !filledSet.has(String(phase.no))) ||
+    phases.find((phase) => !filledSet.has(String(phase.no))) ||
+    phases[phases.length - 1];
+  const percent = completed >= total ? 100 : Math.round(((completed + partial * 0.5) / total) * 100);
+  const task = getLiveMissionTask();
+  const status = completed >= total ? 'completed' : task?.status || 'ready';
+  const industry = getIndustryDisplayLabel();
+  const store = state.settings.storeName || '';
+  const selectedProject = document.querySelector('#project-select option:checked')?.textContent?.trim();
+  const projectParts = [selectedProject, store].filter(Boolean);
+  const projectName = projectParts.length ? projectParts.join(' / ') : industry || '新規プロジェクト';
+
+  const projectEl = missionEl('mission-project-name');
+  const percentEl = missionEl('mission-overall-percent');
+  const metaEl = missionEl('mission-overall-meta');
+  const progressEl = missionEl('mission-overall-progress');
+  const progressBar = missionEl('mission-overall-progress-bar');
+  const phaseTitle = missionEl('mission-current-phase-title');
+  const phaseStatus = missionEl('mission-current-phase-status');
+  const phaseDescription = missionEl('mission-current-phase-description');
+  if (projectEl) projectEl.textContent = projectName;
+  if (percentEl) percentEl.textContent = `${percent}%`;
+  if (metaEl) metaEl.textContent = `${completed} / ${total}フェーズ完了${partial ? ` · 下書き ${partial}` : ''}`;
+  if (progressEl) progressEl.setAttribute('aria-valuenow', String(percent));
+  if (progressBar) progressBar.style.width = `${percent}%`;
+  if (phaseTitle) phaseTitle.textContent = `§${currentPhase.no} ${currentPhase.title}`;
+  if (phaseStatus) phaseStatus.textContent = missionStatusLabel(status);
+  if (phaseDescription) {
+    phaseDescription.textContent = task?.taskLabel || currentPhase.frame || `${currentPhase.title}を進めます。`;
+  }
+  renderMissionRoute(phases, filledSet, partialSet, String(currentPhase.no));
+
+  let detailTitle = '次の一手';
+  let details = [
+    ['現在フェーズ', `§${currentPhase.no} ${currentPhase.title}`],
+    ['進め方', '自分で進める / 全自動を管理'],
+  ];
+  if (status === 'running') {
+    detailTitle = '全自動の進行状況';
+    details = [
+      ['全体の流れ', `${completed} / ${total}フェーズ完了`],
+      ['現在地点', task.taskLabel || `§${currentPhase.no} ${currentPhase.title}`],
+      ['直近', task.lastEvent || '処理中'],
+    ];
+  } else if (status === 'retrying') {
+    detailTitle = '自動再試行の状況';
+    details = [['現在地点', task.taskLabel], ['状況', task.lastEvent || '再試行中'], ['保存済み', `${completed}フェーズ`]];
+  } else if (status === 'blocked' || status === 'paused') {
+    detailTitle = '保存地点から再開できます';
+    details = [['止まった地点', task.taskLabel], ['直近', task.lastEvent || '処理を停止'], ['保存済み', `${completed}フェーズ`]];
+  } else if (status === 'completed') {
+    detailTitle = '戦略書が完成しました';
+    details = [['完成物', 'STRATEGY-KIT 戦略書'], ['種別', 'Google Docs'], ['要確認', '数値と固有名詞を最終確認']];
+  }
+  renderMissionDetails(detailTitle, details);
+  renderMissionActivity(phases, filledSet, currentPhase, task);
+
+  const hasBusiness = !!(industry && store);
+  const action = !hasBusiness ? 'setup' : status === 'completed' ? 'master' : task ? 'automation' : 'phase';
+  renderMissionActions(action, status);
+}
+
+function setMissionOverviewVisible(visible) {
+  document.body.classList.toggle('is-mission-overview', !!visible);
+  if (visible) {
+    renderMissionControl();
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+}
+
+function openMissionDetail(tabName) {
+  setMissionOverviewVisible(false);
+  switchTab(tabName);
+  window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+function bindMissionControl() {
+  missionEl('mission-settings')?.addEventListener('click', openBusinessSettings);
+  missionEl('mission-back')?.addEventListener('click', () => setMissionOverviewVisible(true));
+  missionEl('mission-primary-action')?.addEventListener('click', function () {
+    const action = this.dataset.action || 'phase';
+    if (action === 'setup') return openBusinessSettings();
+    if (action === 'master') return missionEl('open-master-doc')?.click();
+    openMissionDetail(action === 'automation' ? 'automation' : 'phases');
+  });
+  missionEl('mission-secondary-actions')?.addEventListener('click', function (event) {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const action = button.dataset.action;
+    openMissionDetail('automation');
+    if (action === 'pause' || action === 'stop') {
+      requestAnimationFrame(() => document.getElementById('sk-auto-cancel')?.click());
+    }
+  });
+  for (const button of document.querySelectorAll('[data-mission-tab]')) {
+    button.addEventListener('click', function () {
+      const tab = button.dataset.missionTab;
+      if (tab === 'overview') setMissionOverviewVisible(true);
+      else openMissionDetail(tab);
+    });
+  }
+}
+
 function renderStableShell(reason) {
   renderIndustryOptions();
   renderIndustryHint();
@@ -2021,6 +2249,7 @@ function renderStableShell(reason) {
   renderContextBar();
   renderStatusCluster();
   renderCurrentLocationBar();
+  renderMissionControl();
   syncEmptyStates();
 }
 
@@ -4272,6 +4501,12 @@ window.SK_CORE = {
     }
 	    await loadSettings();
 	    await loadModeLocalState();
+	    try {
+	      const missionStored = await chrome.storage.local.get(MISSION_TASK_STORAGE_KEY);
+	      missionTaskSnapshot = missionStored?.[MISSION_TASK_STORAGE_KEY] || null;
+	    } catch (_) {
+	      missionTaskSnapshot = null;
+	    }
 	    await detectGeminiSummarizerAvailability();
 	    // ヒアリング準備状況の純ロジックを先読み（buildBusinessContextForMode が同期参照する）
 	    await ensureHearingReadinessModule().catch(() => {});
@@ -4404,6 +4639,7 @@ window.SK_CORE = {
     bindStatusCluster();
     bindNextAction();
     bindEmptyStates();
+    bindMissionControl();
     bindTabs();
     bindCommandPalette();
     bindGlobalKeys();
@@ -4426,6 +4662,10 @@ window.SK_CORE = {
 
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (!sidepanelInitialized) return;
+      if (areaName === 'local' && changes[MISSION_TASK_STORAGE_KEY]) {
+        missionTaskSnapshot = changes[MISSION_TASK_STORAGE_KEY].newValue || null;
+        renderMissionControl();
+      }
       if (areaName === 'local' && changes.sk_hearing_rawtext_v012_local) {
         state.modeLocal[HEARING_RAWTEXT_LOCAL_KEY] = String(changes.sk_hearing_rawtext_v012_local.newValue || '');
         scheduleStableRender('storage-hearing-raw');
