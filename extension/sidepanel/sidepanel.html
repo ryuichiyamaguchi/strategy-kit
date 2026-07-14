@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="sidepanel.css" />
   </head>
-  <body class="sk-booting is-mission-overview">
+  <body class="sk-booting">
     <a href="#tab-content-anchor" class="skip-link">本文へスキップ</a>
     <!-- ============== SVG Icon Sprite ============== -->
     <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -38,99 +38,86 @@
     </svg>
 
     <main class="sk-shell">
-    <section id="mission-overview" class="mission-overview" aria-label="STRATEGY-KIT Mission Control">
-      <header class="mission-panel-header">
-        <div class="mission-panel-brand">
-          <span id="mission-brand-mark" class="mission-brand-mark">SK</span>
-          <strong id="mission-brand-name">STRATEGY-KIT</strong>
+    <!-- ============== Mission Header (全タブ共通・畳める) ============== -->
+    <header id="mission-header" class="mission-header" aria-label="STRATEGY-KIT ミッションコントロール">
+      <div class="mission-header-bar">
+        <div class="brand mission-brand" id="brand-root" aria-label="STRATEGY-KIT">
+          <span class="mission-brand-mark" id="brand-logo" aria-hidden="true">SK</span>
+          <span class="mission-brand-name">
+            <span class="brand-text-main" id="brand-text-main">STRATEGY</span><span class="brand-text-sub" id="brand-text-sub">kit</span>
+          </span>
         </div>
-        <button id="mission-settings" class="mission-settings" type="button" aria-label="設定を開く">•••</button>
-      </header>
-
-      <section class="mission-project-context">
-        <span>対象プロジェクト</span>
-        <strong id="mission-project-name">プロジェクトを読み込み中</strong>
-      </section>
-
-      <section class="mission-overall-card">
-        <div class="mission-overall-head">
-          <div><span>戦略ルート</span><strong>戦略完成まで</strong></div>
-          <strong id="mission-overall-percent" class="mission-overall-percent">0%</strong>
-        </div>
-        <p id="mission-overall-meta">0 / 10フェーズ完了</p>
-        <div id="mission-overall-progress" class="mission-overall-progress" role="progressbar" aria-label="戦略完成まで" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-          <span id="mission-overall-progress-bar"></span>
-        </div>
-        <ol id="mission-phase-route" class="mission-phase-route" aria-label="10フェーズの進捗">
-          <li class="is-current" aria-label="§0 現在"></li><li aria-label="§1 未着手"></li><li aria-label="§2 未着手"></li><li aria-label="§3 未着手"></li><li aria-label="§4 未着手"></li><li aria-label="§5 未着手"></li><li aria-label="§6 未着手"></li><li aria-label="§7 未着手"></li><li aria-label="§8 未着手"></li><li aria-label="§9 未着手"></li>
-        </ol>
-      </section>
-
-      <section class="mission-current-phase">
-        <div class="mission-current-phase-head">
-          <strong id="mission-current-phase-title">§0 事業理解</strong>
-          <span id="mission-current-phase-status">開始前</span>
-        </div>
-        <p id="mission-current-phase-description">初期設定を確認して戦略づくりを始めます。</p>
-      </section>
-
-      <section id="mission-state-details" class="mission-state-details" aria-labelledby="mission-state-title">
-        <h2 id="mission-state-title">次の一手</h2>
-        <dl>
-          <div data-mission-detail-row="1"><dt id="mission-detail-1-label">現在地点</dt><dd id="mission-detail-1-value">§0 事業理解</dd></div>
-          <div data-mission-detail-row="2"><dt id="mission-detail-2-label">進め方</dt><dd id="mission-detail-2-value">手動で進める</dd></div>
-          <div data-mission-detail-row="3" hidden><dt id="mission-detail-3-label"></dt><dd id="mission-detail-3-value"></dd></div>
-        </dl>
-      </section>
-
-      <section class="mission-activity-section">
-        <h2>活動履歴</h2>
-        <ul id="mission-activity-log"></ul>
-      </section>
-
-      <div class="mission-action-bar">
-        <button id="mission-primary-action" type="button">このフェーズを開く</button>
-        <div id="mission-secondary-actions"></div>
-      </div>
-
-      <nav class="mission-panel-nav" aria-label="主要機能">
-        <button class="is-active" type="button" data-mission-tab="overview" aria-current="page">戦略</button>
-        <button type="button" data-mission-tab="research">リサーチ</button>
-        <button type="button" data-mission-tab="diagram">成果物</button>
-      </nav>
-    </section>
-
-    <div id="legacy-shell" class="legacy-shell">
-    <!-- ============== Top Bar ============== -->
-    <header class="topbar sk-shell-header">
-      <button id="mission-back" class="mission-back-btn" type="button" aria-label="戦略の概要へ戻る">‹ 概要</button>
-      <div class="brand" id="brand-root" aria-label="STRATEGY-KIT">
-        <span class="brand-logo" id="brand-logo" aria-hidden="true">SK</span>
-        <span class="brand-text">
-          <span class="brand-text-main" id="brand-text-main">STRATEGY</span>
-          <span class="brand-text-sub" id="brand-text-sub">kit</span>
+        <span id="mission-collapsed-summary" class="mission-collapsed-summary" aria-hidden="true">
+          <span id="mission-collapsed-project" class="mission-collapsed-project">プロジェクト</span>
+          <span id="mission-collapsed-percent" class="mission-collapsed-percent">0%</span>
         </span>
+        <div class="mission-header-controls">
+          <button id="mission-settings" class="mission-settings" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="mission-menu" aria-label="メニューを開く">•••</button>
+          <button id="mission-header-toggle" class="mission-header-toggle" type="button" aria-expanded="true" aria-controls="mission-header-body" aria-label="ミッションヘッダを畳む">
+            <svg class="icon icon-xs mission-header-chevron" aria-hidden="true"><use href="#i-chevron"/></svg>
+          </button>
+        </div>
       </div>
-      <div class="project-switcher" aria-label="作業中の案件">
-        <span class="project-switcher-label">案件</span>
-        <select id="project-select" aria-label="作業中の案件を切り替え"></select>
-        <button id="project-new" class="icon-btn project-new-btn" type="button" title="新規案件" aria-label="新規案件を作成">+</button>
-        <form id="project-new-form" class="project-new-form hidden" aria-label="新規案件の名前入力">
-          <input id="project-new-input" type="text" maxlength="40" placeholder="案件名を入力" aria-label="新規案件名" autocomplete="off" />
-          <button id="project-new-confirm" type="submit" class="project-new-confirm" title="作成" aria-label="この名前で作成">✓</button>
-          <button id="project-new-cancel" type="button" class="project-new-cancel" title="キャンセル" aria-label="キャンセル">×</button>
-        </form>
+
+      <div id="mission-header-body" class="mission-header-body">
+        <div class="mission-project-context">
+          <span>対象プロジェクト</span>
+          <strong id="mission-project-name">プロジェクトを読み込み中</strong>
+        </div>
+
+        <div class="mission-overall-card">
+          <div class="mission-overall-head">
+            <div><span>戦略ルート</span><strong>戦略完成まで</strong></div>
+            <strong id="mission-overall-percent" class="mission-overall-percent">0%</strong>
+          </div>
+          <p id="mission-overall-meta">0 / 10フェーズ完了</p>
+          <div id="mission-overall-progress" class="mission-overall-progress" role="progressbar" aria-label="戦略完成まで" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span id="mission-overall-progress-bar"></span>
+          </div>
+          <ol id="mission-phase-route" class="mission-phase-route" aria-label="10フェーズの進捗">
+            <li class="is-current" aria-label="§0 現在"></li><li aria-label="§1 未着手"></li><li aria-label="§2 未着手"></li><li aria-label="§3 未着手"></li><li aria-label="§4 未着手"></li><li aria-label="§5 未着手"></li><li aria-label="§6 未着手"></li><li aria-label="§7 未着手"></li><li aria-label="§8 未着手"></li><li aria-label="§9 未着手"></li>
+          </ol>
+        </div>
+
+        <div class="mission-current-phase">
+          <div class="mission-current-phase-head">
+            <strong id="mission-current-phase-title">§0 事業理解</strong>
+            <span id="mission-current-phase-status">開始前</span>
+          </div>
+          <p id="mission-current-phase-description">初期設定を確認して戦略づくりを始めます。</p>
+        </div>
       </div>
-      <div class="topbar-actions">
-        <button id="open-master-doc" class="icon-btn" type="button" title="マスタードキュメントを開く" aria-label="マスタードキュメントを開く">
-          <svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>
-        </button>
-        <button id="reset-state" class="icon-btn" type="button" title="全状態をリセット" aria-label="全状態をリセット">
-          <svg class="icon" aria-hidden="true"><use href="#i-reset"/></svg>
-        </button>
-        <button id="open-options" class="icon-btn" type="button" title="設定" aria-label="設定">
-          <svg class="icon" aria-hidden="true"><use href="#i-cog"/></svg>
-        </button>
+
+      <!-- ••• から開く機能メニュー（旧 topbar のボタン群を id 据置で移設） -->
+      <div id="mission-menu" class="mission-menu hidden" role="menu" aria-label="メニュー">
+        <div class="project-switcher mission-menu-projects" aria-label="作業中の案件">
+          <span class="project-switcher-label">案件</span>
+          <select id="project-select" aria-label="作業中の案件を切り替え"></select>
+          <button id="project-new" class="icon-btn project-new-btn" type="button" title="新規案件" aria-label="新規案件を作成">+</button>
+          <form id="project-new-form" class="project-new-form hidden" aria-label="新規案件の名前入力">
+            <input id="project-new-input" type="text" maxlength="40" placeholder="案件名を入力" aria-label="新規案件名" autocomplete="off" />
+            <button id="project-new-confirm" type="submit" class="project-new-confirm" title="作成" aria-label="この名前で作成">✓</button>
+            <button id="project-new-cancel" type="button" class="project-new-cancel" title="キャンセル" aria-label="キャンセル">×</button>
+          </form>
+        </div>
+        <div class="mission-menu-actions">
+          <button id="open-master-doc" class="mission-menu-item" type="button" title="マスタードキュメントを開く" aria-label="マスタードキュメントを開く">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-doc"/></svg>
+            <span>戦略書を開く</span>
+          </button>
+          <button id="open-setup" class="mission-menu-item" type="button" title="初期設定を開く" aria-label="初期設定を開く">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-check"/></svg>
+            <span>初期設定を開く</span>
+          </button>
+          <button id="reset-state" class="mission-menu-item" type="button" title="全状態をリセット" aria-label="全状態をリセット">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-reset"/></svg>
+            <span>リセット</span>
+          </button>
+          <button id="open-options" class="mission-menu-item" type="button" title="設定" aria-label="設定">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-cog"/></svg>
+            <span>設定</span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -327,6 +314,25 @@
     <!-- ============== Tab content panes ============== -->
     <section id="tab-content-anchor" class="content sk-shell-work" tabindex="-1">
       <div id="tab-phases" class="tab-content is-active" role="tabpanel" aria-labelledby="tab-btn-phases">
+        <!-- ミッション状況サマリ（旧 mission-overview から移設・暫定。段階2で新装） -->
+        <section class="mission-strategy-summary" aria-label="ミッションの状況">
+          <section id="mission-state-details" class="mission-state-details" aria-labelledby="mission-state-title">
+            <h2 id="mission-state-title">次の一手</h2>
+            <dl>
+              <div data-mission-detail-row="1"><dt id="mission-detail-1-label">現在地点</dt><dd id="mission-detail-1-value">§0 事業理解</dd></div>
+              <div data-mission-detail-row="2"><dt id="mission-detail-2-label">進め方</dt><dd id="mission-detail-2-value">手動で進める</dd></div>
+              <div data-mission-detail-row="3" hidden><dt id="mission-detail-3-label"></dt><dd id="mission-detail-3-value"></dd></div>
+            </dl>
+          </section>
+          <section class="mission-activity-section">
+            <h2>活動履歴</h2>
+            <ul id="mission-activity-log"></ul>
+          </section>
+          <div class="mission-action-bar">
+            <button id="mission-primary-action" type="button">このフェーズを開く</button>
+            <div id="mission-secondary-actions"></div>
+          </div>
+        </section>
         <div class="strategy-view-switch" role="group" aria-label="戦略の進め方">
           <button class="strategy-view-btn is-active" type="button" data-strategy-view="phases" aria-pressed="true">自分で進める</button>
           <button class="strategy-view-btn" type="button" data-strategy-view="automation" aria-pressed="false">
@@ -382,6 +388,10 @@
             全自動を管理
           </button>
         </div>
+        <button id="mission-fullscreen-open" class="btn" type="button" style="width:100%;margin-bottom:10px">
+          <svg class="icon icon-xs" aria-hidden="true"><use href="#i-auto"/></svg>
+          全画面で見守る
+        </button>
         <section id="mod-automation-slot" class="card mod-slot hidden"></section>
         <section id="automation-empty" class="empty-card hidden">
           <h3 class="empty-state-title">自動化はまだ無効</h3>
@@ -544,7 +554,6 @@
       <section id="mod-research-saver-slot" class="card mod-slot hidden"></section>
       <section id="mod-progress-tracker-slot" class="card mod-slot hidden"></section>
     </section>
-    </div>
     </main>
 
     <!-- ============== Command Palette (Cmd+K) ============== -->

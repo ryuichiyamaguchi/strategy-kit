@@ -172,6 +172,7 @@ const state = {
     researchPhaseLink: '',
     showSafetyNotice: true,
     setupCollapsed: true,
+    missionHeaderCollapsed: false,
     [ENGAGEMENT_MODE_KEY]: '',
     [HEARING_SUMMARY_KEY]: '',
     [HEARING_NOTES_KEY]: '',
@@ -192,6 +193,14 @@ const state = {
 
 const MISSION_TASK_STORAGE_KEY = 'sk_task_monitor_v1';
 let missionTaskSnapshot = null;
+
+// 段階3: 全画面 見守りページ(mission.html)との受け渡し用の新規キー(sk-state.ui.* 配下)。
+//   - missionSnapshot: サイドパネル → mission (phases / 進捗 / 案件名 の raw 入力を publish)
+//   - missionCommand : mission → サイドパネル (一時停止/停止コマンド。既存キャンセルへ委譲)
+const MISSION_SNAPSHOT_STORAGE_KEY = 'sk-state.ui.missionSnapshot';
+const MISSION_COMMAND_STORAGE_KEY = 'sk-state.ui.missionCommand';
+let lastMissionSnapshotSignature = '';
+let lastMissionCommandTs = 0;
 
 let metaSyncTimer = null;
 let metaSyncInFlight = false;
@@ -2117,6 +2126,12 @@ function renderMissionActions(action, status) {
       button.dataset.action = secondaryAction;
       secondary.appendChild(button);
     }
+    // 段階3: 全自動実行中は「全画面で見守る」動線を追加（専用タブで見守り、AIタブは裏で駆動）。
+    const fullscreenButton = document.createElement('button');
+    fullscreenButton.type = 'button';
+    fullscreenButton.textContent = '全画面で見守る';
+    fullscreenButton.dataset.action = 'fullscreen';
+    secondary.appendChild(fullscreenButton);
   } else if (status === 'blocked' || status === 'paused') {
     const button = document.createElement('button');
     button.type = 'button';
@@ -2155,8 +2170,12 @@ function renderMissionControl() {
   const phaseTitle = missionEl('mission-current-phase-title');
   const phaseStatus = missionEl('mission-current-phase-status');
   const phaseDescription = missionEl('mission-current-phase-description');
+  const collapsedProjectEl = missionEl('mission-collapsed-project');
+  const collapsedPercentEl = missionEl('mission-collapsed-percent');
   if (projectEl) projectEl.textContent = projectName;
+  if (collapsedProjectEl) collapsedProjectEl.textContent = projectName;
   if (percentEl) percentEl.textContent = `${percent}%`;
+  if (collapsedPercentEl) collapsedPercentEl.textContent = `${percent}%`;
   if (metaEl) metaEl.textContent = `${completed} / ${total}フェーズ完了${partial ? ` · 下書き ${partial}` : ''}`;
   if (progressEl) progressEl.setAttribute('aria-valuenow', String(percent));
   if (progressBar) progressBar.style.width = `${percent}%`;
@@ -2194,48 +2213,126 @@ function renderMissionControl() {
 
   const hasBusiness = !!(industry && store);
   const action = !hasBusiness ? 'setup' : status === 'completed' ? 'master' : task ? 'automation' : 'phase';
+  // 表示フック: 算出済み state を data 属性で外に出し、CSS が状態別アクセント（保留=amber/完了=mint 等）を
+  // 引けるようにする。状態機械そのものは不変で、state→表示のマップは CSS 側が担う。
+  const stateDetailsEl = missionEl('mission-state-details');
+  if (stateDetailsEl) stateDetailsEl.dataset.status = hasBusiness ? status : 'setup';
   renderMissionActions(action, status);
+
+  // 段階3: 全画面ページ向けに raw 入力を publish（変化時のみ）。表示計算は mission 側の
+  // 共通 view-model が担うため、ここでは phases / 進捗 / 案件名 の一次情報だけ渡す。
+  publishMissionSnapshot(phases, filledSet, partialSet, hasBusiness, projectName);
 }
 
-function setMissionOverviewVisible(visible) {
-  document.body.classList.toggle('is-mission-overview', !!visible);
-  if (visible) {
-    renderMissionControl();
-    window.scrollTo({ top: 0, behavior: 'auto' });
+// mission.html は sk-state.ui.missionSnapshot を購読して描画する。renderMissionControl の
+// たびに書くと storage 書き込みが増えるため、内容シグネチャが変わったときだけ set する。
+function publishMissionSnapshot(phases, filledSet, partialSet, hasBusiness, projectName) {
+  try {
+    if (!chrome?.storage?.local) return;
+    const snapshot = {
+      phases: phases.map((phase) => ({ no: phase.no, title: phase.title, frame: phase.frame || '' })),
+      filledNos: [...filledSet],
+      partialNos: [...partialSet],
+      hasBusiness: !!hasBusiness,
+      projectName: projectName || '',
+      updatedAt: Date.now(),
+    };
+    const signature = JSON.stringify({ ...snapshot, updatedAt: 0 });
+    if (signature === lastMissionSnapshotSignature) return;
+    lastMissionSnapshotSignature = signature;
+    chrome.storage.local.set({ [MISSION_SNAPSHOT_STORAGE_KEY]: snapshot });
+  } catch (e) {
+    /* publish 失敗は致命的でない（全画面ページが未起動なだけ） */
   }
 }
 
-function openMissionDetail(tabName) {
-  setMissionOverviewVisible(false);
-  switchTab(tabName);
-  window.scrollTo({ top: 0, behavior: 'auto' });
+// 全画面 見守りページを開く。既に開いていれば新規作成せずアクティブ化（重複タブ防止）。
+async function openMissionFullscreen() {
+  try {
+    const url = chrome.runtime.getURL('sidepanel/mission.html');
+    const existing = await chrome.tabs.query({ url });
+    if (existing && existing.length) {
+      const tab = existing[0];
+      await chrome.tabs.update(tab.id, { active: true });
+      if (tab.windowId) {
+        await chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
+      }
+      return;
+    }
+    await chrome.tabs.create({ url });
+  } catch (e) {
+    console.warn('[STRATEGY-KIT] openMissionFullscreen failed:', e);
+  }
+}
+
+function applyMissionHeaderCollapsed() {
+  const header = document.getElementById('mission-header');
+  const toggle = document.getElementById('mission-header-toggle');
+  const collapsed = state.settings.missionHeaderCollapsed === true;
+  if (header) header.classList.toggle('is-collapsed', collapsed);
+  if (toggle) toggle.setAttribute('aria-expanded', String(!collapsed));
+}
+
+function setMissionMenuOpen(open) {
+  const menu = document.getElementById('mission-menu');
+  const btn = document.getElementById('mission-settings');
+  if (!menu) return;
+  const next = open === undefined ? menu.classList.contains('hidden') : !!open;
+  menu.classList.toggle('hidden', !next);
+  if (btn) btn.setAttribute('aria-expanded', String(next));
 }
 
 function bindMissionControl() {
-  missionEl('mission-settings')?.addEventListener('click', openBusinessSettings);
-  missionEl('mission-back')?.addEventListener('click', () => setMissionOverviewVisible(true));
+  // ••• メニュー: トグル / 外側クリック・Esc で閉じる / 主要アクション押下で閉じる
+  missionEl('mission-settings')?.addEventListener('click', function (event) {
+    event.stopPropagation();
+    setMissionMenuOpen();
+  });
+  document.addEventListener('click', function (event) {
+    const menu = document.getElementById('mission-menu');
+    if (!menu || menu.classList.contains('hidden')) return;
+    if (menu.contains(event.target) || event.target.closest('#mission-settings')) return;
+    setMissionMenuOpen(false);
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') setMissionMenuOpen(false);
+  });
+  document.getElementById('mission-menu')?.addEventListener('click', function (event) {
+    if (event.target.closest('#open-master-doc, #open-setup, #reset-state, #open-options')) {
+      setMissionMenuOpen(false);
+    }
+  });
+
+  // ヘッダ折りたたみ（状態は settings に保存・復元）
+  missionEl('mission-header-toggle')?.addEventListener('click', function () {
+    state.settings.missionHeaderCollapsed = state.settings.missionHeaderCollapsed !== true;
+    applyMissionHeaderCollapsed();
+    persistSettings();
+  });
+  applyMissionHeaderCollapsed();
+
   missionEl('mission-primary-action')?.addEventListener('click', function () {
     const action = this.dataset.action || 'phase';
     if (action === 'setup') return openBusinessSettings();
-    if (action === 'master') return missionEl('open-master-doc')?.click();
-    openMissionDetail(action === 'automation' ? 'automation' : 'phases');
+    if (action === 'master') return document.getElementById('open-master-doc')?.click();
+    switchTab(action === 'automation' ? 'automation' : 'phases');
   });
   missionEl('mission-secondary-actions')?.addEventListener('click', function (event) {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
     const action = button.dataset.action;
-    openMissionDetail('automation');
+    if (action === 'fullscreen') {
+      openMissionFullscreen();
+      return;
+    }
+    switchTab('automation');
     if (action === 'pause' || action === 'stop') {
       requestAnimationFrame(() => document.getElementById('sk-auto-cancel')?.click());
     }
   });
-  for (const button of document.querySelectorAll('[data-mission-tab]')) {
-    button.addEventListener('click', function () {
-      const tab = button.dataset.missionTab;
-      if (tab === 'overview') setMissionOverviewVisible(true);
-      else openMissionDetail(tab);
-    });
-  }
+
+  // 段階3: 全自動管理ビュー内の「全画面で見守る」ボタン。
+  document.getElementById('mission-fullscreen-open')?.addEventListener('click', openMissionFullscreen);
 }
 
 function renderStableShell(reason) {
@@ -2421,6 +2518,16 @@ function renderStatusCluster() {
   }
 }
 
+// 段階5: 初期設定の完了判定（Google 連携済み＋事業情報設定済み）。
+// oauthConnected は init 時に silent 取得され window._setupStripCfg に保持される。
+function isInitialSetupComplete() {
+  const industry = getIndustryDisplayLabel();
+  const store = state.settings.storeName || '';
+  const hasBusiness = !!industry && !!store;
+  const oauthConnected = !!(window._setupStripCfg && window._setupStripCfg.oauthConnected);
+  return hasBusiness && oauthConnected;
+}
+
 function renderContextBar() {
   const bar = document.getElementById('contextbar');
   const setupCard = document.getElementById('setup');
@@ -2431,6 +2538,15 @@ function renderContextBar() {
   const industry = getIndustryDisplayLabel();
   const store = state.settings.storeName || '';
   const hasBoth = !!industry && !!store;
+
+  // 段階5: 初期設定が完了していて、かつユーザーが明示展開(setupCollapsed===false)
+  // していない限り、常設のオンボーディング系(#setup / setup-status-strip)を退避する。
+  // 折りたたみ機構(setupCollapsed)は温存し、•••「初期設定を開く」から再表示できる。
+  const setupExplicitlyOpen = state.settings.setupCollapsed === false;
+  if (isInitialSetupComplete() && !setupExplicitlyOpen) {
+    const strip = document.getElementById('setup-status-strip');
+    if (strip) strip.classList.add('hidden');
+  }
 
   if (!bar || !setupCard || !setupBody || !setupCollapseBtn) return;
 
@@ -4196,6 +4312,7 @@ async function loadSettings() {
     'researchPhaseLink',
     'showSafetyNotice',
     'setupCollapsed',
+    'missionHeaderCollapsed',
     'sk_engagement_mode',
     'sk_hearing_summary_v012',
     'sk_hearing_notes_v012',
@@ -4274,6 +4391,26 @@ function bindSetupForm() {
     chrome.runtime.openOptionsPage?.();
   });
 
+  // 段階5: •••「初期設定を開く」— 完了後に退避した #setup カードをインラインで再表示する。
+  // 折りたたみ機構(setupCollapsed)を温存したまま明示展開扱いにして戻す導線。
+  document.getElementById('open-setup')?.addEventListener('click', () => {
+    state.settings.setupCollapsed = false;
+    persistSettings();
+    const setupCard = document.getElementById('setup');
+    const setupBody = document.getElementById('setup-body');
+    const setupCollapseBtn = document.getElementById('setup-collapse');
+    if (setupCard) setupCard.classList.remove('hidden');
+    if (setupBody) setupBody.removeAttribute('hidden');
+    if (setupCollapseBtn) {
+      setupCollapseBtn.classList.remove('hidden');
+      setupCollapseBtn.setAttribute('aria-expanded', 'true');
+    }
+    renderContextBar();
+    if (setupCard) {
+      setTimeout(() => setupCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60);
+    }
+  });
+
   // リセットボタン
   document.getElementById('reset-state').addEventListener('click', () => {
     const backdrop = el('div', { class: 'modal-backdrop' });
@@ -4288,7 +4425,7 @@ function bindSetupForm() {
     );
 
     const actions = el('div', { class: 'modal-actions' });
-    const resetBtn = el('button', { class: 'btn', text: 'リセット', style: 'background:#c0392b;color:#fff' });
+    const resetBtn = el('button', { class: 'btn btn-caution', text: 'リセット' });
     const cancelBtn = el('button', { class: 'btn btn-ghost', text: 'キャンセル' });
 
     function closeResetModal() { backdrop.remove(); }
@@ -4675,6 +4812,16 @@ window.SK_CORE = {
         state.settings[HEARING_SUMMARY_KEY] = String(changes[HEARING_SUMMARY_LOCAL_KEY].newValue || '');
         state.modeLocal.hearingSummaryDraft = state.settings[HEARING_SUMMARY_KEY];
         scheduleStableRender('storage-hearing-summary');
+      }
+      // 段階3: 全画面ページからの一時停止/停止コマンドを受けて既存キャンセルへ委譲する。
+      // automation.js は不変。ボタン実体が無い/未起動なら何も起きない（正直に無反応）。
+      if (areaName === 'local' && changes[MISSION_COMMAND_STORAGE_KEY]) {
+        const command = changes[MISSION_COMMAND_STORAGE_KEY].newValue;
+        if (command && command.action === 'cancel' && command.ts && command.ts !== lastMissionCommandTs) {
+          lastMissionCommandTs = command.ts;
+          switchTab('automation');
+          requestAnimationFrame(() => document.getElementById('sk-auto-cancel')?.click());
+        }
       }
       if (areaName !== 'sync') return;
       let needsChecklist = false;

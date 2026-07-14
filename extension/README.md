@@ -1,59 +1,92 @@
 # STRATEGY-KIT Helper（Chrome拡張）
 
-マーケティング戦略立案を10フェーズで進める教材用 Chrome 拡張機能。対応する AI チャット画面へユーザー操作でプロンプトを挿入し、Google ドキュメントへ章別記録します。
+複数AI（Claude / ChatGPT / Gemini / Manus / Genspark / Perplexity / NotebookLM）を横断してマーケ戦略を立案するための、プロンプト挿入支援拡張機能。
 
-| 項目 | 内容 |
-| --- | --- |
-| 製品名 | STRATEGY-KIT Helper |
-| 用途 | マーケティング戦略立案 |
-| 対象 | 職業訓練マーケティング戦略講座の受講者 |
-| バージョン | v0.12.26 |
-| プロンプトパック | `data/prompts.json` |
-| ベンチマークデータ | `data/industries.json`（業種プリセット） |
+## ディレクトリ構成
+
+```
+extension/
+├── manifest.json
+├── background.js          # service worker
+├── content/               # 各AIサイト用 content script
+│   ├── claude.js
+│   ├── chatgpt.js
+│   ├── gemini.js
+│   ├── manus.js
+│   ├── genspark.js
+│   ├── perplexity.js
+│   ├── notebooklm.js
+│   ├── task-monitor.js    # AI画面左下のタスク実況（全体進捗は表示しない）
+│   └── google-docs.js
+├── lib/
+│   └── insert-helpers.js  # 共通ヘルパー（textarea/contenteditable挿入）
+├── sidepanel/             # サイドパネルUI（フェーズナビ）
+│   ├── sidepanel.html
+│   ├── sidepanel.css
+│   └── sidepanel.js
+├── options/               # 設定画面
+│   ├── options.html
+│   ├── options.css
+│   └── options.js
+├── data/                  # 拡張内蔵データ
+│   ├── prompts.json       # フェーズ0〜9 プロンプトパック
+│   └── industries.json    # 業種プリセット
+├── icons/                 # （正式リリース前にPNG配置）
+└── _locales/ja/messages.json
+```
 
 ## インストール（開発者モード）
 
 1. `chrome://extensions/` を開く
-2. 右上「デベロッパーモード」を ON
-3. 「パッケージ化されていない拡張機能を読み込む」→ 展開済みフォルダ
-   （`strategy-kit-v0.12.26/`）を選択
-4. ツールバーに STRATEGY-KIT Helper が表示されれば OK（ピン留め推奨）
+2. 右上「デベロッパーモード」をON
+3. 「パッケージ化されていない拡張機能を読み込む」→ 本ディレクトリ（`extension/`）を選択
+4. ツールバーに STRATEGY-KIT が表示されればOK
+5. ピン留め推奨
 
 ## 使い方
 
-1. ツールバーの STRATEGY-KIT Helper アイコン → サイドパネルを展開
-2. options（設定）で業種プリセット・店舗／屋号などの前提を入力
-3. フェーズグリッドから着手するフェーズを選択
-4. 推奨 AI の「タブを開く」、または既に開いているタブをアクティブに
-5. プロンプト一覧の「挿入」ボタン → 入力欄へ自動挿入
-6. ★部分を埋めて手動で送信（自動送信はしません）
-
-## Google 連携について
-
-本キットは Google ドキュメント／ドライブへの章別記録に Google アカウント連携
-（OAuth）を使います。options 画面の連携ボタンから初回連携すると、マスター
-ドキュメントの作成・章別追記が使えるようになります。
+1. ツールバーのSTRATEGY-KITアイコン → サイドパネル展開
+2. **業種プリセット** を選択（または自由入力）／**店舗・屋号** を入力
+3. 下部の **戦略 / リサーチ / 成果物** から作業場所を選択
+4. 戦略内で「自分で進める」または「全自動を管理」を選択
+5. 第1推奨AIの「タブを開く」または既存タブをアクティブに
+6. プロンプト一覧の「挿入」ボタン → 入力欄に自動挿入
+7. 手動時は **★部分を埋めて送信**。全自動時はAI画面左下のタスク実況で現在処理を確認
 
 ## 設計思想
 
-- ToS 遵守: プロンプト挿入のみ。自動 fetch / 自動送信 / Cookie 持ち出しはしない
-- マスタードキュメント直書き禁止、人間が選別して転記する
+- ToS遵守: プロンプト挿入のみ。自動fetch/送信/Cookie持出なし
+- Day6原則: マスタードキュメント直書き禁止、人間が選別して転記
 - 失敗フォールバック: 入力欄が見つからなければクリップボードへコピー
 
 ## 権限
 
-- `sidePanel` — サイドパネル UI
-- `storage` — 前提設定の保存
-- `tabs` — 対象 AI タブの検出・フォーカス・content script へのメッセージング
+- `sidePanel` — サイドパネルUI
+- `storage` — 業種・店舗等の設定保存
+- `tabs` — 対象AIタブの検出・フォーカス・content scriptへのメッセージング
 - `clipboardWrite` — フォールバック用クリップボードコピー
-- `identity` — Google アカウント連携（章別記録の自動化）
-- `host_permissions` — 各 AI サイト＋ docs.google.com（content script を動かすため）
+- `host_permissions` — 各AIサイト＋docs.google.com（content scriptを動かすため）
+
+## 開発時の検証
+
+```bash
+# JSON構文
+python3 -c "import json; [json.load(open(f)) for f in ['manifest.json','data/prompts.json','data/industries.json','_locales/ja/messages.json']]"
+
+# JS構文
+node --check background.js
+node --check lib/insert-helpers.js
+node --check sidepanel/sidepanel.js
+node --check options/options.js
+for f in content/*.js; do node --check "$f"; done
+```
 
 ## 既知の制約
 
-- 各 AI サイトの DOM 変更で content script のセレクタが古くなる可能性（年数回想定）
-- Google Docs は iframe＋canvas 構造のため、本文への直接挿入はせずクリップボード経由
+- 各AIサイトのDOM変更で content script のセレクタが古くなる可能性（年数回想定）
+- Google Docs はiframe＋canvas構造のため、本文への直接挿入はせずクリップボード経由
+- icons は未配置（manifest から外してある）。正式リリース時に追加
 
 ## バージョン
 
-v0.12.26
+v0.12.27（2026-07-14 更新）

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>STRATEGY-KIT — 全自動 見守りモード</title>
+    <link rel="stylesheet" href="./mission.css" />
+  </head>
+  <body>
+    <div class="mission-shell">
+      <!-- 上バー: ブランド + 実行状態 + プロジェクト名 -->
+      <header id="mission-topbar" class="mission-topbar" data-running="false">
+        <div class="mission-brand">
+          <span class="brand-mark" aria-hidden="true">SK</span>
+          <strong>STRATEGY-KIT</strong>
+        </div>
+        <span class="mission-status-pill" role="status" aria-live="polite">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span id="mission-status-text">待機中</span>
+        </span>
+        <div class="mission-project">
+          <span>対象プロジェクト</span>
+          <strong id="mission-project-name">—</strong>
+        </div>
+      </header>
+
+      <main class="mission-main">
+        <!-- 左カラム: 進捗ヒーロー + 航路 + 現在フェーズ + 操作 -->
+        <section class="mission-col" aria-label="戦略の進捗">
+          <div class="mission-card mission-progress-card">
+            <div class="mission-percent-row">
+              <span class="label">戦略完成まで</span>
+              <span class="mission-percent"><span id="mission-percent-value">0</span><small>%</small></span>
+            </div>
+            <p id="mission-progress-meta" class="mission-progress-meta">0 / 10フェーズ完了</p>
+            <div
+              id="mission-progress"
+              class="mission-progress-bar"
+              role="progressbar"
+              aria-label="戦略完成まで"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="0"
+            >
+              <span id="mission-progress-bar"></span>
+            </div>
+            <ol id="mission-route" class="mission-route" aria-label="10フェーズの航路"></ol>
+          </div>
+
+          <div class="mission-card">
+            <h2 class="mission-card-title">現在のフェーズ</h2>
+            <div class="mission-phase-head">
+              <strong id="mission-phase-title">§0</strong>
+              <span id="mission-phase-status" class="mission-phase-status">開始前</span>
+            </div>
+            <p id="mission-phase-desc" class="mission-phase-desc"></p>
+            <div class="mission-controls">
+              <button id="mission-pause" class="mission-btn mission-btn-pause" type="button" disabled>
+                一時停止
+              </button>
+              <button id="mission-stop" class="mission-btn mission-btn-stop" type="button" disabled>
+                停止
+              </button>
+            </div>
+            <p id="mission-control-note" class="mission-control-note">
+              一時停止・停止はサイドパネル経由で実行されます。サイドパネルを閉じている場合は反応しません。
+            </p>
+          </div>
+        </section>
+
+        <!-- 右カラム: 全自動の進行状況 + 活動履歴 -->
+        <section class="mission-col" aria-label="全自動の進行状況">
+          <div class="mission-card">
+            <h2 id="mission-detail-title" class="mission-card-title">全自動の進行状況</h2>
+            <div class="mission-provider-row">
+              <span class="mission-provider-mark" aria-hidden="true" id="mission-provider-mark">AI</span>
+              <div>
+                <span class="provider-label">実行AI</span>
+                <span class="provider-name" id="mission-provider-name">待機中</span>
+              </div>
+            </div>
+            <dl id="mission-details" class="mission-detail-list"></dl>
+          </div>
+
+          <div class="mission-card">
+            <h2 class="mission-card-title">活動履歴</h2>
+            <ul id="mission-activity" class="mission-activity"></ul>
+            <p id="mission-activity-empty" class="mission-activity-empty" hidden>
+              まだ活動記録はありません。
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="mission-footer">
+        この画面は STRATEGY-KIT の見守りビューです。AI サイトのタブは裏で自動実行され、
+        この画面を開いている間はフォーカスを奪いません。進行の操作はサイドパネルが担います。
+      </footer>
+    </div>
+
+    <script type="module" src="./mission.js"></script>
+  </body>
+</html>

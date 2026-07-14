@@ -53,6 +53,21 @@ async function findLastFocusedTabForSite(site) {
   return tabs[0];
 }
 
+// 全画面 見守りページ(mission.html)が開いている間だけ「フォーカス抑止モード」を有効にする。
+// フラグを別途永続化すると状態が食い違いやすいため、タブの実在を都度確認する方式を採る
+// (mission.js の beforeunload 検知等に依存しない = タブが消えれば自動で抑止解除)。
+const MISSION_PAGE_PATH = 'sidepanel/mission.html';
+
+async function isMissionFullscreenOpen() {
+  try {
+    const url = chrome.runtime.getURL(MISSION_PAGE_PATH);
+    const tabs = await chrome.tabs.query({ url });
+    return !!(tabs && tabs.length);
+  } catch (e) {
+    return false;
+  }
+}
+
 // v0.11.x のフラット sk-state を v0.12 のプロジェクトスコープへ移行する。
 // 旧キー: sk-state.placeholders.*, sk-state.automation.*, sk-state.diagram.* 等
 // 新キー: sk-state.projects.{projectId}.{suffix}
@@ -156,13 +171,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === 'OPEN_OR_FOCUS_AI_TAB') {
     (async () => {
       try {
+        // 抑止モード中は AI タブを前面へ引っ張り出さない(裏で駆動)。
+        // 抑止モード外は現行挙動を完全維持する。
+        const suppressFocus = await isMissionFullscreenOpen();
         const existingTab = await findLastFocusedTabForSite(message.site);
         if (existingTab?.id) {
-          await chrome.tabs.update(existingTab.id, { active: true });
-          if (existingTab.windowId) {
-            await chrome.windows.update(existingTab.windowId, { focused: true }).catch(() => {});
+          if (!suppressFocus) {
+            await chrome.tabs.update(existingTab.id, { active: true });
+            if (existingTab.windowId) {
+              await chrome.windows.update(existingTab.windowId, { focused: true }).catch(() => {});
+            }
           }
-          sendResponse({ ok: true, reused: true, tabId: existingTab.id });
+          sendResponse({ ok: true, reused: true, tabId: existingTab.id, focusSuppressed: suppressFocus });
           return;
         }
 
@@ -172,8 +192,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
 
-        const createdTab = await chrome.tabs.create({ url: targetUrl });
-        sendResponse({ ok: true, created: true, tabId: createdTab?.id || null });
+        // 抑止モード中は裏タブ(active:false)として作成する。
+        const createdTab = await chrome.tabs.create({ url: targetUrl, active: !suppressFocus });
+        sendResponse({ ok: true, created: true, tabId: createdTab?.id || null, focusSuppressed: suppressFocus });
       } catch (e) {
         sendResponse({ ok: false, error: e?.message || String(e) });
       }

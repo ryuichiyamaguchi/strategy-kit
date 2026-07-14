@@ -6,6 +6,11 @@
    NOTE: --marigold-* トークン名は legacy 互換のため残置、値のみ Olive へ更新
    =================================================== */
 
+/* ⚠ 二重管理注意: この :root は「暖色系(Olive Workbench)」の初期値。
+   本番シェルの実効トークンは後段 Navigation Studio の :root（約 L5400 付近）で
+   Deep Route/Waypoint Mint/Route Blue/Signal Amber へ再定義され、そちらが最終的に勝つ
+   （CSS カスタムプロパティは後勝ちで文書全体に適用）。ここの色を編集しても本番の
+   見た目は変わらない。色を変えたいときは必ず再定義ブロック側を編集すること。 */
 :root {
   /* ────────── Surface / Paper ────────── */
   --paper:           #F7F6F0;
@@ -1004,7 +1009,7 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
 }
 
 .draft-decision-choice.is-recommended {
-  background: #fffaf0;
+  background: rgba(83, 200, 191, 0.12);
   border-color: var(--marigold-soft);
 }
 
@@ -2092,16 +2097,12 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
   line-height: 1.3;
 }
 
-/* Tab color tokens */
-#tab-btn-phases     { color: var(--tab-phases); }
-#tab-btn-research   { color: var(--tab-research); }
-#tab-btn-automation { color: var(--tab-auto); }
-#tab-btn-diagram    { color: var(--tab-diagram); }
-
-#tab-btn-phases.is-active     .tab-label { color: var(--tab-phases); }
-#tab-btn-research.is-active   .tab-label { color: var(--tab-research); }
-#tab-btn-automation.is-active .tab-label { color: var(--tab-auto); }
-#tab-btn-diagram.is-active    .tab-label { color: var(--tab-diagram); }
+/* 段階6: 旧「Tab color tokens」ID 色ルール（#tab-btn-* と .is-active .tab-label）を撤去。
+   下部ナビは Deep Route 背景に移行済みだが、これらの近黒/ネイビー指定が ID 特異度(1,x,0)で
+   `.sk-shell-tabs .tab-btn(.is-active)` の意図色（inactive=#7F94A9 / active=#FFFFFF /
+   ラベル=currentColor）を上書きし、アクティブタブのラベルを地色 #10233D と同化させ不可視に
+   していた（getComputedStyle で実測確認）。色の権限を Navigation Studio 層へ集約する。
+   ※ --tab-* トークン自体はリサーチ/成果物カード等で使用中のため定義は残置。 */
 
 .tab-content {
   display: none;
@@ -2149,20 +2150,23 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
 
 .phase-list {
   list-style: none;
-  padding: 0;
+  padding: 4px 12px 14px;
   margin: 0;
   display: flex;
   flex-direction: column;
+  gap: 7px;
 }
 .phase-row {
   display: flex;
   flex-direction: column;
-  border-bottom: 1px solid var(--border-soft);
+  border: 1px solid var(--studio-border);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-lg);
   cursor: pointer;
   background: var(--surface);
-  transition: background var(--tr-fast), border-color var(--tr-fast);
+  transition: background var(--tr-fast), border-color var(--tr-fast), box-shadow var(--tr-fast);
   position: relative;
-  border-left: 3px solid transparent;
+  overflow: hidden;
   text-align: left;
 }
 
@@ -2175,23 +2179,22 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
   min-height: 56px;
   padding: 10px 16px 10px 13px;
 }
-.phase-row:last-child {
-  border-bottom: none;
-}
 .phase-row:hover {
-  background: var(--surface-alt);
+  border-color: var(--border-hard);
+  box-shadow: 0 2px 8px rgba(16, 35, 61, 0.08);
 }
 .phase-row:focus-visible {
-  outline: 2px solid var(--marigold);
-  outline-offset: -2px;
+  outline: 2px solid var(--route-blue);
+  outline-offset: 1px;
 }
 .phase-row[aria-current="step"] {
-  border-left: 3px solid var(--marigold);
-  background: var(--marigold-50);
+  border-color: rgba(62, 114, 232, 0.45);
+  border-left-color: var(--route-blue);
+  background: rgba(62, 114, 232, 0.05);
+  box-shadow: 0 3px 10px rgba(62, 114, 232, 0.1);
 }
 .phase-row[aria-current="step"]:hover {
-  background: var(--marigold-50);
-  filter: brightness(0.99);
+  border-color: var(--route-blue);
 }
 .phase-row-marker {
   font-family: var(--font-mono);
@@ -2203,9 +2206,11 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
   letter-spacing: 0;
 }
 .phase-row[aria-current="step"] .phase-row-marker {
-  color: var(--marigold-deep);
+  color: var(--route-blue);
   font-weight: 700;
 }
+/* 状態ドット（左マーカーの状態色ヒント） */
+.phase-row[data-state="filled"] .phase-row-marker { color: var(--marigold-deep); }
 .phase-row-body {
   display: flex;
   flex-direction: column;
@@ -2240,11 +2245,10 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
   display: block;
 }
 .phase-row[data-state="filled"] .phase-row-status {
-  color: var(--marigold);
+  color: var(--waypoint-mint);
 }
 .phase-row[data-state="partial"] .phase-row-status {
-  color: var(--marigold);
-  opacity: 0.5;
+  color: var(--signal-amber);
 }
 .phase-row[data-state="todo"] .phase-row-status {
   color: var(--border-hard);
@@ -2288,8 +2292,8 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
   display: flex;
   flex-direction: column;
   gap: 10px;
-  border-top: 1px solid var(--border-soft);
-  background: var(--marigold-50);
+  border-top: 1px solid rgba(62, 114, 232, 0.16);
+  background: rgba(62, 114, 232, 0.04);
 }
 .phase-row-expanded[hidden] {
   display: none !important;
@@ -2898,6 +2902,20 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
   box-shadow: 0 3px 8px rgba(220, 38, 38, 0.3);
 }
 
+/* Caution — 破壊的操作の確認ボタン（Signal Amber で警告感）。
+   Mint=肯定と区別し、error 赤は実エラー専用に温存する（仕様書 L62）。
+   :hover が .btn:hover の marigold-deep 塗りに負けないよう同格で後置し上書きする。 */
+.btn-caution {
+  background: var(--signal-amber);
+  border-color: var(--signal-amber);
+  color: var(--deep-route);
+}
+.btn-caution:hover {
+  background: #e4922f;
+  border-color: #e4922f;
+  color: var(--deep-route);
+}
+
 /* Text-link — marigold テキスト */
 .text-btn,
 .btn-text {
@@ -3418,8 +3436,8 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
 .modal input:focus,
 .modal textarea:focus {
   outline: none;
-  border-color: var(--marigold);
-  box-shadow: 0 0 0 3px rgba(217, 122, 44, 0.1);
+  border-color: var(--route-blue);
+  box-shadow: 0 0 0 3px rgba(62, 114, 232, 0.14);
 }
 
 .modal-actions {
@@ -3503,15 +3521,16 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
   line-height: 1.5;
 }
 
-/* Levels */
+/* Levels — 航路トークンに統一（Waypoint Mint / Signal Amber / Route Blue）。
+   ただし error は仕様書の原則どおり赤系（--danger）を継承し、航路色と競合させない。 */
 .sk-toast-success {
-  border-left-color: var(--success);
-  background: var(--success-soft);
-  color: #14532d;
+  border-left-color: var(--waypoint-mint);
+  background: var(--marigold-tint);
+  color: var(--marigold-deep);
 }
 .sk-toast-success .sk-toast-icon {
-  background: var(--success);
-  color: #ffffff;
+  background: var(--waypoint-mint);
+  color: var(--deep-route);
 }
 .sk-toast-error {
   border-left-color: var(--danger);
@@ -3523,21 +3542,21 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
   color: #ffffff;
 }
 .sk-toast-warn {
-  border-left-color: var(--warn);
-  background: var(--warn-soft);
-  color: #78350f;
+  border-left-color: var(--signal-amber);
+  background: rgba(241, 168, 74, 0.15);
+  color: #7a4d0f;
 }
 .sk-toast-warn .sk-toast-icon {
-  background: var(--warn);
-  color: #ffffff;
+  background: var(--signal-amber);
+  color: var(--deep-route);
 }
 .sk-toast-info {
-  border-left-color: var(--ink-soft);
-  background: var(--paper);
-  color: var(--ink-soft);
+  border-left-color: var(--route-blue);
+  background: rgba(62, 114, 232, 0.09);
+  color: #274a86;
 }
 .sk-toast-info .sk-toast-icon {
-  background: var(--ink-soft);
+  background: var(--route-blue);
   color: #ffffff;
 }
 
@@ -3863,7 +3882,7 @@ details > summary:focus-visible {
   .hero-title { font-size: 20px; }
   .hero-num { font-size: 26px; }
   .hero-lede { font-size: 12px; margin-bottom: 12px; }
-  .phase-row { padding: 8px 12px; min-height: 48px; grid-template-columns: 38px 1fr auto; }
+  .phase-row-head { padding: 8px 12px; min-height: 48px; grid-template-columns: 38px 1fr auto; }
   .phase-row-marker { font-size: 13px; }
   .phase-row-title { font-size: 15px; }
   .phase-row-meta { font-size: 12px; }
@@ -4325,46 +4344,14 @@ details > summary:focus-visible {
   color: var(--text);
 }
 
-.tab-btn {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 10px 14px;
-  min-height: 56px;
-}
-.tab-btn::before {
-  display: none !important;
-}
-.tab-btn:hover {
-  background: var(--surface-alt);
-  border-color: var(--border-hard);
-}
-.tab-btn.is-active {
-  background: var(--surface);
-  border-color: var(--text);
-  box-shadow: none;
-}
-.tab-btn .tab-label {
-  font-size: var(--fs-meta);
-  color: var(--text);
-  font-weight: 600;
-}
-.tab-btn .tab-sub {
-  font-size: 11.5px;
-  color: var(--text-muted);
-}
-#tab-btn-phases.is-active     .tab-label,
-#tab-btn-research.is-active   .tab-label,
-#tab-btn-automation.is-active .tab-label,
-#tab-btn-diagram.is-active    .tab-label {
-  color: var(--text);
-}
-#tab-btn-phases,
-#tab-btn-research,
-#tab-btn-automation,
-#tab-btn-diagram {
-  color: var(--text-muted);
-}
+/* 段階6: 旧 Wave3 の `.tab-btn` 上書き群を削除。
+   下部ナビは `.sk-shell-tabs .tab-btn`（2クラス）が全プロパティを上書きしており、
+   ここの1クラス宣言（background/border/border-radius/padding/min-height/::before
+   display:none/:hover/is-active の background・border-color/.tab-label/.tab-sub）は
+   完全に無効だった。is-active の box-shadow:none のみ Navigation Studio 層へ集約済み。
+   旧 `#tab-btn-*` ID 色ルール（当ブロック＋約 L2100 の base 群）は削除した。理由は
+   `.tab-btn { … }` 直後の base 群コメント参照（Deep Route ナビでアクティブラベルが
+   不可視になる ID 特異度上書きの解消）。色の権限は Navigation Studio 層へ一本化。 */
 
 /* card — 影と装飾を引く */
 .card {
@@ -4992,14 +4979,14 @@ details > summary:focus-visible {
     transform 0.08s ease;
 }
 .phase-row:hover {
-  box-shadow: 0 1px 2px rgba(26, 26, 20, 0.06);
+  box-shadow: 0 2px 8px rgba(16, 35, 61, 0.08);
 }
 
-/* focus-visible: left accent line (override existing outline) */
+/* focus-visible: route-blue accent line (override existing outline) */
 .phase-row:focus-visible {
   outline: none;
-  border-left-color: var(--marigold);
-  box-shadow: inset 2px 0 0 var(--marigold);
+  border-left-color: var(--route-blue);
+  box-shadow: inset 2px 0 0 var(--route-blue), 0 2px 8px rgba(62, 114, 232, 0.12);
 }
 
 /* click feedback: scale down */
@@ -5388,11 +5375,15 @@ details > summary:focus-visible {
    Navigation Studio production integration
    The side panel owns the mission; the page overlay owns only the active task.
    ===================================================== */
+/* ★ ここが本番の実効トークン値（先頭 :root ≈ L9 の暖色初期値を上書きし、後勝ちで
+   文書全体へ適用される）。--marigold* を含む配色トークンは全てここで航路パレット
+   （Deep Route/Waypoint Mint/Route Blue/Signal Amber）へ再定義される。
+   本番の色を変えるときはこのブロックを編集する。先頭 :root ではない。 */
 :root {
   --deep-route: #10233D;
   --deep-route-raised: #193957;
   --waypoint-mint: #53C8BF;
-  --route-blue: #3977EE;
+  --route-blue: #3E72E8;
   --signal-amber: #F1A84A;
   --studio-surface: #F5F7FA;
   --studio-border: #D7E0EA;
@@ -5492,7 +5483,7 @@ body {
 }
 
 .sk-shell-context {
-  top: 56px;
+  top: 0;
   border-bottom: 0;
   background: var(--deep-route);
 }
@@ -5657,10 +5648,10 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
-  margin: 14px 16px 0;
+  margin: 14px 12px 0;
   padding: 4px;
   border: 1px solid var(--studio-border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: #E8EEF4;
 }
 
@@ -5669,26 +5660,34 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 38px;
+  min-height: 40px;
   padding: 7px 10px;
   border: 0;
-  border-radius: 7px;
-  color: #60758D;
+  border-radius: 9px;
+  color: #556579;
   background: transparent;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+  transition: color var(--tr-fast), background var(--tr-fast), box-shadow var(--tr-fast);
 }
+
+.strategy-view-btn .icon { color: currentColor; }
 
 .strategy-view-btn:hover {
   color: var(--deep-route);
-  background: rgba(255, 255, 255, 0.58);
+  background: rgba(255, 255, 255, 0.62);
 }
 
 .strategy-view-btn.is-active {
-  color: var(--deep-route);
-  background: #FFFFFF;
-  box-shadow: 0 1px 3px rgba(16, 35, 61, 0.12);
+  color: #ffffff;
+  background: var(--deep-route);
+  box-shadow: 0 2px 7px rgba(16, 35, 61, 0.22);
+}
+
+.strategy-view-btn:focus-visible {
+  outline: 2px solid var(--route-blue);
+  outline-offset: 2px;
 }
 
 .engagement-mode-card {
@@ -5709,6 +5708,32 @@ body {
 
 #sk-auto-progress > div:first-child > div {
   background: linear-gradient(90deg, var(--waypoint-mint), var(--route-blue)) !important;
+}
+
+/* 全自動管理ビュー: 進行状況カードをモックの progress-summary 流儀へ寄せる
+   （CSS のみ・automation.js は不変。id ベースの override で実行ロジックに触れない） */
+#sk-auto-progress:not(.hidden) {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--studio-border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 6px 18px rgba(16, 35, 61, 0.06);
+}
+#sk-auto-progress > div:first-child {
+  height: 6px !important;
+  margin: 2px 0 10px !important;
+  border-radius: 999px !important;
+}
+#sk-auto-progress > div:nth-child(2) { /* progressLabel */
+  color: var(--ink-soft) !important;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+#sk-auto-progress > div:nth-child(3) { /* logArea */
+  border: 1px solid var(--border-soft) !important;
+  border-radius: 8px !important;
+  background: var(--studio-surface) !important;
 }
 
 .sk-shell-tabs {
@@ -5767,6 +5792,9 @@ body {
   border-color: transparent;
   color: #FFFFFF;
   background: transparent;
+  /* 旧 Wave3 `.tab-btn.is-active { box-shadow:none }` の実効値をこの層へ集約。
+     base `.tab-btn.is-active`(2071) の shadow-xs を打ち消し、下部ナビは影なし。 */
+  box-shadow: none;
 }
 
 .sk-shell-tabs .tab-btn.is-active::before {
@@ -5850,46 +5878,203 @@ textarea:focus-visible {
 /* =====================================================
    Mission Control — production shell from the approved PC mock
    ===================================================== */
-.mission-overview {
-  display: none;
-  width: 100%;
-  min-height: 100vh;
-  flex-direction: column;
-  overflow: hidden;
+/* 単一シェル: 全タブ共通のミッションヘッダ（畳める） */
+.mission-header {
   color: #edf5ff;
   background: var(--deep-route);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
 }
 
-body.is-mission-overview {
-  min-height: 100vh;
-  overflow: hidden;
-  background: var(--deep-route);
-}
-
-body.is-mission-overview .sk-shell { background: var(--deep-route); }
-
-body.is-mission-overview .mission-overview { display: flex; }
-body.is-mission-overview .legacy-shell,
-body.is-mission-overview .footer,
-body.is-mission-overview .skip-link { display: none !important; }
-body:not(.is-mission-overview) .mission-overview { display: none; }
-body:not(.is-mission-overview) .legacy-shell { display: contents; }
-
-.mission-panel-header {
+.mission-header-bar {
   display: flex;
   min-height: 56px;
   align-items: center;
-  justify-content: space-between;
-  padding: 11px 15px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 10px;
+  padding: 10px 14px;
 }
 
-.mission-panel-brand {
+.mission-brand {
+  min-width: 0;
+  gap: 9px;
+}
+
+.mission-brand-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1;
+}
+
+.mission-header .brand-text-main {
+  color: #edf5ff;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+.mission-header .brand-text-sub {
+  color: #9fb2c6;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+}
+
+.mission-collapsed-summary {
+  display: none;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.mission-collapsed-project {
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mission-collapsed-percent {
+  flex: 0 0 auto;
+  color: var(--waypoint-mint);
+  font: 800 12px/1 var(--font-num);
+}
+
+.mission-header-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.mission-header-toggle {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #aec0d2;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mission-header-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mission-header-chevron {
+  transform: rotate(90deg);
+  transition: transform 0.2s ease;
+}
+
+.mission-header-body {
+  padding-bottom: 4px;
+}
+
+/* 畳んだ状態: 1行（SK プロジェクト名 % ▼） */
+.mission-header.is-collapsed .mission-header-body { display: none; }
+.mission-header.is-collapsed .mission-brand-name { display: none; }
+.mission-header.is-collapsed #mission-settings { display: none; }
+.mission-header.is-collapsed .mission-collapsed-summary { display: flex; }
+.mission-header.is-collapsed .mission-header-chevron { transform: rotate(-90deg); }
+
+/* ••• から開く機能メニュー（旧 topbar のボタン群） */
+.mission-menu {
+  display: grid;
+  gap: 12px;
+  margin: 0 12px 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mission-menu.hidden { display: none; }
+
+.mission-menu-projects {
+  gap: 6px;
+  margin: 0;
+}
+
+.mission-menu-projects .project-switcher-label { color: #9fb2c6; }
+
+.mission-menu-projects select {
+  min-height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  color: #edf5ff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mission-menu-projects select option { color: var(--deep-route); background: #ffffff; }
+
+.mission-menu-projects .project-new-btn,
+.mission-menu-projects .project-new-confirm,
+.mission-menu-projects .project-new-cancel {
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #cfdbe8;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mission-menu-projects .project-new-form {
+  display: flex;
+  gap: 6px;
+}
+
+.mission-menu-projects .project-new-form input {
+  min-height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  color: #edf5ff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mission-menu-actions {
+  display: grid;
+  gap: 4px;
+}
+
+.mission-menu-item {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  color: #dbe6f1;
+  background: transparent;
   font-size: 12px;
-  letter-spacing: 0.035em;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mission-menu-item:hover { background: rgba(255, 255, 255, 0.09); }
+
+/* 戦略タブ先頭のミッション状況サマリ（段階2: 次の一手ヒーローカード） */
+.mission-strategy-summary {
+  margin: 12px 12px 14px;
+  padding-top: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(83, 200, 191, 0.22);
+  border-radius: 12px;
+  color: #edf5ff;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(62, 114, 232, 0.16), transparent 60%),
+    var(--deep-route);
+  box-shadow: 0 10px 26px rgba(16, 35, 61, 0.16);
+}
+
+.mission-strategy-summary .mission-activity-section {
+  flex: none;
+  max-height: 220px;
 }
 
 .mission-brand-mark {
@@ -6041,13 +6226,61 @@ body:not(.is-mission-overview) .legacy-shell { display: contents; }
 .mission-current-phase p { margin: 6px 0 0; color: #a0b2c4; font-size: 10px; line-height: 1.55; }
 
 .mission-state-details {
-  margin: 0 15px 10px;
-  padding: 10px 11px;
+  position: relative;
+  margin: 12px 15px 10px;
+  padding: 13px 14px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.045);
+  border-left: 3px solid var(--waypoint-mint);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(83, 200, 191, 0.13), rgba(62, 114, 232, 0.08));
 }
-.mission-state-details h2 { margin: 0 0 5px; color: #dce8f3; font-size: 10px; }
+.mission-state-details h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 9px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.mission-state-details h2::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--waypoint-mint);
+}
+/* state→表示のマップ: 算出済み status を CSS が受け取り、色だけでなく枠アクセントで状態を示す */
+.mission-state-details[data-status="setup"],
+.mission-state-details[data-status="ready"] { border-left-color: var(--route-blue); }
+.mission-state-details[data-status="setup"] h2::before,
+.mission-state-details[data-status="ready"] h2::before { background: var(--route-blue); }
+.mission-state-details[data-status="running"] { border-left-color: var(--waypoint-mint); }
+.mission-state-details[data-status="running"] h2::before {
+  background: var(--waypoint-mint);
+  box-shadow: 0 0 0 0 rgba(83, 200, 191, 0.5);
+  animation: missionStatePulse 1.8s ease-out infinite;
+}
+.mission-state-details[data-status="retrying"],
+.mission-state-details[data-status="blocked"],
+.mission-state-details[data-status="paused"] {
+  border-left-color: var(--signal-amber);
+  background: linear-gradient(135deg, rgba(241, 168, 74, 0.15), rgba(62, 114, 232, 0.06));
+}
+.mission-state-details[data-status="retrying"] h2::before,
+.mission-state-details[data-status="blocked"] h2::before,
+.mission-state-details[data-status="paused"] h2::before { background: var(--signal-amber); }
+.mission-state-details[data-status="completed"] { border-left-color: var(--waypoint-mint); }
+@keyframes missionStatePulse {
+  0% { box-shadow: 0 0 0 0 rgba(83, 200, 191, 0.5); }
+  70% { box-shadow: 0 0 0 6px rgba(83, 200, 191, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(83, 200, 191, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mission-state-details[data-status="running"] h2::before { animation: none !important; }
+}
 .mission-state-details dl { margin: 0; }
 .mission-state-details dl > div {
   display: grid;
@@ -6086,47 +6319,28 @@ body:not(.is-mission-overview) .legacy-shell { display: contents; }
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
-  padding: 12px 13px;
+  padding: 12px 13px 14px;
 }
 .mission-action-bar button {
-  min-height: 35px;
-  padding: 0 10px;
+  min-height: 40px;
+  padding: 0 14px;
   border: 0;
-  border-radius: 8px;
-  font-size: 10px;
+  border-radius: 9px;
+  font-size: 12px;
   font-weight: 800;
   cursor: pointer;
+  transition: filter var(--tr-fast), transform 0.08s var(--ease);
 }
-#mission-primary-action { color: var(--deep-route); background: var(--waypoint-mint); }
+.mission-action-bar button:active { transform: translateY(1px); }
+#mission-primary-action {
+  color: var(--deep-route);
+  background: var(--waypoint-mint);
+  box-shadow: 0 4px 12px rgba(83, 200, 191, 0.28);
+}
+#mission-primary-action:hover { filter: brightness(1.05); }
 #mission-secondary-actions { display: flex; gap: 6px; }
 #mission-secondary-actions button { color: #d6e1ec; background: rgba(255, 255, 255, 0.09); }
-
-.mission-panel-nav {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
-}
-.mission-panel-nav button {
-  min-height: 46px;
-  border: 0;
-  color: #91a5ba;
-  background: transparent;
-  font-size: 10px;
-  cursor: pointer;
-}
-.mission-panel-nav button.is-active { color: #ffffff; box-shadow: inset 0 2px var(--waypoint-mint); }
-
-.mission-back-btn {
-  min-width: 52px;
-  height: 30px;
-  padding: 0 8px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 7px;
-  color: #dce8f3;
-  background: rgba(255, 255, 255, 0.07);
-  font-size: 11px;
-  cursor: pointer;
-}
+#mission-secondary-actions button:hover { background: rgba(255, 255, 255, 0.16); }
 
 @media (max-height: 620px) {
   .mission-project-context { padding-block: 9px; }
@@ -6134,3 +6348,246 @@ body:not(.is-mission-overview) .legacy-shell { display: contents; }
   .mission-current-phase { padding-bottom: 8px; }
   .mission-state-details { padding-block: 8px; }
 }
+
+/* =====================================================
+   段階4: リサーチ・成果物タブ新装（デザイントークン再構築）
+   機能・情報・JS 配線は不変。カード/ボタン/見出し/ステップの
+   見た目のみ、戦略タブと同じ航路トークンへ寄せる。
+   スコープは #tab-research / .slides-* に限定し、戦略タブの
+   共有部品（.prompt-item 等）へは波及させない。
+   ===================================================== */
+
+/* ── リサーチタブ: カード新装 ─────────────────────────── */
+#tab-research .research-card,
+#tab-research .research-steps {
+  margin: 12px 12px 0;
+  padding: 16px;
+  border: 1px solid var(--studio-border);
+  border-left: 3px solid var(--route-blue);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 6px 18px rgba(16, 35, 61, 0.06);
+}
+#tab-research .research-steps { margin-bottom: 14px; }
+
+/* 見出しは Deep Route。左のバーは Route Blue(現在地/航路) */
+#tab-research .section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  color: var(--deep-route);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+#tab-research .section-title::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--route-blue);
+}
+#tab-research .section-lede,
+#tab-research .muted-note {
+  margin: 0 0 12px;
+  color: var(--ink-mute);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* フォーム行は白カード上でトークンに寄せる（配線不変） */
+#tab-research .form-row { margin-bottom: 12px; }
+#tab-research .form-label {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 700;
+}
+#tab-research .research-card input[type="text"],
+#tab-research .research-card select {
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--paper-sky, #F5F7FA);
+}
+#tab-research .research-card input[type="text"]:focus,
+#tab-research .research-card select:focus {
+  border-color: var(--route-blue);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(62, 114, 232, 0.14);
+}
+#tab-research .principles-soft {
+  margin: 6px 0 0 18px;
+  color: var(--ink-soft);
+}
+
+/* ── 3ステップの航路: 1次→2次→統合 を状態ドット＋レールで ── */
+#research-steps-list.prompts-list {
+  position: relative;
+  gap: 12px;
+  padding-left: 30px;
+}
+/* 連続レール（Waypoint Mint → Route Blue のグラデーション） */
+#research-steps-list.prompts-list::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 18px;
+  bottom: 18px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(var(--waypoint-mint), var(--route-blue));
+}
+#research-steps-list .prompt-item {
+  position: relative;
+  border: 1px solid var(--studio-border);
+  border-left: 3px solid var(--route-blue);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(16, 35, 61, 0.05);
+}
+#research-steps-list .prompt-item:hover {
+  border-left-color: var(--waypoint-mint);
+  box-shadow: 0 4px 12px rgba(16, 35, 61, 0.08);
+}
+/* 番号バッジをレール上の航路ノード（状態ドット）に。
+   left は list padding-left(30) と .prompt-item の border-left(3px) を相殺し、
+   ノード中心(≈11px)を上のレール(left:11px)に合わせる。 */
+#research-steps-list .research-step-no {
+  position: absolute;
+  left: -33px;
+  top: 13px;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--route-blue);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 0 0 3px rgba(62, 114, 232, 0.14);
+}
+/* 進行のグラデーション: 1次=Mint / 統合=Blue（装飾） */
+#research-steps-list .prompt-item:nth-child(1) .research-step-no {
+  background: var(--waypoint-mint);
+  box-shadow: 0 0 0 3px rgba(83, 200, 191, 0.16);
+}
+#research-steps-list .prompt-item:nth-child(2) .research-step-no {
+  background: #49A0C8;
+  box-shadow: 0 0 0 3px rgba(73, 160, 200, 0.16);
+}
+#research-steps-list .prompt-label {
+  color: var(--deep-route);
+  font-weight: 700;
+}
+
+/* =====================================================
+   段階4: 成果物（スライド）タブ新装
+   .slides-* はこのタブ専用クラスのため素直に再構築。
+   ===================================================== */
+#tab-diagram .slides-hero {
+  margin: 12px 12px 0;
+  padding: 15px 16px;
+  border: 1px solid rgba(83, 200, 191, 0.28);
+  border-radius: 12px;
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgba(62, 114, 232, 0.1), transparent 60%),
+    linear-gradient(135deg, rgba(83, 200, 191, 0.1), var(--surface) 70%);
+  box-shadow: 0 8px 22px rgba(16, 35, 61, 0.07);
+}
+#tab-diagram .slides-hero-eyebrow {
+  color: var(--route-blue);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+#tab-diagram .slides-hero-title {
+  color: var(--deep-route);
+  font-size: 15px;
+  font-weight: 800;
+}
+#tab-diagram .slides-hero-meta {
+  color: var(--ink-mute);
+  font-size: 11px;
+}
+
+#tab-diagram .slides-board {
+  margin: 12px 12px 0;
+  padding-bottom: 6px;
+  border: 1px solid var(--studio-border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgba(16, 35, 61, 0.05);
+}
+#tab-diagram .slides-board:last-of-type { margin-bottom: 14px; }
+#tab-diagram .slides-board-head {
+  padding: 12px 16px 6px;
+  border-bottom: 1px solid var(--border-soft);
+}
+#tab-diagram .slides-board-title {
+  color: var(--deep-route);
+  font-size: 13px;
+  font-weight: 800;
+}
+#tab-diagram .slides-board-sub { color: var(--ink-mute); font-size: 11px; }
+
+#tab-diagram .slides-row,
+#tab-diagram .slides-prompt-row {
+  border-top: 1px solid var(--border-soft);
+}
+#tab-diagram .slides-row:first-child,
+#tab-diagram .slides-prompt-row:first-child { border-top: 0; }
+#tab-diagram .slides-row-label,
+#tab-diagram .slides-prompt-label { color: var(--ink); }
+
+/* Studio Prompt の番号を航路ノードに寄せる */
+#tab-diagram .slides-prompt-no {
+  background: var(--waypoint-mint);
+  color: #ffffff;
+  font-weight: 800;
+}
+#tab-diagram .slides-prompt-row.is-warn .slides-prompt-no { background: var(--signal-amber); }
+#tab-diagram .slides-prompt-row.is-warn .slides-prompt-note { color: var(--signal-amber); }
+
+/* ソースパックの pill を航路トーンに */
+#tab-diagram .slides-row-pill.is-source {
+  background: rgba(83, 200, 191, 0.16);
+  color: var(--marigold-deep);
+}
+#tab-diagram .slides-action-btn {
+  border: 1px solid var(--studio-border);
+  border-radius: 6px;
+  color: var(--route-blue);
+}
+#tab-diagram .slides-action-btn:hover {
+  border-color: var(--route-blue);
+  background: rgba(62, 114, 232, 0.08);
+  color: var(--route-blue);
+}
+#tab-diagram .slides-hero-cta {
+  color: var(--deep-route);
+  background: var(--waypoint-mint);
+  border: 0;
+}
+#tab-diagram .slides-hero-cta:hover { filter: brightness(1.05); }
+
+@media (prefers-reduced-motion: reduce) {
+  #research-steps-list .prompt-item,
+  #tab-diagram .slides-action-btn { transition: none !important; }
+}
+
+/* =====================================================
+   段階5: 初期設定の非常設化・重複表示の退避
+   ・完了時に #setup / #setup-status-strip を非表示（JS 側で制御）
+   ・••• メニューの「初期設定を開く」導線は既存 .mission-menu-item を流用
+   ・ミッションヘッダと重複する status-compactbar のチップと、
+     技術寄りのエントリーモード読み出しを常時表示から退避（隠す）
+   ===================================================== */
+/* 進捗(N/M)と 次:§N はミッションヘッダの進捗%/現在フェーズ/航路ドットと
+   完全重複 → 情報価値ゼロのため非表示。入口(エントリーモード)は技術寄りの
+   読み出しのため常時表示から退避。店舗名と主要CTAは残す（保守的）。 */
+#status-compact-progress,
+#status-compact-next,
+#status-compact-mode { display: none; }
