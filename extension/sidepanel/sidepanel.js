@@ -2229,12 +2229,37 @@ function renderMissionControl() {
 function publishMissionSnapshot(phases, filledSet, partialSet, hasBusiness, projectName) {
   try {
     if (!chrome?.storage?.local) return;
+    // 現在地（§N）統一: 全画面ホームが薄バーと同じフェーズを指せるよう、選択フェーズ(lastPhase)基準の
+    // 番号を publish する（薄バー renderSlimBar と同一の findModeAdjustedPhaseById(lastPhase) || currentPhase）。
+    const total = phases.length;
+    const completed = phases.filter((phase) => filledSet.has(String(phase.no))).length;
+    const currentPhase =
+      phases.find((phase) => partialSet.has(String(phase.no)) && !filledSet.has(String(phase.no))) ||
+      phases.find((phase) => !filledSet.has(String(phase.no))) ||
+      phases[phases.length - 1] ||
+      null;
+    const selected = findModeAdjustedPhaseById(state.settings.lastPhase) || currentPhase;
+    const task = getLiveMissionTask();
+    const running = task?.status === 'running' || task?.status === 'retrying';
+    // 進め方（自分で/全自動）未選択の判定は renderCurrentPhaseCard の needs-mode 規則と同一。
+    const needsMode =
+      hasBusiness && !state.settings[ENGAGEMENT_MODE_KEY] && completed < total && !running;
+    // 案件一覧は既にサイドパネルが同期している #project-select の DOM から読む（二重実装を避ける）。
+    const projectSelect = document.getElementById('project-select');
+    const projects = projectSelect
+      ? [...projectSelect.options].filter((opt) => opt.value).map((opt) => ({ id: opt.value, label: opt.textContent || '' }))
+      : [];
+    const activeProjectId = projectSelect?.value || '';
     const snapshot = {
       phases: phases.map((phase) => ({ no: phase.no, title: phase.title, frame: phase.frame || '' })),
       filledNos: [...filledSet],
       partialNos: [...partialSet],
       hasBusiness: !!hasBusiness,
       projectName: projectName || '',
+      selectedNo: selected ? String(selected.no) : '',
+      needsMode: !!needsMode,
+      projects,
+      activeProjectId,
       updatedAt: Date.now(),
     };
     const signature = JSON.stringify({ ...snapshot, updatedAt: 0 });
@@ -2275,11 +2300,13 @@ function applyMissionHeaderCollapsed() {
 
 function setMissionMenuOpen(open) {
   const menu = document.getElementById('mission-menu');
-  const btn = document.getElementById('mission-settings');
   if (!menu) return;
   const next = open === undefined ? menu.classList.contains('hidden') : !!open;
   menu.classList.toggle('hidden', !next);
-  if (btn) btn.setAttribute('aria-expanded', String(next));
+  // ••• (旧ヘッダ) と薄バーの ☰ / ••• の aria-expanded を同期する。
+  for (const id of ['mission-settings', 'slim-menu', 'slim-more']) {
+    document.getElementById(id)?.setAttribute('aria-expanded', String(next));
+  }
 }
 
 function bindMissionControl() {
@@ -2291,7 +2318,7 @@ function bindMissionControl() {
   document.addEventListener('click', function (event) {
     const menu = document.getElementById('mission-menu');
     if (!menu || menu.classList.contains('hidden')) return;
-    if (menu.contains(event.target) || event.target.closest('#mission-settings')) return;
+    if (menu.contains(event.target) || event.target.closest('#mission-settings, #slim-menu, #slim-more')) return;
     setMissionMenuOpen(false);
   });
   document.addEventListener('keydown', function (event) {
@@ -2333,6 +2360,28 @@ function bindMissionControl() {
 
   // 段階3: 全自動管理ビュー内の「全画面で見守る」ボタン。
   document.getElementById('mission-fullscreen-open')?.addEventListener('click', openMissionFullscreen);
+
+  // 薄型パネル v2: 薄バーの ☰ / ••• → ドロワー(メニュー)トグル、中央タップ → 全画面ホーム
+  document.getElementById('slim-menu')?.addEventListener('click', function (event) {
+    event.stopPropagation();
+    setMissionMenuOpen();
+  });
+  document.getElementById('slim-more')?.addEventListener('click', function (event) {
+    event.stopPropagation();
+    setMissionMenuOpen();
+  });
+  document.getElementById('slim-center')?.addEventListener('click', openMissionFullscreen);
+
+  // ドロワーの「全自動を管理」→ 全自動タブへ（進め方スイッチの退避先）
+  document.getElementById('menu-automation')?.addEventListener('click', function () {
+    setMissionMenuOpen(false);
+    switchTab('automation');
+  });
+
+  // 戦略タブ: 現在のフェーズ ⇄ フェーズ一覧 セグメントトグル
+  for (const btn of document.querySelectorAll('#strategy-phase-toggle .phase-toggle-btn')) {
+    btn.addEventListener('click', () => setPhaseView(btn.dataset.phaseView));
+  }
 }
 
 function renderStableShell(reason) {
@@ -2347,6 +2396,8 @@ function renderStableShell(reason) {
   renderStatusCluster();
   renderCurrentLocationBar();
   renderMissionControl();
+  renderSlimBar();
+  renderCurrentPhaseCard();
   syncEmptyStates();
 }
 
@@ -3207,6 +3258,10 @@ function renderPhaseList() {
       state.settings.lastPhase = phase.id;
       persistSettings();
       renderPhaseList();
+      renderCurrentPhaseCard();
+      renderSlimBar();
+      // 一覧から行を選んだら、そのフェーズの現在フェーズカードへ戻る（設計 §2-4）。
+      setPhaseView('card');
       emit('phase-changed', phase);
     };
     const statusLabel = isFilled ? ' 完了' : isPartial ? ' 入力あり・仕上げ待ち' : ' 未着手';
@@ -3641,11 +3696,288 @@ function findChapterRange(doc, phaseNo) {
   return { status: 'ok', startIndex, endIndex: later[0].startIndex };
 }
 
+// =====================================================
+// 薄型パネル v2: 薄バー + 現在フェーズカード（1画面1目的）
+// 既存の renderMissionControl / phase 選択(lastPhase) が算出する state を
+// そのまま表示に写す（新しい状態機械は作らない）。描画先を薄バー・カードへ振り替える。
+// =====================================================
+
+function _skIcon(hrefId, cls) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', cls || 'icon icon-xs');
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', hrefId);
+  svg.appendChild(use);
+  return svg;
+}
+
+// 薄バー/カードが共有する進捗・現在フェーズ算出（renderMissionControl と同じ規則）。
+function getSlimProgressModel() {
+  const phases = getVisiblePhases();
+  const filledSet = new Set((state.progressFilledNos || []).map(String));
+  const partialSet = new Set((state.progressPartialNos || []).map(String));
+  const total = phases.length || DEFAULT_PHASE_TOTAL;
+  const completed = phases.filter((p) => filledSet.has(String(p.no))).length;
+  const partial = phases.filter((p) => partialSet.has(String(p.no)) && !filledSet.has(String(p.no))).length;
+  const percent = completed >= total ? 100 : Math.round(((completed + partial * 0.5) / total) * 100);
+  const currentPhase =
+    phases.find((p) => partialSet.has(String(p.no)) && !filledSet.has(String(p.no))) ||
+    phases.find((p) => !filledSet.has(String(p.no))) ||
+    phases[phases.length - 1] || null;
+  return { phases, filledSet, partialSet, total, completed, partial, percent, currentPhase };
+}
+
+function getSetupDoneCount() {
+  const oauthConnected = !!(window._setupStripCfg && window._setupStripCfg.oauthConnected);
+  const hasBusiness = !!(state.settings.industryLabel && state.settings.storeName);
+  const phase0Done = !!(state.progressFilledNos && state.progressFilledNos.map(String).includes('0'));
+  return [oauthConnected, hasBusiness, phase0Done].filter(Boolean).length;
+}
+
+// 薄バー中央の「§N タイトル ％」＋進捗ヘアラインを更新（状態別ラベル: 設計 §2-6）。
+function renderSlimBar() {
+  const phaseEl = document.getElementById('slim-center-phase');
+  const percentEl = document.getElementById('slim-center-percent');
+  const fill = document.getElementById('slim-progress-fill');
+  const prog = document.getElementById('slim-progress');
+  if (!phaseEl || !percentEl) return;
+  const { percent, currentPhase, completed, total } = getSlimProgressModel();
+  const industry = getIndustryDisplayLabel();
+  const store = state.settings.storeName || '';
+  const hasBusiness = !!(industry && store);
+  const task = getLiveMissionTask();
+  const status = completed >= total ? 'completed' : task?.status || 'ready';
+  const selected = findModeAdjustedPhaseById(state.settings.lastPhase) || currentPhase;
+
+  let phaseLabel;
+  if (!hasBusiness) {
+    phaseLabel = '準備';
+  } else if (status === 'completed') {
+    phaseLabel = '戦略完成';
+  } else if (status === 'running' || status === 'retrying') {
+    phaseLabel = currentPhase ? `§${currentPhase.no} 実行中` : '実行中';
+  } else if (selected) {
+    phaseLabel = `§${selected.no} ${selected.title}`;
+  } else {
+    phaseLabel = 'STRATEGY-KIT';
+  }
+  phaseEl.textContent = phaseLabel;
+  percentEl.textContent = hasBusiness ? `${percent}%` : `${getSetupDoneCount()}/3`;
+  if (fill) fill.style.width = `${percent}%`;
+  if (prog) prog.setAttribute('aria-valuenow', String(percent));
+}
+
+// 戦略タブの表示モード切替（現在フェーズカード ⇄ フェーズ一覧）。
+function setPhaseView(view) {
+  const tab = document.getElementById('tab-phases');
+  if (!tab) return;
+  const isList = view === 'list';
+  tab.classList.toggle('is-phase-list', isList);
+  tab.classList.toggle('is-phase-card', !isList);
+  for (const btn of document.querySelectorAll('#strategy-phase-toggle .phase-toggle-btn')) {
+    const on = btn.dataset.phaseView === view;
+    btn.classList.toggle('is-active', on);
+    btn.setAttribute('aria-pressed', String(on));
+  }
+  if (isList) renderPhaseList();
+}
+
+// カードの「プロンプトをコピー」: 選択フェーズの第1プロンプトを ★置換/要約付与してコピー
+// （右クリックメニュー・Cmd+Enter と同一挙動）。
+async function copyPhasePrompt(phase) {
+  if (!phase || !phase.prompts || !phase.prompts.length) {
+    showToast('このフェーズにコピー可能なプロンプトがありません', true);
+    return;
+  }
+  const raw = phase.prompts[0].body || phase.prompts[0].text || '';
+  if (!raw) return;
+  try {
+    const text = await enrichWithMasterSummaries(raw);
+    await navigator.clipboard.writeText(text);
+    showToast('プロンプトをコピーしました');
+  } catch (_) {
+    showToast('コピーに失敗しました', true);
+  }
+}
+
+function _cardActionBtn(label, hrefId, cls, onClick) {
+  const btn = el('button', { class: cls, type: 'button' });
+  if (hrefId) btn.appendChild(_skIcon(hrefId, 'icon icon-xs'));
+  btn.appendChild(el('span', { text: label }));
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+// カード下ミニナビ: ‹ §N-1 / フェーズ一覧 ▾ / §N+1 ›
+function _cardMiniNav(selected, phases) {
+  const idx = phases.findIndex((p) => p.id === selected.id);
+  const prev = idx > 0 ? phases[idx - 1] : null;
+  const next = idx >= 0 && idx < phases.length - 1 ? phases[idx + 1] : null;
+  const selectPhase = (phase) => {
+    state.settings.lastPhase = phase.id;
+    persistSettings();
+    renderPhaseList();
+    renderCurrentPhaseCard();
+    renderSlimBar();
+    emit('phase-changed', phase);
+  };
+  const prevBtn = el('button', {
+    class: 'current-phase-nav-btn is-prev',
+    type: 'button',
+    attrs: prev ? { 'aria-label': `§${prev.no} ${prev.title} へ戻る` } : { disabled: 'true' },
+  }, '‹ ' + (prev ? `§${prev.no} ${prev.title}` : ''));
+  if (prev) prevBtn.addEventListener('click', () => selectPhase(prev));
+  const listBtn = el('button', {
+    class: 'current-phase-nav-btn is-list',
+    type: 'button',
+    text: 'フェーズ一覧 ▾',
+    attrs: { 'aria-label': 'フェーズ一覧を開く' },
+  });
+  listBtn.addEventListener('click', () => setPhaseView('list'));
+  const nextBtn = el('button', {
+    class: 'current-phase-nav-btn is-next',
+    type: 'button',
+    attrs: next ? { 'aria-label': `§${next.no} ${next.title} へ進む` } : { disabled: 'true' },
+  }, (next ? `§${next.no} ${next.title}` : '') + ' ›');
+  if (next) nextBtn.addEventListener('click', () => selectPhase(next));
+  return el('div', { class: 'current-phase-nav' }, prevBtn, listBtn, nextBtn);
+}
+
+// 現在フェーズカード本体（状態別: 未設定/手動/全自動/完了 = 設計 §2-6）。
+function renderCurrentPhaseCard() {
+  const card = document.getElementById('current-phase-card');
+  if (!card) return;
+  const { phases, filledSet, partialSet, total, completed, currentPhase } = getSlimProgressModel();
+  const industry = getIndustryDisplayLabel();
+  const store = state.settings.storeName || '';
+  const hasBusiness = !!(industry && store);
+  const task = getLiveMissionTask();
+  const status = completed >= total ? 'completed' : task?.status || 'ready';
+
+  const tab = document.getElementById('tab-phases');
+  if (tab) {
+    tab.classList.toggle('needs-mode',
+      hasBusiness && !state.settings[ENGAGEMENT_MODE_KEY] && completed < total &&
+      status !== 'running' && status !== 'retrying');
+  }
+
+  clearChildren(card);
+
+  // 未設定: はじめに 3ステップ CTA
+  if (!hasBusiness) {
+    card.dataset.cardState = 'setup';
+    card.append(
+      el('span', { class: 'cpc-eyebrow', text: 'はじめに · 3ステップ' }),
+      el('h2', { class: 'cpc-title', text: '戦略づくりの準備をしましょう' }),
+      el('p', { class: 'current-phase-desc', text: 'Google 連携・事業情報・§0 の3つを整えると、プロンプト操作を始められます。' })
+    );
+    const bar = el('div', { class: 'current-phase-actions' });
+    bar.appendChild(_cardActionBtn('初期設定を開く', '#i-check', 'current-phase-primary', () => {
+      document.getElementById('open-setup')?.click();
+    }));
+    card.appendChild(bar);
+    return;
+  }
+
+  // 完了: 完了カード
+  if (status === 'completed') {
+    card.dataset.cardState = 'completed';
+    card.append(
+      el('span', { class: 'cpc-eyebrow', text: '戦略完成 · 100%' }),
+      el('h2', { class: 'cpc-title', text: '戦略書が完成しました' }),
+      el('p', { class: 'current-phase-desc', text: '数値と固有名詞を最終確認し、戦略書・成果物として書き出せます。' })
+    );
+    const bar = el('div', { class: 'current-phase-actions' });
+    bar.appendChild(_cardActionBtn('戦略書を開く', '#i-doc', 'current-phase-primary', () => {
+      document.getElementById('open-master-doc')?.click();
+    }));
+    const sub = el('div', { class: 'current-phase-subactions' });
+    sub.appendChild(_cardActionBtn('成果物タブ', '#i-diagram', 'current-phase-secondary', () => switchTab('diagram')));
+    card.append(bar, sub);
+    return;
+  }
+
+  // 全自動: 実行中カード（操作はパネル委譲／全画面は表示専用の現行方針を踏襲）
+  if (task && (status === 'running' || status === 'retrying' || status === 'blocked' || status === 'paused')) {
+    card.dataset.cardState = 'automation';
+    const runningish = status === 'running' || status === 'retrying';
+    card.append(
+      el('span', { class: 'cpc-eyebrow', text: missionStatusLabel(status) }),
+      el('h2', { class: 'cpc-title', text: task.taskLabel || (currentPhase ? `§${currentPhase.no} ${currentPhase.title}` : '全自動で処理中') }),
+      el('p', { class: 'current-phase-desc', text: task.lastEvent || '全自動で処理を進めています。' })
+    );
+    const bar = el('div', { class: 'current-phase-actions' });
+    bar.appendChild(_cardActionBtn('全画面で見守る', '#i-auto', 'current-phase-primary', openMissionFullscreen));
+    const sub = el('div', { class: 'current-phase-subactions' });
+    if (runningish) {
+      sub.appendChild(_cardActionBtn('一時停止 / 停止', '#i-warn', 'current-phase-secondary', () => {
+        switchTab('automation');
+        requestAnimationFrame(() => document.getElementById('sk-auto-cancel')?.click());
+      }));
+    } else {
+      sub.appendChild(_cardActionBtn('再開', '#i-arrow', 'current-phase-secondary', () => switchTab('automation')));
+    }
+    card.append(bar, sub);
+    return;
+  }
+
+  // 手動: 現在フェーズ（選択中フェーズ）カード
+  card.dataset.cardState = 'phase';
+  const selected = findModeAdjustedPhaseById(state.settings.lastPhase) || currentPhase || phases[0];
+  if (!selected) return;
+  const isFilled = filledSet.has(String(selected.no));
+  const isPartial = !isFilled && partialSet.has(String(selected.no));
+
+  card.appendChild(el('span', { class: 'cpc-eyebrow', text: '現在のフェーズ · 手動で進める' }));
+  card.appendChild(el('h2', { class: 'cpc-title', text: `§${selected.no} ${selected.title}` }));
+  if (selected.frame) card.appendChild(el('p', { class: 'current-phase-desc', text: selected.frame }));
+
+  const chips = el('div', { class: 'current-phase-chips' });
+  if (selected.estimatedMinutes) chips.appendChild(el('span', { class: 'current-phase-chip', text: `所要 ${selected.estimatedMinutes}分` }));
+  chips.appendChild(el('span', {
+    class: 'current-phase-chip ' + (isFilled ? 'is-filled' : isPartial ? 'is-partial' : 'is-todo'),
+    text: isFilled ? '記入済み' : isPartial ? '下書きあり' : '未着手',
+  }));
+  card.appendChild(chips);
+
+  // next move 行を吸収（選択フェーズに即した1行）
+  const nm = el('div', { class: 'current-phase-nextmove' });
+  nm.appendChild(_skIcon('#i-spark', 'icon icon-sm current-phase-nextmove-mark'));
+  const nmBody = el('div', { class: 'current-phase-nextmove-body' });
+  nmBody.appendChild(el('span', { class: 'current-phase-nextmove-eyebrow', text: 'NEXT MOVE' }));
+  nmBody.appendChild(el('span', {
+    class: 'current-phase-nextmove-text',
+    text: isFilled
+      ? '記入済み。内容を見直すか、次のフェーズへ進めます。'
+      : isPartial
+        ? '下書きを仕上げます。プロンプトをコピーして AI に貼り付け。'
+        : 'プロンプトをコピーして AI に貼り付け。',
+  }));
+  nm.appendChild(nmBody);
+  card.appendChild(nm);
+
+  // 主アクション: プロンプトをコピー
+  const primaryBar = el('div', { class: 'current-phase-actions' });
+  primaryBar.appendChild(_cardActionBtn('プロンプトをコピー', '#i-copy', 'current-phase-primary', () => copyPhasePrompt(selected)));
+  card.appendChild(primaryBar);
+
+  // 副アクション: AIで開く / DRAFT保存（既存 openOrFocusAiTab / createOrOpenDraftDoc を流用）
+  const aiTarget = selected.prompts?.[0]?.for || selected.defaultFor;
+  const sub = el('div', { class: 'current-phase-subactions' });
+  sub.appendChild(_cardActionBtn('AIで開く', '#i-external', 'current-phase-secondary', () => openOrFocusAiTab(aiTarget)));
+  sub.appendChild(_cardActionBtn('DRAFT保存', '#i-edit', 'current-phase-secondary', () => createOrOpenDraftDoc()));
+  card.appendChild(sub);
+
+  // カード下ミニナビ
+  card.appendChild(_cardMiniNav(selected, phases));
+}
+
 function renderCurrentPhase() {
-  // Wave 4 Phase 1: current-phase section 廃止。展開エリアは phase-list の selected row に統合済み。
-  // renderPhaseList() が accordion を含めて描画するので、単独呼び出しは renderPhaseList に委譲する。
-  // ただし renderPhaseList() の直後に呼ばれる場合は二重描画を避けるため、
-  // phase-list に selected row が既にあれば何もしない。
+  // 薄型パネル v2: 選択変更のたびに現在フェーズカードと薄バーを更新する。
+  renderCurrentPhaseCard();
+  renderSlimBar();
+  // フェーズ一覧(アコーディオン)は選択行を展開して表示するため、未描画なら list を作る。
   const activeRow = document.querySelector('.phase-row[aria-current="step"] .phase-row-expanded');
   if (activeRow) return; // 既に描画済み
   renderPhaseList();
@@ -4802,6 +5134,8 @@ window.SK_CORE = {
       if (areaName === 'local' && changes[MISSION_TASK_STORAGE_KEY]) {
         missionTaskSnapshot = changes[MISSION_TASK_STORAGE_KEY].newValue || null;
         renderMissionControl();
+        renderSlimBar();
+        renderCurrentPhaseCard();
       }
       if (areaName === 'local' && changes.sk_hearing_rawtext_v012_local) {
         state.modeLocal[HEARING_RAWTEXT_LOCAL_KEY] = String(changes.sk_hearing_rawtext_v012_local.newValue || '');
@@ -4817,10 +5151,16 @@ window.SK_CORE = {
       // automation.js は不変。ボタン実体が無い/未起動なら何も起きない（正直に無反応）。
       if (areaName === 'local' && changes[MISSION_COMMAND_STORAGE_KEY]) {
         const command = changes[MISSION_COMMAND_STORAGE_KEY].newValue;
-        if (command && command.action === 'cancel' && command.ts && command.ts !== lastMissionCommandTs) {
+        if (command && command.ts && command.ts !== lastMissionCommandTs) {
           lastMissionCommandTs = command.ts;
-          switchTab('automation');
-          requestAnimationFrame(() => document.getElementById('sk-auto-cancel')?.click());
+          if (command.action === 'cancel') {
+            switchTab('automation');
+            requestAnimationFrame(() => document.getElementById('sk-auto-cancel')?.click());
+          } else if (command.action === 'switchProject' && command.projectId && window.SK_STATE?.project) {
+            // 全画面ホームからの案件切替: サイドパネル既存の切替経路（activate → reload）へ委譲する。
+            // reload 後の renderMissionControl が新案件の missionSnapshot を publish し、ホームへ反映される。
+            window.SK_STATE.project.activate(command.projectId).then(() => window.location.reload());
+          }
         }
       }
       if (areaName !== 'sync') return;

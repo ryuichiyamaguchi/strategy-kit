@@ -89,4 +89,4 @@ for f in content/*.js; do node --check "$f"; done
 
 ## バージョン
 
-v0.12.27（2026-07-14 更新）
+v0.12.28（2026-07-15 更新）

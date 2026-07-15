@@ -6591,3 +6591,347 @@ textarea:focus-visible {
 #status-compact-progress,
 #status-compact-next,
 #status-compact-mode { display: none; }
+
+/* =====================================================
+   薄型パネル v2（段階A）: 唯一の常設クローム＝薄バー40px＋進捗ヘアライン3px。
+   紺の3段クローム（ミッションヘッダ大型部／status塊／次の一手ヒーロー）を
+   「常設表示から撤去」＝ display で不可視化する（DOM・機能・JS 配線は温存。
+   情報の行き先は薄バー・現在フェーズカード・全画面ホーム＝設計 §3 の移管マップ）。
+   このブロックは実効テーマ層の最後尾＝後勝ちで適用される。
+   ===================================================== */
+
+/* ── 紺クローム3段を常設表示から撤去（DOM 温存・display のみ） ── */
+/* ミッションヘッダ: 器を display:contents 化して #mission-menu(ドロワー)だけ生かす */
+.mission-header { display: contents; }
+.mission-header-bar { display: none; }
+.mission-header-body { display: none; }
+/* status塊(contextbar/nextaction/compactbar) */
+#status-cluster { display: none; }
+.sk-shell-context { background: transparent; }
+/* 次の一手ヒーロー（戦略タブ先頭） */
+#tab-phases .mission-strategy-summary { display: none; }
+/* 進め方スイッチ/engagement は「必要時のみ」原則: 既定は退避（機能は ☰「全自動を管理」と
+   needs-mode 時の engagement カードで到達可能） */
+#tab-phases .strategy-view-switch { display: none; }
+#tab-phases #engagement-mode { display: none; }
+#tab-phases.needs-mode #engagement-mode { display: block; margin: 0 12px 12px; }
+/* 初期設定 CTA はカード枠へ移設したため、常設の setup-status-strip は退避（DOM 温存） */
+#setup-status-strip { display: none; }
+
+/* ── 薄バー本体（白地・高さ40px・固定） ── */
+body { padding-top: 43px; }
+.slim-bar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 150;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  height: 40px;
+  border-bottom: 1px solid var(--studio-border);
+  background: var(--studio-surface);
+}
+.slim-bar-icon-btn {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  color: var(--ink-soft);
+  background: transparent;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.slim-bar-icon-btn:hover { color: var(--deep-route); background: rgba(16, 35, 61, 0.05); }
+.slim-bar-more { font-weight: 800; letter-spacing: 0.06em; }
+.slim-bar-center {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.slim-bar-center:hover { background: rgba(16, 35, 61, 0.04); }
+.slim-bar-center:focus-visible { outline: 2px solid var(--route-blue); outline-offset: -2px; }
+.slim-bar-mark {
+  display: grid;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--deep-route);
+  background: var(--waypoint-mint);
+  font-size: 9px;
+  font-weight: 900;
+}
+.slim-bar-phase {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--deep-route);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.slim-bar-percent {
+  flex: 0 0 auto;
+  color: var(--marigold-deep);
+  font: 800 12px/1 var(--font-num, inherit);
+}
+.slim-bar-caret { flex: 0 0 auto; color: var(--ink-faint); }
+.slim-progress {
+  position: absolute;
+  right: 0;
+  bottom: -3px;
+  left: 0;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(16, 35, 61, 0.08);
+}
+.slim-progress-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--waypoint-mint), var(--route-blue));
+  transition: width 0.25s ease;
+}
+
+/* ── ドロワー（薄バーの ☰ / ••• から開く。旧 #mission-menu を白いドロップダウンに再配色） ── */
+.mission-header .mission-menu,
+#mission-menu {
+  position: fixed;
+  top: 46px;
+  right: 8px;
+  left: 8px;
+  z-index: 160;
+  margin: 0;
+  border: 1px solid var(--studio-border);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(16, 35, 61, 0.18);
+}
+#mission-menu.hidden { display: none; }
+.mission-menu-projects .project-switcher-label { color: var(--ink-mute); }
+.mission-menu-projects select {
+  border: 1px solid var(--studio-border);
+  color: var(--deep-route);
+  background: var(--studio-surface);
+}
+.mission-menu-projects select option { color: var(--deep-route); background: #ffffff; }
+.mission-menu-projects .project-new-btn,
+.mission-menu-projects .project-new-confirm,
+.mission-menu-projects .project-new-cancel {
+  border: 1px solid var(--studio-border);
+  color: var(--ink-soft);
+  background: var(--studio-surface);
+}
+.mission-menu-projects .project-new-form input {
+  border: 1px solid var(--studio-border);
+  color: var(--deep-route);
+  background: var(--studio-surface);
+}
+.mission-menu-item { color: var(--deep-route); }
+.mission-menu-item:hover { background: rgba(16, 35, 61, 0.06); }
+
+/* ── 現在地バー（紺前提の配色を白地向けに補正） ── */
+.current-location-bar { padding: 6px 12px 0; background: transparent; }
+.current-location-inner {
+  color: var(--deep-route);
+  background: rgba(241, 168, 74, 0.12);
+}
+.current-location-text { color: var(--deep-route); }
+
+/* ── 戦略タブ: 現在のフェーズ ⇄ フェーズ一覧 セグメントトグル ── */
+.strategy-phase-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 12px 12px 0;
+  padding: 4px;
+  border: 1px solid var(--studio-border);
+  border-radius: 12px;
+  background: #E8EEF4;
+}
+.phase-toggle-btn {
+  min-height: 40px;
+  border: 0;
+  border-radius: 9px;
+  color: #556579;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color var(--tr-fast), background var(--tr-fast);
+}
+.phase-toggle-btn:hover { color: var(--deep-route); background: rgba(255, 255, 255, 0.62); }
+.phase-toggle-btn.is-active {
+  color: #ffffff;
+  background: var(--deep-route);
+  box-shadow: 0 2px 7px rgba(16, 35, 61, 0.22);
+}
+.phase-toggle-btn:focus-visible { outline: 2px solid var(--route-blue); outline-offset: 2px; }
+
+/* ── 表示モード: card=カードのみ / list=トグル＋フェーズ一覧のみ ── */
+#tab-phases.is-phase-card .strategy-phase-toggle,
+#tab-phases.is-phase-card .phase-section { display: none; }
+#tab-phases.is-phase-list #current-phase-card,
+#tab-phases.is-phase-list #strategy-card-hint { display: none; }
+#tab-phases.is-phase-list .phase-section { margin-top: 10px; }
+
+/* ── 現在フェーズカード（1画面1目的） ── */
+.current-phase-card {
+  display: block;
+  margin: 12px 12px 0;
+  padding: 16px 16px 14px;
+  border: 1px solid var(--studio-border);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 22px rgba(16, 35, 61, 0.07);
+}
+.current-phase-card .cpc-eyebrow {
+  display: block;
+  color: var(--route-blue);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.current-phase-card .cpc-title {
+  display: block;
+  margin: 6px 0 0;
+  color: var(--deep-route);
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.current-phase-card .cpc-title::before { content: none; }
+.current-phase-desc {
+  margin: 8px 0 0;
+  color: var(--ink-mute);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.current-phase-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.current-phase-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #EDF2F7;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 700;
+}
+.current-phase-chip.is-partial { color: var(--marigold-deep); background: rgba(241, 168, 74, 0.16); }
+.current-phase-chip.is-filled { color: var(--marigold-deep); background: rgba(83, 200, 191, 0.18); }
+.current-phase-nextmove {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 13px;
+  border: 1px solid rgba(83, 200, 191, 0.34);
+  border-radius: 10px;
+  background: rgba(83, 200, 191, 0.1);
+}
+.current-phase-nextmove-mark { flex: 0 0 auto; color: var(--marigold-deep); }
+.current-phase-nextmove-body { display: grid; gap: 3px; min-width: 0; }
+.current-phase-nextmove-eyebrow {
+  color: var(--marigold-deep);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.current-phase-nextmove-text { color: var(--deep-route); font-size: 13px; font-weight: 600; line-height: 1.5; }
+.current-phase-nextmove-text strong { font-weight: 800; }
+.current-phase-actions { margin-top: 14px; }
+.current-phase-primary {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--deep-route);
+  background: var(--waypoint-mint);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(83, 200, 191, 0.28);
+  transition: filter var(--tr-fast);
+}
+.current-phase-primary:hover { filter: brightness(1.05); }
+.current-phase-subactions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.current-phase-secondary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--studio-border);
+  border-radius: 10px;
+  color: var(--route-blue);
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color var(--tr-fast), background var(--tr-fast);
+}
+.current-phase-secondary:hover { border-color: var(--route-blue); background: rgba(62, 114, 232, 0.06); }
+.current-phase-nav {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+.current-phase-nav-btn {
+  min-height: 34px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.current-phase-nav-btn.is-list { color: var(--route-blue); text-align: center; }
+.current-phase-nav-btn.is-next { text-align: right; }
+.current-phase-nav-btn:hover:not([disabled]) { background: rgba(16, 35, 61, 0.05); }
+.current-phase-nav-btn[disabled] { visibility: hidden; cursor: default; }
+.strategy-card-hint {
+  margin: 12px 18px 0;
+  color: var(--ink-faint);
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slim-progress-fill,
+  .phase-toggle-btn,
+  .current-phase-primary,
+  .current-phase-secondary { transition: none !important; }
+}

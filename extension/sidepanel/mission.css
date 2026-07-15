@@ -495,6 +495,126 @@ button:focus-visible {
   line-height: 1.6;
 }
 
+/* --- ブランド副題（ホーム／司令塔） --- */
+.mission-brand-sub {
+  padding: 3px 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  color: var(--text-mid);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.mission-project-eyebrow {
+  display: block;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+/* --- プロジェクト切替セレクタ --- */
+.mission-project-switch-wrap {
+  display: inline-flex;
+  margin-top: 4px;
+}
+
+#mission-project-switch {
+  max-width: 260px;
+  padding: 7px 30px 7px 12px;
+  border: 1px solid rgba(110, 160, 255, 0.4);
+  border-radius: 9px;
+  color: var(--text-strong);
+  background:
+    linear-gradient(45deg, transparent 50%, var(--text-mid) 50%) calc(100% - 15px) 50% / 6px 6px no-repeat,
+    rgba(62, 114, 232, 0.14);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#mission-project-switch:focus-visible {
+  outline: 3px solid var(--route-blue);
+  outline-offset: 2px;
+}
+
+.mission-project-switch-note {
+  margin: 6px 0 0;
+  color: var(--text-mid);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.mission-project-switch-note[data-tone="warn"] {
+  color: #f7c575;
+}
+
+/* --- 現在フェーズの導き & モードバナー --- */
+.mission-phase-guide {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-left: 3px solid rgba(110, 160, 255, 0.5);
+  border-radius: 0 8px 8px 0;
+  background: rgba(62, 114, 232, 0.1);
+  color: var(--text-mid);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.mission-mode-banner {
+  margin: 14px 0 0;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(241, 168, 74, 0.4);
+  background: rgba(241, 168, 74, 0.12);
+  color: #f7c575;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.mission-mode-banner[data-tone="setup"] {
+  border-color: rgba(110, 160, 255, 0.45);
+  background: rgba(62, 114, 232, 0.14);
+  color: #bcd2ff;
+}
+
+/* --- 次の一手カード --- */
+.mission-nextmove-card {
+  border-color: rgba(83, 200, 191, 0.28);
+  background: rgba(83, 200, 191, 0.08);
+}
+
+.mission-nextmove-reco {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.mission-nextmove-reason {
+  margin: 8px 0 0;
+  color: var(--text-mid);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @keyframes pulse {
   0%,
   100% {

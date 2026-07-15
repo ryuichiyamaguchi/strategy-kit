@@ -3,29 +3,35 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>STRATEGY-KIT — 全自動 見守りモード</title>
+    <title>STRATEGY-KIT — ホーム（司令塔）</title>
     <link rel="stylesheet" href="./mission.css" />
   </head>
   <body>
     <div class="mission-shell">
-      <!-- 上バー: ブランド + 実行状態 + プロジェクト名 -->
+      <!-- 上バー: ブランド + 実行状態 + プロジェクト切替 -->
       <header id="mission-topbar" class="mission-topbar" data-running="false">
         <div class="mission-brand">
           <span class="brand-mark" aria-hidden="true">SK</span>
           <strong>STRATEGY-KIT</strong>
+          <span class="mission-brand-sub">ホーム · 司令塔</span>
         </div>
         <span class="mission-status-pill" role="status" aria-live="polite">
           <span class="live-dot" aria-hidden="true"></span>
           <span id="mission-status-text">待機中</span>
         </span>
         <div class="mission-project">
-          <span>対象プロジェクト</span>
+          <span class="mission-project-eyebrow">対象プロジェクト</span>
           <strong id="mission-project-name">—</strong>
+          <label class="mission-project-switch-wrap" hidden>
+            <span class="visually-hidden">プロジェクトを切り替え</span>
+            <select id="mission-project-switch" aria-label="プロジェクトを切り替え"></select>
+          </label>
+          <p id="mission-project-switch-note" class="mission-project-switch-note" role="status" aria-live="polite" hidden></p>
         </div>
       </header>
 
       <main class="mission-main">
-        <!-- 左カラム: 進捗ヒーロー + 航路 + 現在フェーズ + 操作 -->
+        <!-- 左カラム: 進捗ヒーロー + 航路 + 現在フェーズ + 次の一手 -->
         <section class="mission-col" aria-label="戦略の進捗">
           <div class="mission-card mission-progress-card">
             <div class="mission-percent-row">
@@ -54,6 +60,31 @@
               <span id="mission-phase-status" class="mission-phase-status">開始前</span>
             </div>
             <p id="mission-phase-desc" class="mission-phase-desc"></p>
+            <div id="mission-mode-banner" class="mission-mode-banner" hidden></div>
+            <p id="mission-phase-guide" class="mission-phase-guide">
+              ここは司令塔（見る場所）です。プロンプトのコピーなど実際の作業はサイドパネルで行います。
+            </p>
+          </div>
+
+          <div class="mission-card mission-nextmove-card">
+            <h2 class="mission-card-title" id="mission-nextmove-title">次の一手</h2>
+            <p id="mission-nextmove-recommendation" class="mission-nextmove-reco">—</p>
+            <p id="mission-nextmove-reason" class="mission-nextmove-reason"></p>
+          </div>
+        </section>
+
+        <!-- 右カラム: 全自動の進行状況 + 操作 + 活動履歴 -->
+        <section class="mission-col" aria-label="全自動の進行状況">
+          <div class="mission-card">
+            <h2 id="mission-detail-title" class="mission-card-title">次の一手</h2>
+            <div class="mission-provider-row">
+              <span class="mission-provider-mark" aria-hidden="true" id="mission-provider-mark">AI</span>
+              <div>
+                <span class="provider-label">実行AI</span>
+                <span class="provider-name" id="mission-provider-name">待機中</span>
+              </div>
+            </div>
+            <dl id="mission-details" class="mission-detail-list"></dl>
             <div class="mission-controls">
               <button id="mission-pause" class="mission-btn mission-btn-pause" type="button" disabled>
                 一時停止
@@ -65,21 +96,6 @@
             <p id="mission-control-note" class="mission-control-note">
               一時停止・停止はサイドパネル経由で実行されます。サイドパネルを閉じている場合は反応しません。
             </p>
-          </div>
-        </section>
-
-        <!-- 右カラム: 全自動の進行状況 + 活動履歴 -->
-        <section class="mission-col" aria-label="全自動の進行状況">
-          <div class="mission-card">
-            <h2 id="mission-detail-title" class="mission-card-title">全自動の進行状況</h2>
-            <div class="mission-provider-row">
-              <span class="mission-provider-mark" aria-hidden="true" id="mission-provider-mark">AI</span>
-              <div>
-                <span class="provider-label">実行AI</span>
-                <span class="provider-name" id="mission-provider-name">待機中</span>
-              </div>
-            </div>
-            <dl id="mission-details" class="mission-detail-list"></dl>
           </div>
 
           <div class="mission-card">
@@ -93,8 +109,9 @@
       </main>
 
       <footer class="mission-footer">
-        この画面は STRATEGY-KIT の見守りビューです。AI サイトのタブは裏で自動実行され、
-        この画面を開いている間はフォーカスを奪いません。進行の操作はサイドパネルが担います。
+        このホームは STRATEGY-KIT の司令塔です。進捗・現在地・次の一手をここで見渡し、
+        プロンプト操作などの作業はサイドパネルで行います。全自動の実行タブは裏で動き、
+        このホームを開いている間はフォーカスを奪いません。
       </footer>
     </div>
 

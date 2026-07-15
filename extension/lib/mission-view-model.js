@@ -110,6 +110,61 @@ export function deriveMissionAction(hasBusiness, status, task) {
   return task ? 'automation' : 'phase';
 }
 
+// 全画面ホームの「次の一手」= 状態別の推奨アクションとその理由。
+// サイドパネルの現在フェーズカード next-move（isFilled/isPartial 分岐）を全画面へ移管し、
+// 見る側（ホーム）から「次に何をどこですればよいか」を1段詳しく提示する。
+export function deriveNextMove(status, ctx) {
+  const { hasBusiness, needsMode, workingPhase, isFilled, isPartial, completed } = ctx;
+  const label = `§${workingPhase.no} ${workingPhase.title}`.trim();
+  if (!hasBusiness) {
+    return {
+      recommendation: '初期設定を完了する',
+      reason: 'Google 連携・事業情報・§0 の3つが揃うと、プロンプト操作を始められます。設定はサイドパネルの ☰ から。',
+    };
+  }
+  if (status === 'running') {
+    return {
+      recommendation: '全自動の完了を待つ',
+      reason: 'AI タブが裏で処理を進めています。止めたいときは下の「一時停止 / 停止」から。',
+    };
+  }
+  if (status === 'retrying') {
+    return {
+      recommendation: '自動再試行を見守る',
+      reason: 'エラーを検知して自動でやり直しています。保存済みのフェーズは失われません。',
+    };
+  }
+  if (status === 'blocked' || status === 'paused') {
+    return {
+      recommendation: '保存地点から再開する',
+      reason: `${completed}フェーズまで保存済みです。サイドパネルの全自動から続きを再開できます。`,
+    };
+  }
+  if (status === 'completed') {
+    return {
+      recommendation: '戦略書を最終確認する',
+      reason: '数値と固有名詞を見直し、戦略書・成果物として書き出せます。',
+    };
+  }
+  if (needsMode) {
+    return {
+      recommendation: '進め方を選ぶ（自分で / 全自動）',
+      reason: 'サイドパネルの ☰「全自動を管理」から進め方を決めると、次のフェーズに進めます。',
+    };
+  }
+  const recommendation = isFilled
+    ? `${label} を見直す、または次のフェーズへ進む`
+    : isPartial
+      ? `${label} の下書きを仕上げる`
+      : `${label} のプロンプトをコピーする`;
+  const reason = isFilled
+    ? '記入済みのフェーズです。内容を確認し、薄バーの ▸ で次のフェーズへ進めます。'
+    : isPartial
+      ? '下書きがあります。サイドパネルでプロンプトをコピーし、AI の回答で仕上げます。'
+      : 'サイドパネルの現在フェーズカードでプロンプトをコピーし、AI に貼り付けて回答を作ります。';
+  return { recommendation, reason };
+}
+
 // raw 入力 (phases / filledNos / partialNos / task / hasBusiness / projectName) から
 // 全画面ページが描画する表示モデルを組み立てる。renderMissionControl の算術を写す。
 export function deriveMissionModel(input, now = Date.now()) {
@@ -132,27 +187,60 @@ export function deriveMissionModel(input, now = Date.now()) {
   const percent =
     total === 0 ? 0 : completed >= total ? 100 : Math.round(((completed + partial * 0.5) / total) * 100);
   const status = total > 0 && completed >= total ? 'completed' : (task && task.status) || 'ready';
-
-  const { detailTitle, details } = deriveMissionDetails(status, { completed, total, currentPhase, task });
   const isRunning = status === 'running' || status === 'retrying';
+
+  // 現在地（§N）統一: 実行中はタスクのフェーズ（=first-incomplete currentPhase）、手動時は
+  // サイドパネルの選択フェーズ(lastPhase)基準= selectedNo に一致させる。これで薄バー中央の §N と
+  // ホームの「現在フェーズ」が常に同じ番号を指す（段階A 申し送り b の統一要件）。進捗ヒーローの
+  // % と航路は従来どおり filled/partial の客観進捗（renderMissionControl と同一算術）を使う。
+  let workingPhase = currentPhase;
+  if (!isRunning && input?.selectedNo != null && input.selectedNo !== '') {
+    const selNo = String(input.selectedNo);
+    const found = phases.find((phase) => String(phase.no) === selNo);
+    if (found) workingPhase = found;
+  }
+  const workNo = String(workingPhase.no);
+  const workingIsFilled = filledSet.has(workNo);
+  const workingIsPartial = !workingIsFilled && partialSet.has(workNo);
+  const needsMode = !!input?.needsMode && hasBusiness && !isRunning && status !== 'completed';
+
+  const { detailTitle, details } = deriveMissionDetails(status, { completed, total, currentPhase: workingPhase, task });
+  const nextMove = deriveNextMove(status, {
+    hasBusiness,
+    needsMode,
+    workingPhase,
+    isFilled: workingIsFilled,
+    isPartial: workingIsPartial,
+    completed,
+    total,
+  });
 
   return {
     projectName: input?.projectName || '新規プロジェクト',
+    // ホーム上部の案件セレクタ用（サイドパネルが DOM #project-select から publish）。
+    projects: Array.isArray(input?.projects) ? input.projects : [],
+    activeProjectId: input?.activeProjectId || '',
     percent,
     completed,
     total,
     partial,
     metaText: `${completed} / ${total}フェーズ完了${partial ? ` · 下書き ${partial}` : ''}`,
-    currentPhase: { no: currentPhase.no, title: currentPhase.title || '' },
-    phaseDescription: (task && task.taskLabel) || currentPhase.frame || `${currentPhase.title || ''}を進めます。`,
+    currentPhase: { no: workingPhase.no, title: workingPhase.title || '' },
+    phaseDescription: (task && task.taskLabel) || workingPhase.frame || `${workingPhase.title || ''}を進めます。`,
     status,
     statusKey: hasBusiness ? status : 'setup',
     statusLabel: missionStatusLabel(status),
     provider: (task && task.provider) || '待機中',
-    route: deriveMissionRoute(phases, filledSet, partialSet, String(currentPhase.no)),
+    route: deriveMissionRoute(phases, filledSet, partialSet, workNo),
     detailTitle,
     details,
-    activity: deriveMissionActivity(phases, filledSet, currentPhase, task),
+    nextMove,
+    // ホームは「見る場所」、実作業はサイドパネル、という役割分担の導き文言。
+    homeGuide: isRunning
+      ? 'ここは司令塔です。進行を見守り、必要なときは下の操作で止められます。'
+      : 'ここは司令塔（見る場所）です。プロンプトのコピーなど実際の作業はサイドパネルで行います。',
+    needsMode,
+    activity: deriveMissionActivity(phases, filledSet, workingPhase, task),
     action: deriveMissionAction(hasBusiness, status, task),
     // 実行中のみ一時停止/停止が意味を持つ。全画面ページのボタン活性判定に使う。
     isRunning,

@@ -38,6 +38,23 @@
     </svg>
 
     <main class="sk-shell">
+    <!-- ============== 薄型バー v2（唯一の常設クローム・高さ40px＋進捗ヘアライン3px） ============== -->
+    <div id="slim-bar" class="slim-bar" role="toolbar" aria-label="STRATEGY-KIT ナビゲーションバー">
+      <button id="slim-menu" class="slim-bar-icon-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="mission-menu" aria-label="メニューを開く">
+        <svg class="icon icon-sm" aria-hidden="true"><use href="#i-phases"/></svg>
+      </button>
+      <button id="slim-center" class="slim-bar-center" type="button" aria-label="司令塔（全画面ホーム）を開く">
+        <span class="slim-bar-mark" aria-hidden="true">SK</span>
+        <span id="slim-center-phase" class="slim-bar-phase">§0 事業理解</span>
+        <span id="slim-center-percent" class="slim-bar-percent">0%</span>
+        <svg class="icon icon-xs slim-bar-caret" aria-hidden="true"><use href="#i-chevron"/></svg>
+      </button>
+      <button id="slim-more" class="slim-bar-icon-btn slim-bar-more" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="mission-menu" aria-label="その他のメニュー">•••</button>
+      <div id="slim-progress" class="slim-progress" role="progressbar" aria-label="戦略完成の進捗" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <span id="slim-progress-fill" class="slim-progress-fill"></span>
+      </div>
+    </div>
+
     <!-- ============== Mission Header (全タブ共通・畳める) ============== -->
     <header id="mission-header" class="mission-header" aria-label="STRATEGY-KIT ミッションコントロール">
       <div class="mission-header-bar">
@@ -108,6 +125,10 @@
           <button id="open-setup" class="mission-menu-item" type="button" title="初期設定を開く" aria-label="初期設定を開く">
             <svg class="icon icon-sm" aria-hidden="true"><use href="#i-check"/></svg>
             <span>初期設定を開く</span>
+          </button>
+          <button id="menu-automation" class="mission-menu-item" type="button" title="全自動を管理" aria-label="全自動を管理">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-auto"/></svg>
+            <span>全自動を管理</span>
           </button>
           <button id="reset-state" class="mission-menu-item" type="button" title="全状態をリセット" aria-label="全状態をリセット">
             <svg class="icon icon-sm" aria-hidden="true"><use href="#i-reset"/></svg>
@@ -313,7 +334,14 @@
 
     <!-- ============== Tab content panes ============== -->
     <section id="tab-content-anchor" class="content sk-shell-work" tabindex="-1">
-      <div id="tab-phases" class="tab-content is-active" role="tabpanel" aria-labelledby="tab-btn-phases">
+      <div id="tab-phases" class="tab-content is-active is-phase-card" role="tabpanel" aria-labelledby="tab-btn-phases">
+        <!-- 薄型パネル v2: 現在フェーズカード（1画面1目的）とフェーズ一覧トグル -->
+        <div id="strategy-phase-toggle" class="strategy-phase-toggle" role="group" aria-label="戦略タブの表示切替">
+          <button type="button" class="phase-toggle-btn" data-phase-view="card" aria-pressed="true">現在のフェーズ</button>
+          <button type="button" class="phase-toggle-btn" data-phase-view="list" aria-pressed="false">フェーズ一覧</button>
+        </div>
+        <section id="current-phase-card" class="current-phase-card" aria-label="現在のフェーズ"></section>
+        <p id="strategy-card-hint" class="strategy-card-hint">司令塔（進捗航路・活動履歴・次の一手の詳細）は、薄バーの「§N ％ ▾」タップでホーム全画面へ。</p>
         <!-- ミッション状況サマリ（旧 mission-overview から移設・暫定。段階2で新装） -->
         <section class="mission-strategy-summary" aria-label="ミッションの状況">
           <section id="mission-state-details" class="mission-state-details" aria-labelledby="mission-state-title">
