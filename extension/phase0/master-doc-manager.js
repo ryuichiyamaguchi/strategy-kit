@@ -1,4 +1,8 @@
-import { buildGoogleDocUrl, parseGoogleDocId } from './draft-manager.js';
+import {
+  buildGoogleDocUrl,
+  extractDraftBusinessInfo,
+  parseGoogleDocId,
+} from './draft-manager.js';
 
 const MASTER_KEY = 'sk_master_doc_v012';
 
@@ -16,14 +20,18 @@ export async function setMasterDocFromUrl(url, {
     throw new Error('Doc IDをURLから抽出できません。Googleドキュメントの共有URL（/document/d/.../）を貼り付けてください');
   }
 
-  const doc = await docsClient.getDocument(documentId, { fields: 'documentId,title' });
+  // 既存マスターを読み込むときはタイトルだけでなく本文も取得し、先頭メタ情報から
+  // 事業情報を復元する。URLを登録したのに業種・屋号が空のままになる不具合を防ぐ。
+  const doc = await docsClient.getDocument(documentId);
   const title = doc?.title || 'STRATEGY-KIT Master';
+  const businessInfo = extractDraftBusinessInfo(doc);
   const masterInfo = {
     documentId,
     docUrl: buildGoogleDocUrl(documentId),
     title,
     source: 'manual-url',
     format: 'v012-full-port',
+    businessInfo,
     updatedAt: now().toISOString(),
   };
   await storageArea.set({ [MASTER_KEY]: masterInfo });
@@ -32,6 +40,7 @@ export async function setMasterDocFromUrl(url, {
     masterDocId: documentId,
     masterDocUrl: masterInfo.docUrl,
     title,
+    businessInfo,
     masterInfo,
   };
 }
@@ -39,6 +48,7 @@ export async function setMasterDocFromUrl(url, {
 export async function getStoredMasterDocInfo({
   docsClient,
   storageArea = chrome.storage.sync,
+  includeBusinessInfo = false,
 } = {}) {
   if (!docsClient || typeof docsClient.getDocument !== 'function') {
     throw new Error('docsClient.getDocument is required');
@@ -50,16 +60,24 @@ export async function getStoredMasterDocInfo({
   if (!documentId) return { ok: true, exists: false };
 
   try {
-    const doc = await docsClient.getDocument(documentId, { fields: 'documentId,title' });
+    const doc = await docsClient.getDocument(
+      documentId,
+      includeBusinessInfo ? undefined : { fields: 'documentId,title' },
+    );
+    const businessInfo = includeBusinessInfo
+      ? extractDraftBusinessInfo(doc)
+      : masterInfo.businessInfo || { industryLabel: '', storeName: '' };
     return {
       ok: true,
       exists: true,
       documentId,
       docUrl: masterInfo.docUrl || buildGoogleDocUrl(documentId),
       title: doc?.title || masterInfo.title || 'STRATEGY-KIT Master',
+      businessInfo,
       masterInfo: {
         ...masterInfo,
         title: doc?.title || masterInfo.title || 'STRATEGY-KIT Master',
+        businessInfo,
       },
     };
   } catch (error) {

@@ -4,7 +4,7 @@ import { ApiError } from './errors.js';
 const SCRIPT_PROJECTS_BASE = 'https://script.googleapis.com/v1/projects';
 const DEFAULT_PROXY_TITLE = 'Strategy Kit Gemini Proxy';
 const DEFAULT_PROXY_DESCRIPTION = 'STRATEGY-KIT Gemini proxy web app';
-const DEFAULT_PROXY_MODEL = 'gemini-3.5-flash';
+const DEFAULT_PROXY_MODEL = 'gemini-3.6-flash';
 const APPS_SCRIPT_USER_SETTINGS_URL = 'https://script.google.com/home/usersettings';
 
 function contentHeaders() {
@@ -218,9 +218,11 @@ function handleGenerateContent_(payload) {
         role: 'user',
         parts: [{ text: String(payload.prompt || '') }]
       }
-    ],
-    generationConfig: requestGenerationConfig
+    ]
   };
+  if (Object.keys(requestGenerationConfig).length) {
+    requestBody.generationConfig = requestGenerationConfig;
+  }
   var response = UrlFetchApp.fetch(url, {
     method: 'post',
     contentType: 'application/json; charset=UTF-8',
@@ -231,7 +233,11 @@ function handleGenerateContent_(payload) {
   var status = response.getResponseCode();
   var text = response.getContentText();
   if (status < 200 || status >= 300) {
-    return json_({ ok: false, status: status, error: text.slice(0, 500) });
+    // 429 の本文は「無料枠では使えないモデル」と「一時的なレート上限」で同じ文面になる。
+    // 違いは details[].quotaMetric だけで本文の後ろに出るため、先頭へ付け直す。
+    var quotaMatch = /"quotaMetric"\\s*:\\s*"([^"]+)"/.exec(text);
+    var quotaNote = quotaMatch ? ' quotaMetric=' + quotaMatch[1] : '';
+    return json_({ ok: false, status: status, error: quotaNote + ' ' + text.slice(0, 500) });
   }
   var raw = JSON.parse(text);
   return json_({ ok: true, text: extractText_(raw), raw: raw });

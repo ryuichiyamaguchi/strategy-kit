@@ -1,5 +1,5 @@
 export const FINANCE_GATE_PROMPT_ID = 'phase-7-unit-economics';
-export const FINANCE_GATE_RECOMMENDED_MODEL = 'gemini-3.1-pro-preview';
+export const FINANCE_GATE_RECOMMENDED_MODEL = 'gemini-3.6-flash';
 
 const DEFERRAL_PATTERN = /詳細な試算数値.*PDCA|PDCA.*更新|測定結果に基づき.*アップデート|後日.*更新|後で.*確認/;
 const PLACEHOLDER_PATTERN = /[◯〇○]|空欄|未設定|N\/A|TBD/i;

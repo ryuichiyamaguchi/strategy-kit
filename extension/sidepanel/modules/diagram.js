@@ -767,8 +767,14 @@
     if (/未設定|api key|proxy/i.test(message) && !/HTTP/.test(message)) {
       return 'Gemini API key または proxy が未設定です。Options で設定すると自動生成できます。今は下の prompt をコピーして外部AIで画像化してください。';
     }
+    // 課金APIキーが必要なモデルを無料枠のキーで呼ぶと 429（クォータ超過）で返る。
+    // 待っても直らないので、レート上限の案内と混ぜない。
+    if (status === 403 || /free_tier|exceeded your current quota|PERMISSION_DENIED|is not found for API version/i.test(message)
+        || (status === 429 && /quota/i.test(message))) {
+      return '画像系図解は課金APIキーが必要です。無料枠のキーでは使えません。出力モードを「テキスト系図解」にするか、下の prompt をコピーして外部AIで画像化してください。';
+    }
     if (status === 404 || /model not found|not found.*model|404/i.test(message)) {
-      return '画像生成モデルが見つかりませんでした（モデル名が変更された可能性）。下の prompt をコピーして外部AIで画像化してください。';
+      return '画像生成モデルが見つかりませんでした（課金APIキーが必要なモデル、またはモデル名変更の可能性）。出力モードを「テキスト系図解」にするか、下の prompt をコピーして外部AIで画像化してください。';
     }
     if (status === 429 || /HTTP 429|rate limit|quota/i.test(message)) {
       return '利用枠（レート上限）に達したため、自動生成を一時的に行えません。少し時間をおくか、下の prompt をコピーして外部AIで画像化してください。';
@@ -1681,7 +1687,7 @@
       const generationModeSelect = el('select', { id: 'sk-diagram-generation-mode', style: SELECT_FORCE_STYLE });
       [
         { value: 'text', label: 'テキスト系図解（高速・編集可）' },
-        { value: 'image', label: '画像系図解（Nano Banana・きれい・編集不可）' },
+        { value: 'image', label: '画像系図解（きれい・編集不可・課金APIキーが必要）' },
       ].forEach(function (m) {
         generationModeSelect.appendChild(el('option', { value: m.value, text: m.label }));
       });

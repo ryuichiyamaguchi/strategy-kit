@@ -116,6 +116,383 @@ body {
   line-height: 1.2;
 }
 
+/* ===================================================
+   Executive Mission Control — dark settings surface
+   The settings page uses the same route signals as the side panel.
+   =================================================== */
+:root {
+  --bg: #040912;
+  --surface: #08131d;
+  --surface-alt: #0b1924;
+  --surface-cream: #040912;
+  --paper: #040912;
+  --paper-warm: #07121c;
+  --paper-soft: #08131d;
+  --ink: #e9f4f7;
+  --ink-soft: #a4bac5;
+  --ink-mute: #7890a0;
+  --ink-faint: #587080;
+  --text: #e9f4f7;
+  --text-muted: #7890a0;
+  --text-faint: #587080;
+  --border: #193343;
+  --border-soft: rgba(76, 143, 167, 0.18);
+  --marigold: #1ce1e6;
+  --marigold-deep: #7df7f3;
+  --marigold-soft: rgba(28, 225, 230, 0.25);
+  --marigold-tint: rgba(28, 225, 230, 0.08);
+  --marigold-50: rgba(28, 225, 230, 0.08);
+  --success: #44d7a2;
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(130, 88, 244, 0.14), transparent 34%),
+    radial-gradient(circle at 0% 100%, rgba(28, 225, 230, 0.08), transparent 38%),
+    var(--bg);
+}
+
+.back-bar {
+  border-bottom-color: var(--border);
+  background: rgba(4, 12, 19, 0.96);
+  backdrop-filter: blur(14px);
+}
+
+.return-banner {
+  border-bottom-color: rgba(28, 225, 230, 0.18);
+  color: #9fb7c1;
+  background: rgba(28, 225, 230, 0.045);
+}
+
+.return-banner::before {
+  color: #021113;
+  background: var(--marigold);
+}
+
+.container {
+  max-width: 1040px;
+}
+
+h1 {
+  color: var(--text);
+  letter-spacing: 0.03em;
+}
+
+h2 {
+  color: var(--text);
+}
+
+h2::before {
+  background: linear-gradient(#1ce1e6, #8258f4);
+  box-shadow: 0 0 12px rgba(28, 225, 230, 0.35);
+}
+
+.card {
+  border-color: var(--border);
+  color: var(--text);
+  background: linear-gradient(145deg, rgba(11, 25, 36, 0.96), rgba(6, 17, 26, 0.96));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+}
+
+.muted,
+.lede {
+  color: var(--text-muted);
+}
+
+input,
+select,
+textarea {
+  border-color: var(--border);
+  color: var(--text);
+  background: #06101a;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #1ce1e6;
+  outline: 2px solid rgba(28, 225, 230, 0.16);
+  box-shadow: 0 0 0 3px rgba(28, 225, 230, 0.07);
+}
+
+.btn {
+  border-color: rgba(115, 193, 255, 0.35);
+  color: #ffffff;
+  background: linear-gradient(100deg, #187ce4, #7357ed);
+  box-shadow: 0 8px 24px rgba(55, 89, 231, 0.2);
+}
+
+.btn-ghost {
+  border-color: var(--border);
+  color: #a9bec7;
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: none;
+}
+
+/* =========================================================
+   Executive Mission Control — production settings workspace
+   ========================================================= */
+.container {
+  width: min(1120px, calc(100% - 32px));
+  max-width: 1120px;
+  padding-top: 28px;
+}
+
+.options-eyebrow {
+  margin: 0 0 5px;
+  color: #1ce1e6;
+  font: 700 10px/1.3 "JetBrains Mono", monospace;
+  letter-spacing: 0.14em;
+}
+
+#options-title {
+  margin: 0;
+  color: #eef5f7;
+  font: 700 clamp(24px, 3vw, 34px)/1.15 "Avenir Next", "Noto Sans JP", sans-serif;
+  letter-spacing: -0.025em;
+}
+
+.lede {
+  max-width: 760px;
+  margin: 7px 0 12px;
+  color: #78909a;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.settings-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 9px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: linear-gradient(180deg, rgba(8, 25, 36, 0.98), rgba(5, 16, 25, 0.97));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+}
+
+.settings-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+  padding: 0 6px 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.settings-sidebar-brand > span {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #1ce1e6;
+  border-radius: 6px;
+  color: #9ffffd;
+  background: linear-gradient(145deg, rgba(28, 225, 230, 0.12), rgba(130, 88, 244, 0.2));
+  font: 800 8px/1 "JetBrains Mono", monospace;
+}
+
+.settings-sidebar-brand strong {
+  color: #e5eef1;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+.settings-sidebar a {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #718893;
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.settings-sidebar a:hover,
+.settings-sidebar a:focus-visible {
+  border-color: rgba(28, 225, 230, 0.25);
+  color: #b9d0d8;
+  background: rgba(28, 225, 230, 0.05);
+}
+
+.settings-sidebar a.is-active {
+  border-color: rgba(89, 150, 255, 0.58);
+  color: #d9ecff;
+  background: linear-gradient(100deg, rgba(24, 124, 228, 0.38), rgba(115, 87, 237, 0.28));
+}
+
+.card,
+.settings-block,
+.warning-box,
+.diagnosis-item {
+  border-radius: 9px;
+  background: linear-gradient(145deg, rgba(11, 27, 38, 0.97), rgba(6, 17, 26, 0.97));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
+}
+
+.card {
+  padding: 19px 20px;
+}
+
+.card h2 {
+  margin-top: 0;
+  color: #dce7eb;
+  font-size: 15px;
+}
+
+.card h2::before {
+  width: 3px;
+  border-radius: 2px;
+}
+
+.row {
+  gap: 8px;
+}
+
+.row > span:first-child,
+.form-label {
+  color: #93a7b0;
+  font-size: 11px;
+}
+
+input,
+select,
+textarea {
+  border-radius: 6px;
+  background: #06121b;
+}
+
+.btn {
+  min-height: 35px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+@media (min-width: 860px) {
+  .container {
+    display: grid;
+    grid-template-columns: 205px minmax(0, 1fr);
+    gap: 10px 16px;
+  }
+
+  .container > .options-eyebrow,
+  .container > h1,
+  .container > .lede,
+  .container > .actions {
+    grid-column: 1 / -1;
+  }
+
+  .container > .options-eyebrow {
+    grid-row: 1;
+  }
+
+  .container > h1 {
+    grid-row: 2;
+  }
+
+  .container > .lede {
+    grid-row: 3;
+  }
+
+  .container > .settings-sidebar {
+    position: sticky;
+    top: 82px;
+    grid-column: 1;
+    grid-row: 4 / span 20;
+    align-self: start;
+  }
+
+  .container > .card,
+  .container > .card:first-of-type {
+    grid-column: 2;
+    grid-row: auto;
+    align-self: auto;
+  }
+
+  .container > #gemini-settings-card { grid-row: 4; }
+  .container > #business-settings-card { grid-row: 5; }
+  .container > #oauth-card { grid-row: 6; }
+  .container > #display-settings-card { grid-row: 7; }
+  .container > #engagement-mode-readout-card { grid-row: 8; }
+  .container > #master-doc-card { grid-row: 9; }
+  .container > #about-settings-card { grid-row: 10; }
+  .container > .actions { grid-row: 11; }
+}
+
+@media (max-width: 859px) {
+  .settings-sidebar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 12px;
+  }
+
+  .settings-sidebar-brand {
+    grid-column: 1 / -1;
+  }
+
+  .settings-sidebar a {
+    justify-content: center;
+    padding: 0 5px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 520px) {
+  .container {
+    width: min(100% - 20px, 1120px);
+    padding-top: 18px;
+  }
+
+  .settings-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .card {
+    padding: 15px;
+  }
+}
+
+.btn:hover {
+  filter: brightness(1.12);
+}
+
+.warning-box,
+.settings-block {
+  border-color: var(--border);
+  color: #a9bec7;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+@media (min-width: 860px) {
+  .container {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 16px 22px;
+  }
+
+  .container > h1,
+  .container > .lede,
+  .container > .actions {
+    grid-column: 1 / -1;
+  }
+
+  .container > .card {
+    grid-column: 2;
+  }
+
+  .container > .card:first-of-type {
+    grid-column: 1;
+    grid-row: 3 / span 2;
+    align-self: start;
+  }
+}
+
 /* ============== Layout ============== */
 .container {
   max-width: 720px;
@@ -546,5 +923,258 @@ a:focus-visible {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Final cascade locks for the Executive theme. */
+.back-bar {
+  border-bottom-color: var(--border);
+  background: rgba(4, 12, 19, 0.96);
+}
+
+.return-banner {
+  border-bottom-color: rgba(28, 225, 230, 0.18);
+  color: #9fb7c1;
+  background: rgba(28, 225, 230, 0.045);
+}
+
+.card,
+.settings-block,
+.warning-box,
+.diagnosis-item {
+  border-color: var(--border);
+  color: var(--text);
+  background: linear-gradient(145deg, rgba(11, 25, 36, 0.96), rgba(6, 17, 26, 0.96));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+}
+
+input,
+select,
+textarea {
+  border-color: var(--border);
+  color: var(--text);
+  background: #06101a;
+}
+
+.btn {
+  border-color: rgba(115, 193, 255, 0.35);
+  color: #ffffff;
+  background: linear-gradient(100deg, #187ce4, #7357ed);
+  box-shadow: 0 8px 24px rgba(55, 89, 231, 0.2);
+}
+
+.btn-ghost {
+  border-color: var(--border);
+  color: #a9bec7;
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: none;
+}
+
+/* Executive settings layout lock. */
+.container {
+  width: min(1120px, calc(100% - 32px));
+  max-width: 1120px;
+  padding-top: 28px;
+}
+
+.options-eyebrow {
+  margin: 0 0 5px;
+  color: #1ce1e6;
+}
+
+#options-title {
+  margin: 0;
+  color: #eef5f7;
+  font: 700 clamp(24px, 3vw, 34px)/1.15 "Avenir Next", "Noto Sans JP", sans-serif;
+  letter-spacing: -0.025em;
+}
+
+.lede {
+  max-width: 760px;
+  margin: 7px 0 12px;
+}
+
+.card {
+  padding: 19px 20px;
+  border-radius: 9px;
+}
+
+.card h2 {
+  margin-top: 0;
+  color: #dce7eb;
+  font-size: 15px;
+}
+
+input,
+select,
+textarea {
+  border-radius: 6px;
+}
+
+.btn {
+  min-height: 35px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+@media (min-width: 860px) {
+  .container {
+    display: grid;
+    grid-template-columns: 205px minmax(0, 1fr);
+    gap: 10px 16px;
+  }
+
+  .container > .options-eyebrow,
+  .container > h1,
+  .container > .lede,
+  .container > .actions {
+    grid-column: 1 / -1;
+  }
+
+  .container > .options-eyebrow {
+    grid-row: 1;
+  }
+
+  .container > h1 {
+    grid-row: 2;
+  }
+
+  .container > .lede {
+    grid-row: 3;
+  }
+
+  .container > .settings-sidebar {
+    position: sticky;
+    top: 82px;
+    grid-column: 1;
+    grid-row: 4 / span 20;
+    align-self: start;
+  }
+
+  .container > .card,
+  .container > .card:first-of-type {
+    grid-column: 2;
+    grid-row: auto;
+    align-self: auto;
+  }
+
+  .container > #gemini-settings-card { grid-row: 4; }
+  .container > #business-settings-card { grid-row: 5; }
+  .container > #oauth-card { grid-row: 6; }
+  .container > #display-settings-card { grid-row: 7; }
+  .container > #engagement-mode-readout-card { grid-row: 8; }
+  .container > #master-doc-card { grid-row: 9; }
+  .container > #about-settings-card { grid-row: 10; }
+  .container > .actions { grid-row: 11; }
+}
+
+@media (max-width: 520px) {
+  .container {
+    width: min(100% - 20px, 1120px);
+    padding-top: 18px;
+  }
+
+  .card {
+    padding: 15px;
+  }
+}
+
+/* =========================================================
+   UI typography scale — settings
+   設定も本文16px / 操作15px / 補助12px以上で統一する。
+   ========================================================= */
+html {
+  font-size: 100%;
+}
+
+body {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.back-btn,
+.return-banner {
+  font-size: 0.875rem;
+}
+
+.return-banner::before,
+.options-eyebrow {
+  font-size: 0.75rem;
+}
+
+#options-title {
+  font-size: clamp(2rem, 3vw, 2.75rem);
+}
+
+.lede,
+.container > p:first-of-type,
+.container > .lede {
+  font-size: 1rem;
+}
+
+.settings-sidebar {
+  padding: 1rem 0.75rem;
+}
+
+.settings-sidebar-brand strong {
+  font-size: 0.8125rem;
+}
+
+.settings-sidebar a {
+  min-height: 44px;
+  font-size: 0.875rem;
+}
+
+.card {
+  padding: 1.375rem;
+}
+
+.card h2,
+h2 {
+  font-size: 1.25rem;
+}
+
+h3 {
+  font-size: 1rem;
+}
+
+.row > span:first-child,
+.row span,
+.form-label {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.row input,
+.row select,
+input,
+select,
+textarea {
+  min-height: 46px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.btn {
+  min-height: 46px;
+  font-size: 0.9375rem;
+}
+
+.warning-box,
+.steps,
+.diagnosis-item-title,
+.diagnosis-item-detail {
+  font-size: 0.875rem;
+}
+
+.steps code,
+.diagnosis-item-label {
+  font-size: 0.75rem;
+}
+
+@media (min-width: 860px) {
+  .container {
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 14px 22px;
   }
 }

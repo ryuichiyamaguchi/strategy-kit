@@ -43,11 +43,25 @@
       <button id="slim-menu" class="slim-bar-icon-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="mission-menu" aria-label="メニューを開く">
         <svg class="icon icon-sm" aria-hidden="true"><use href="#i-phases"/></svg>
       </button>
-      <button id="slim-center" class="slim-bar-center" type="button" aria-label="司令塔（全画面ホーム）を開く">
+      <button id="slim-center" class="slim-bar-center" type="button" aria-label="全画面コマンドセンターを開く">
         <span class="slim-bar-mark" aria-hidden="true">SK</span>
+        <span class="slim-brand-lockup" aria-hidden="true">
+          <strong>STRATEGY-KIT</strong>
+          <em>Helper</em>
+        </span>
         <span id="slim-center-phase" class="slim-bar-phase">§0 事業理解</span>
         <span id="slim-center-percent" class="slim-bar-percent">0%</span>
         <svg class="icon icon-xs slim-bar-caret" aria-hidden="true"><use href="#i-chevron"/></svg>
+      </button>
+      <button
+        id="slim-dashboard-open"
+        class="slim-dashboard-open"
+        type="button"
+        title="戦略ダッシュボードを全画面で開く"
+        aria-label="戦略ダッシュボードを全画面で開く"
+      >
+        <span aria-hidden="true">↗</span>
+        <span>全画面</span>
       </button>
       <button id="slim-more" class="slim-bar-icon-btn slim-bar-more" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="mission-menu" aria-label="その他のメニュー">•••</button>
       <div id="slim-progress" class="slim-progress" role="progressbar" aria-label="戦略完成の進捗" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -126,9 +140,13 @@
             <svg class="icon icon-sm" aria-hidden="true"><use href="#i-check"/></svg>
             <span>初期設定を開く</span>
           </button>
-          <button id="menu-automation" class="mission-menu-item" type="button" title="全自動を管理" aria-label="全自動を管理">
+          <button id="menu-automation" class="mission-menu-item" type="button" title="実行モードを管理" aria-label="実行モードを管理">
             <svg class="icon icon-sm" aria-hidden="true"><use href="#i-auto"/></svg>
-            <span>全自動を管理</span>
+            <span>実行モードを管理</span>
+          </button>
+          <button id="menu-engagement-mode" class="mission-menu-item" type="button" title="入口モードを変える" aria-label="入口モードを変える">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-cog"/></svg>
+            <span>入口モードを変える</span>
           </button>
           <button id="reset-state" class="mission-menu-item" type="button" title="全状態をリセット" aria-label="全状態をリセット">
             <svg class="icon icon-sm" aria-hidden="true"><use href="#i-reset"/></svg>
@@ -341,7 +359,7 @@
           <button type="button" class="phase-toggle-btn" data-phase-view="list" aria-pressed="false">フェーズ一覧</button>
         </div>
         <section id="current-phase-card" class="current-phase-card" aria-label="現在のフェーズ"></section>
-        <p id="strategy-card-hint" class="strategy-card-hint">司令塔（進捗航路・活動履歴・次の一手の詳細）は、薄バーの「§N ％ ▾」タップでホーム全画面へ。</p>
+        <p id="strategy-card-hint" class="strategy-card-hint">進捗確認と実行操作は、薄バーの「§N ％ ▾」から全画面コマンドセンターへ。</p>
         <!-- ミッション状況サマリ（旧 mission-overview から移設・暫定。段階2で新装） -->
         <section class="mission-strategy-summary" aria-label="ミッションの状況">
           <section id="mission-state-details" class="mission-state-details" aria-labelledby="mission-state-title">
@@ -352,29 +370,33 @@
               <div data-mission-detail-row="3" hidden><dt id="mission-detail-3-label"></dt><dd id="mission-detail-3-value"></dd></div>
             </dl>
           </section>
-          <section class="mission-activity-section">
-            <h2>活動履歴</h2>
-            <ul id="mission-activity-log"></ul>
-          </section>
           <div class="mission-action-bar">
             <button id="mission-primary-action" type="button">このフェーズを開く</button>
             <div id="mission-secondary-actions"></div>
           </div>
         </section>
         <div class="strategy-view-switch" role="group" aria-label="戦略の進め方">
-          <button class="strategy-view-btn is-active" type="button" data-strategy-view="phases" aria-pressed="true">自分で進める</button>
-          <button class="strategy-view-btn" type="button" data-strategy-view="automation" aria-pressed="false">
+          <button class="strategy-view-btn is-active" type="button" data-automation-mode="semi" aria-pressed="true">半自動モード</button>
+          <button class="strategy-view-btn" type="button" data-automation-mode="full" aria-pressed="false">
             <svg class="icon icon-xs" aria-hidden="true"><use href="#i-auto"/></svg>
-            全自動を管理
+            全自動モード
           </button>
         </div>
         <section id="engagement-mode" class="card engagement-mode-card" aria-labelledby="engagement-mode-title"></section>
         <section class="phase-section">
           <div class="phase-section-head">
-            <h2 class="phase-section-title">戦略フェーズ</h2>
-            <p class="phase-section-meta">§0 から順に。記入済みは右側にチェック。</p>
+            <h2 class="phase-section-title">10フェーズ・ナビゲーション</h2>
+            <p class="phase-section-meta">現在地と次の目的地</p>
           </div>
           <ul id="phase-list" class="phase-list" role="list"></ul>
+          <div id="phase-ai-quick" class="phase-ai-quick" aria-label="AIクイックアクセス"></div>
+          <section class="mission-activity-section phase-activity-section">
+            <div class="phase-utility-heading">
+              <h2>最近のアクティビティ</h2>
+              <span>自動更新</span>
+            </div>
+            <ul id="mission-activity-log"></ul>
+          </section>
         </section>
 
 
@@ -408,17 +430,17 @@
         </section>
       </div>
 
-      <div id="tab-automation" class="tab-content" role="tabpanel" aria-label="全自動を管理">
+      <div id="tab-automation" class="tab-content" role="tabpanel" aria-label="実行モードを管理">
         <div class="strategy-view-switch" role="group" aria-label="戦略の進め方">
-          <button class="strategy-view-btn" type="button" data-strategy-view="phases" aria-pressed="false">自分で進める</button>
-          <button class="strategy-view-btn is-active" type="button" data-strategy-view="automation" aria-pressed="true">
+          <button class="strategy-view-btn is-active" type="button" data-automation-mode="semi" aria-pressed="true">半自動モード</button>
+          <button class="strategy-view-btn" type="button" data-automation-mode="full" aria-pressed="false">
             <svg class="icon icon-xs" aria-hidden="true"><use href="#i-auto"/></svg>
-            全自動を管理
+            全自動モード
           </button>
         </div>
         <button id="mission-fullscreen-open" class="btn" type="button" style="width:100%;margin-bottom:10px">
           <svg class="icon icon-xs" aria-hidden="true"><use href="#i-auto"/></svg>
-          全画面で見守る
+          全画面で操作する
         </button>
         <section id="mod-automation-slot" class="card mod-slot hidden"></section>
         <section id="automation-empty" class="empty-card hidden">

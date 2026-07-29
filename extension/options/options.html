@@ -19,10 +19,21 @@
       設定はこのタブで行います。完了したら左上の「← サイドパネルに戻る」ボタン、またはこのタブを閉じてサイドパネルに戻ってください。
     </div>
     <main class="container">
-      <h1 id="options-title">STRATEGY-KIT</h1>
+      <p class="options-eyebrow">STRATEGY-KIT · SYSTEM SETTINGS</p>
+      <h1 id="options-title">AI・プロジェクト設定</h1>
       <p class="lede">事業情報を入力すれば、サイドパネルから戦略立案 + Google Docs 章別記録が使えます。v0.12 では Google アカウント連携で Docs / Drive に直接保存します。</p>
 
-      <section class="card">
+      <aside class="settings-sidebar" aria-label="設定メニュー">
+        <div class="settings-sidebar-brand"><span>SK</span><strong>STRATEGY-KIT</strong></div>
+        <a href="#gemini-settings-card" class="is-active">✦ <span>AI設定</span></a>
+        <a href="#business-settings-card">▣ <span>プロジェクト設定</span></a>
+        <a href="#oauth-card">◎ <span>Google連携</span></a>
+        <a href="#display-settings-card">☰ <span>表示設定</span></a>
+        <a href="#master-doc-card">◇ <span>データ管理</span></a>
+        <a href="#about-settings-card">？ <span>ヘルプ・情報</span></a>
+      </aside>
+
+      <section class="card" id="business-settings-card">
         <h2>事業情報</h2>
         <p class="muted">
           まず「業種プリセット」で近いものを選び、必要なら「業種（自由入力）」で細かく書き直してください。プリセットにない業種は「その他」を選んで自由入力に書きます。
@@ -52,7 +63,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="display-settings-card">
         <h2>表示設定</h2>
         <label class="row checkbox">
           <input id="show-safety" type="checkbox" />
@@ -84,6 +95,7 @@
       <section class="card" id="gemini-settings-card">
         <h2>Gemini 設定</h2>
         <p class="muted">全自動生成と図解自動生成で使います。学習用途では「セキュア学習モード」を推奨します。</p>
+        <p class="muted"><strong>無料枠の API key だけで §0〜§9 を最後まで実行できます。</strong>課金 API key を設定すると、「実行モードを管理」で高精度モデル（Gemini 3.1 Pro）と画像系図解が選べるようになります。</p>
 
         <div class="settings-block" id="gemini-direct-block">
           <h3>直接 API key モード</h3>
@@ -128,7 +140,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="about-settings-card">
         <h2>このツールについて</h2>
         <p id="about-tool">
           STRATEGY-KIT

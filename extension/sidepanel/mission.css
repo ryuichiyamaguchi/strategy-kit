@@ -5,18 +5,18 @@
  * 自己完結 CSS を新設し、design/strategy-kit-ui-vnext の Deep Route トークンを踏襲する。 */
 
 :root {
-  --deep-route: #10233d;
-  --paper-sky: #f5f7fa;
-  --route-blue: #3e72e8;
-  --waypoint-mint: #53c8bf;
+  --deep-route: #040912;
+  --paper-sky: #07121c;
+  --route-blue: #8258f4;
+  --waypoint-mint: #1ce1e6;
   --signal-amber: #f1a84a;
   --danger: #db5c55;
-  --ink: #14233d;
-  --line-soft: rgba(255, 255, 255, 0.1);
-  --line-hair: rgba(255, 255, 255, 0.06);
-  --text-dim: #8ea3b8;
-  --text-mid: #a8b9ca;
-  --text-strong: #dce8f3;
+  --ink: #e9f4f7;
+  --line-soft: rgba(62, 126, 151, 0.28);
+  --line-hair: rgba(79, 139, 161, 0.14);
+  --text-dim: #7890a0;
+  --text-mid: #a4bac5;
+  --text-strong: #e9f4f7;
   --body-font: "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
   --display-font: "Avenir Next", "Segoe UI Variable Display", "Hiragino Sans", sans-serif;
   --data-font: ui-monospace, "SFMono-Regular", Consolas, monospace;
@@ -42,8 +42,8 @@ body {
   min-height: 100vh;
   color: var(--text-strong);
   background:
-    radial-gradient(circle at 82% -6%, rgba(62, 114, 232, 0.22), transparent 42%),
-    radial-gradient(circle at 4% 108%, rgba(83, 200, 191, 0.14), transparent 46%),
+    radial-gradient(circle at 82% -6%, rgba(130, 88, 244, 0.16), transparent 42%),
+    radial-gradient(circle at 4% 108%, rgba(28, 225, 230, 0.1), transparent 46%),
     var(--deep-route);
   font-family: var(--body-font);
   -webkit-font-smoothing: antialiased;
@@ -91,8 +91,10 @@ button:focus-visible {
   width: 40px;
   height: 40px;
   border-radius: 11px;
-  color: var(--deep-route);
-  background: var(--waypoint-mint);
+  border: 1px solid var(--waypoint-mint);
+  color: #bafffb;
+  background: linear-gradient(145deg, rgba(28, 225, 230, 0.15), rgba(130, 88, 244, 0.22));
+  box-shadow: 0 0 22px rgba(28, 225, 230, 0.14);
   font-size: 14px;
   font-weight: 900;
 }
@@ -175,7 +177,8 @@ button:focus-visible {
   padding: clamp(18px, 2vw, 28px);
   border: 1px solid var(--line-soft);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
+  background: linear-gradient(145deg, rgba(11, 25, 36, 0.96), rgba(6, 17, 26, 0.96));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
 }
 
 .mission-card-title {
@@ -189,7 +192,7 @@ button:focus-visible {
 /* --- 進捗ヒーロー --- */
 .mission-progress-card {
   border-color: rgba(83, 200, 191, 0.32);
-  background: linear-gradient(135deg, rgba(83, 200, 191, 0.14), rgba(62, 114, 232, 0.12));
+  background: linear-gradient(135deg, rgba(28, 225, 230, 0.12), rgba(130, 88, 244, 0.12));
 }
 
 .mission-percent-row {
@@ -651,5 +654,1438 @@ button:focus-visible {
 @media (prefers-contrast: more) {
   .mission-card {
     border-width: 2px;
+  }
+}
+
+/* =========================================================
+   Executive Mission Control — production command center
+   Approved composition: narrow project rail + wide dashboard.
+   ========================================================= */
+body {
+  background:
+    linear-gradient(rgba(39, 92, 116, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(39, 92, 116, 0.045) 1px, transparent 1px),
+    radial-gradient(circle at 83% -8%, rgba(130, 88, 244, 0.15), transparent 36%),
+    radial-gradient(circle at 0% 100%, rgba(28, 225, 230, 0.09), transparent 38%),
+    var(--deep-route);
+  background-size: 48px 48px, 48px 48px, auto, auto, auto;
+}
+
+.mission-shell {
+  max-width: 1600px;
+  padding: 0 clamp(16px, 2.2vw, 34px);
+}
+
+.mission-topbar {
+  min-height: 66px;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom-color: rgba(41, 87, 107, 0.72);
+}
+
+.mission-brand {
+  gap: 10px;
+}
+
+.mission-brand .brand-mark {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(140deg, var(--waypoint-mint), #4b8cff 48%, var(--route-blue));
+  clip-path: polygon(50% 0, 94% 25%, 94% 75%, 50% 100%, 6% 75%, 6% 25%);
+}
+
+.mission-brand .brand-mark::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  background: #07111c;
+  clip-path: inherit;
+}
+
+.mission-brand .brand-mark i {
+  position: relative;
+  z-index: 1;
+  width: 16px;
+  height: 15px;
+  background: linear-gradient(135deg, var(--waypoint-mint), var(--route-blue));
+  clip-path: polygon(50% 0, 100% 100%, 82% 100%, 50% 37%, 18% 100%, 0 100%);
+}
+
+.mission-brand-copy {
+  display: grid;
+  gap: 1px;
+}
+
+.mission-brand-copy strong {
+  color: #f1f6f8;
+  font-size: 14px;
+  letter-spacing: 0.13em;
+}
+
+.mission-brand-copy small {
+  color: #698390;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.mission-status-pill {
+  margin-left: 8px;
+  padding: 6px 11px;
+  border-color: rgba(68, 215, 162, 0.38);
+  color: #83e8c4;
+  background: rgba(68, 215, 162, 0.07);
+  font-size: 10px;
+}
+
+.mission-status-pill .live-dot {
+  width: 6px;
+  height: 6px;
+  box-shadow: 0 0 8px rgba(68, 215, 162, 0.75);
+}
+
+.mission-back-panel {
+  min-height: 32px;
+  margin-left: auto;
+  padding: 0 13px;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  color: #9db2bc;
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.mission-back-panel:hover {
+  border-color: rgba(28, 225, 230, 0.5);
+  color: #c9ffff;
+  background: rgba(28, 225, 230, 0.06);
+}
+
+.mission-main {
+  display: grid;
+  grid-template-columns: minmax(245px, 0.25fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding: 16px 0 20px;
+}
+
+.mission-command-rail,
+.mission-workspace {
+  min-width: 0;
+}
+
+.mission-command-rail {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(8, 25, 36, 0.97), rgba(5, 16, 25, 0.96));
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.24);
+}
+
+.mission-project {
+  margin: 0;
+  padding: 7px 5px 10px;
+  border-bottom: 1px solid var(--line-hair);
+  text-align: left;
+}
+
+.mission-project-eyebrow {
+  color: #69818d;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+
+.mission-project strong {
+  margin-top: 4px;
+  color: #dbe5e9;
+  font-size: 12px;
+}
+
+#mission-project-switch {
+  width: 100%;
+  max-width: none;
+  padding: 7px 26px 7px 8px;
+  border-color: var(--line-soft);
+  border-radius: 5px;
+  color: #dbe5e9;
+  background:
+    linear-gradient(45deg, transparent 50%, #78909a 50%) calc(100% - 12px) 50% / 5px 5px no-repeat,
+    #06121b;
+  font-size: 10px;
+}
+
+.mission-project-switch-wrap {
+  display: flex;
+}
+
+.mission-card {
+  padding: 15px;
+  border-color: var(--line-soft);
+  border-radius: 9px;
+  background: linear-gradient(145deg, rgba(11, 27, 38, 0.96), rgba(6, 17, 26, 0.96));
+  box-shadow: none;
+}
+
+.mission-command-rail .mission-card {
+  padding: 11px;
+  border-radius: 7px;
+}
+
+.mission-card-title {
+  margin: 0 0 9px;
+  color: #7f949f;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+
+.mission-rail-progress {
+  border-color: rgba(28, 225, 230, 0.23);
+  background: linear-gradient(145deg, rgba(17, 64, 72, 0.22), rgba(8, 20, 30, 0.8));
+}
+
+.mission-percent-row .label {
+  color: #8499a3;
+  font-size: 8px;
+}
+
+.mission-percent {
+  font-size: 27px;
+  color: var(--waypoint-mint);
+}
+
+.mission-progress-meta {
+  margin-top: 3px;
+  color: #738893;
+  font-size: 8px;
+}
+
+.mission-progress-bar {
+  height: 5px;
+  margin-top: 9px;
+  background: #162a35;
+}
+
+.mission-current-card {
+  border-color: rgba(28, 225, 230, 0.27);
+}
+
+.mission-phase-head {
+  align-items: flex-start;
+}
+
+.mission-phase-head strong {
+  color: #eef7f9;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.mission-phase-status {
+  padding: 4px 7px;
+  color: #78e8ec;
+  background: rgba(28, 225, 230, 0.08);
+  font-size: 7px;
+}
+
+.mission-phase-desc,
+.mission-nextmove-reason {
+  margin-top: 7px;
+  color: #8297a1;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.mission-phase-guide {
+  margin-top: 9px;
+  padding: 7px 8px;
+  border-left-color: rgba(28, 225, 230, 0.45);
+  border-radius: 0 4px 4px 0;
+  color: #78909a;
+  background: rgba(28, 225, 230, 0.045);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.mission-mode-banner {
+  margin-top: 8px;
+  padding: 7px 8px;
+  border-radius: 4px;
+  font-size: 8px;
+}
+
+.mission-nextmove-card {
+  border-color: rgba(130, 88, 244, 0.25);
+  background: linear-gradient(135deg, rgba(28, 225, 230, 0.05), rgba(130, 88, 244, 0.08));
+}
+
+.mission-nextmove-reco {
+  font-size: 11px;
+}
+
+.mission-workspace {
+  display: grid;
+  gap: 10px;
+}
+
+.mission-workspace-head {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 8px;
+  border-bottom: 1px solid var(--line-hair);
+}
+
+.mission-workspace-eyebrow {
+  color: var(--waypoint-mint);
+  font: 700 8px/1.3 var(--data-font);
+  letter-spacing: 0.15em;
+}
+
+.mission-workspace-head h1 {
+  margin: 3px 0 0;
+  color: #e9f4f7;
+  font: 700 clamp(18px, 2vw, 26px)/1.15 var(--display-font);
+  letter-spacing: -0.03em;
+}
+
+.mission-live-clock {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.mission-live-clock span {
+  color: #657c87;
+  font-size: 8px;
+}
+
+.mission-live-clock strong {
+  color: #b8cbd3;
+  font: 700 15px/1 var(--data-font);
+  letter-spacing: 0.05em;
+}
+
+.mission-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mission-metrics article {
+  min-height: 62px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: rgba(8, 24, 34, 0.88);
+}
+
+.mission-metrics span {
+  color: #6f848f;
+  font-size: 8px;
+}
+
+.mission-metrics strong {
+  color: #dce7eb;
+  font: 700 17px/1 var(--data-font);
+}
+
+.mission-metrics article:first-child strong {
+  color: var(--waypoint-mint);
+}
+
+#mission-metric-health {
+  color: var(--waypoint-mint);
+  font-family: var(--body-font);
+  font-size: 13px;
+}
+
+.mission-route-card {
+  padding: 14px 16px 12px;
+}
+
+.mission-route-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.mission-route-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.mission-route-heading span {
+  color: #6f8590;
+  font-size: 8px;
+}
+
+.mission-route-heading strong {
+  color: #cbd9df;
+  font-size: 11px;
+}
+
+#mission-route-status {
+  padding: 4px 8px;
+  border: 1px solid rgba(28, 225, 230, 0.22);
+  border-radius: 999px;
+  color: #7ee8eb;
+  background: rgba(28, 225, 230, 0.05);
+}
+
+.mission-route {
+  margin-top: 16px;
+}
+
+.mission-route li {
+  gap: 5px;
+  color: #5f7581;
+  font-size: 8px;
+}
+
+.mission-route .dot {
+  width: 18px;
+  height: 18px;
+  border-color: #3d5360;
+  background: #081722;
+}
+
+.mission-route li:not(:last-child)::after {
+  top: 8px;
+  background: #314652;
+}
+
+.mission-route li.is-done .dot {
+  border-color: var(--waypoint-mint);
+  background: #0a302f;
+  box-shadow: inset 0 0 0 4px var(--waypoint-mint);
+}
+
+.mission-route li.is-done::after {
+  background: linear-gradient(90deg, var(--waypoint-mint), #3e8795);
+}
+
+.mission-route li.is-current .dot {
+  border-color: var(--waypoint-mint);
+  background: #147083;
+  box-shadow: 0 0 0 4px rgba(28, 225, 230, 0.1), 0 0 15px rgba(28, 225, 230, 0.35);
+}
+
+.mission-route li.is-current {
+  color: var(--waypoint-mint);
+}
+
+.mission-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(250px, 0.85fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.mission-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+
+.mission-section-heading .mission-card-title {
+  margin: 0;
+}
+
+.mission-section-badge {
+  padding: 3px 6px;
+  border-radius: 8px;
+  color: var(--waypoint-mint);
+  background: rgba(28, 225, 230, 0.08);
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.mission-section-meta {
+  color: #617783;
+  font-size: 7px;
+}
+
+.mission-provider-row {
+  gap: 9px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+}
+
+.mission-provider-mark {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(28, 225, 230, 0.36);
+  border-radius: 7px;
+  color: #d7ffff;
+  background: linear-gradient(145deg, rgba(28, 225, 230, 0.16), rgba(130, 88, 244, 0.26));
+  font-size: 10px;
+}
+
+.mission-provider-row .provider-label {
+  color: #718995;
+  font-size: 7px;
+}
+
+.mission-provider-row .provider-name {
+  color: #d7e2e6;
+  font-size: 11px;
+}
+
+.mission-detail-list > div {
+  grid-template-columns: minmax(74px, 0.72fr) minmax(0, 1.28fr);
+  gap: 8px;
+  padding: 7px 0;
+  font-size: 9px;
+}
+
+.mission-controls {
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.mission-btn {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  font-size: 9px;
+}
+
+.mission-btn-pause {
+  color: #c5d4da;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.mission-btn-stop {
+  border-color: rgba(219, 92, 85, 0.48);
+  color: #ffc2bd;
+  background: rgba(219, 92, 85, 0.13);
+}
+
+.mission-control-note {
+  margin-top: 8px;
+  color: #657b86;
+  font-size: 8px;
+}
+
+.mission-activity li {
+  padding: 8px 0 8px 18px;
+  color: #8296a0;
+  font-size: 8px;
+}
+
+.mission-activity li::before {
+  top: 8px;
+  font-size: 8px;
+}
+
+.mission-activity li strong {
+  color: #b8c8cf;
+  font-size: 9px;
+}
+
+.mission-activity-empty {
+  font-size: 9px;
+}
+
+.mission-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 13px 4px 17px;
+  color: #82949d;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+}
+
+.mission-footer strong {
+  padding-left: 30px;
+  border-left: 1px solid var(--line-soft);
+  color: #cdd9de;
+  font-family: var(--display-font);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+.mission-footer em {
+  color: var(--waypoint-mint);
+  font-size: 7px;
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .mission-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mission-command-rail {
+    position: static;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .mission-project {
+    grid-column: 1 / -1;
+  }
+
+  .mission-workspace-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .mission-brand-copy small,
+  .mission-status-pill {
+    display: none;
+  }
+
+  .mission-command-rail,
+  .mission-metrics {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .mission-project,
+  .mission-nextmove-card {
+    grid-column: 1 / -1;
+  }
+
+  .mission-route li {
+    font-size: 0;
+  }
+
+  .mission-footer span {
+    display: none;
+  }
+
+  .mission-footer strong {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
+/* =========================================================
+   Functional command deck
+   全画面を監視画面ではなく、実行・判断・復帰の操作面にする。
+   ========================================================= */
+.mission-rail-action {
+  width: 100%;
+  min-height: 31px;
+  margin-top: 10px;
+  border: 1px solid rgba(28, 225, 230, 0.28);
+  border-radius: 5px;
+  color: #9df5f3;
+  background: rgba(28, 225, 230, 0.055);
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.mission-rail-action:hover {
+  border-color: rgba(28, 225, 230, 0.58);
+  background: rgba(28, 225, 230, 0.11);
+}
+
+.mission-route button {
+  position: relative;
+  z-index: 2;
+  min-width: 28px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-weight: 800;
+}
+
+.mission-route button:hover {
+  color: #d7ffff;
+  background: rgba(28, 225, 230, 0.08);
+}
+
+.mission-command-deck {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(28, 225, 230, 0.31);
+  background:
+    linear-gradient(135deg, rgba(28, 225, 230, 0.045), transparent 35%),
+    linear-gradient(145deg, rgba(11, 27, 38, 0.98), rgba(6, 17, 26, 0.98));
+}
+
+.mission-command-deck::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: linear-gradient(var(--waypoint-mint), var(--route-blue));
+  box-shadow: 0 0 14px rgba(28, 225, 230, 0.45);
+}
+
+.mission-deck-eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--waypoint-mint);
+  font: 700 7px/1.2 var(--data-font);
+  letter-spacing: 0.16em;
+}
+
+.mission-command-title {
+  margin: 0;
+  color: #eef8fa;
+  font: 700 16px/1.2 var(--display-font);
+  letter-spacing: -0.02em;
+}
+
+.mission-section-badge[data-state="paused"] {
+  color: #ffd28a;
+  background: rgba(241, 168, 74, 0.12);
+}
+
+.mission-section-badge[data-state="blocked"] {
+  color: #ffaaa3;
+  background: rgba(219, 92, 85, 0.12);
+}
+
+.mission-section-badge[data-state="completed"] {
+  color: #8bf1cc;
+  background: rgba(68, 215, 162, 0.1);
+}
+
+.mission-run-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-hair);
+}
+
+.mission-field {
+  display: grid;
+  gap: 5px;
+}
+
+.mission-field-wide {
+  grid-column: 1 / -1;
+}
+
+.mission-field > span {
+  color: #718995;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.mission-field textarea,
+.mission-field select {
+  width: 100%;
+  border: 1px solid rgba(67, 112, 133, 0.48);
+  border-radius: 6px;
+  color: #dce9ed;
+  background: #05111a;
+  font: 500 10px/1.55 var(--body-font);
+}
+
+.mission-field textarea {
+  min-height: 52px;
+  padding: 8px 9px;
+  resize: vertical;
+}
+
+.mission-field select {
+  min-height: 34px;
+  padding: 0 28px 0 9px;
+}
+
+.mission-field textarea::placeholder {
+  color: #536b77;
+}
+
+.mission-field textarea:focus,
+.mission-field select:focus {
+  outline: 2px solid rgba(28, 225, 230, 0.75);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.mission-primary-controls {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.3fr) repeat(2, minmax(105px, 0.8fr));
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.mission-btn-run {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(100deg, #187ce4, #7357ed);
+  box-shadow: 0 8px 22px rgba(78, 92, 232, 0.2);
+}
+
+.mission-btn-run:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.mission-btn-detail {
+  color: #aebfc6;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.mission-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.mission-quick-actions button {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  color: #a9bbc3;
+  background: rgba(255, 255, 255, 0.022);
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.mission-quick-actions button:hover {
+  border-color: rgba(130, 88, 244, 0.55);
+  color: #f0eaff;
+  background: rgba(130, 88, 244, 0.09);
+}
+
+.mission-quick-actions button span {
+  color: var(--waypoint-mint);
+  font: 800 11px/1 var(--data-font);
+}
+
+.mission-control-note[data-tone="success"] {
+  color: #8bf1cc;
+}
+
+.mission-workspace-grid {
+  grid-template-columns: minmax(0, 1.35fr) minmax(250px, 0.65fr);
+}
+
+@media (max-width: 1040px) {
+  .mission-primary-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .mission-btn-run {
+    grid-column: 1 / -1;
+  }
+
+  .mission-quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .mission-run-form,
+  .mission-primary-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mission-field-wide,
+  .mission-btn-run {
+    grid-column: auto;
+  }
+}
+
+/* Project workspace management / phase restart */
+.mission-project-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.mission-project-actions button,
+.mission-project-new-form button {
+  min-height: 40px;
+  border: 1px solid rgba(28, 225, 230, 0.34);
+  border-radius: 10px;
+  background: rgba(28, 225, 230, 0.08);
+  color: var(--text-strong);
+  font-family: inherit;
+  font-size: var(--mission-type-label);
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.mission-project-actions button {
+  width: 100%;
+}
+
+.mission-project-actions button:hover,
+.mission-project-new-form button:hover {
+  border-color: rgba(28, 225, 230, 0.72);
+  background: rgba(28, 225, 230, 0.14);
+}
+
+.mission-project-new-form {
+  display: grid;
+  gap: 9px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(130, 88, 244, 0.3);
+  border-radius: 12px;
+  background: rgba(5, 14, 26, 0.74);
+}
+
+.mission-project-new-form[hidden] {
+  display: none;
+}
+
+.mission-project-new-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-mid);
+  font-size: var(--mission-type-label);
+}
+
+.mission-project-new-form input {
+  min-height: 44px;
+  box-sizing: border-box;
+  border: 1px solid rgba(126, 154, 184, 0.3);
+  border-radius: 9px;
+  background: rgba(2, 9, 18, 0.82);
+  color: var(--text-strong);
+  padding: 0 11px;
+  font-family: inherit;
+  font-size: var(--mission-type-body);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.mission-project-new-form > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.mission-rail-action-danger {
+  margin-top: 8px;
+  border-color: rgba(241, 168, 74, 0.46);
+  background: rgba(241, 168, 74, 0.08);
+  color: #ffd59a;
+}
+
+.mission-rail-action-danger:hover {
+  border-color: rgba(241, 168, 74, 0.82);
+  background: rgba(241, 168, 74, 0.14);
+}
+
+.mission-rail-action-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+/* =========================================================
+   Executive legibility floor
+   情報密度より、通常の閲覧距離で読めることを優先する最終レイヤー。
+   ========================================================= */
+.mission-topbar {
+  min-height: 76px;
+  gap: 18px;
+}
+
+.mission-brand-copy strong {
+  font-size: 16px;
+}
+
+.mission-brand-copy small {
+  font-size: 10px;
+}
+
+.mission-status-pill,
+.mission-back-panel {
+  font-size: 12px;
+}
+
+.mission-main {
+  grid-template-columns: minmax(280px, 0.28fr) minmax(0, 1fr);
+  gap: 20px;
+  padding-top: 20px;
+}
+
+.mission-command-rail {
+  gap: 12px;
+  padding: 14px;
+}
+
+.mission-project-eyebrow,
+.mission-percent-row .label,
+.mission-progress-meta {
+  font-size: 10px;
+}
+
+.mission-project strong {
+  font-size: 14px;
+}
+
+#mission-project-switch,
+.mission-project-switch-note {
+  font-size: 12px;
+}
+
+.mission-command-rail .mission-card {
+  padding: 14px;
+}
+
+.mission-card-title {
+  font-size: 11px;
+}
+
+.mission-percent {
+  font-size: 34px;
+}
+
+.mission-phase-head strong {
+  font-size: 17px;
+}
+
+.mission-phase-status {
+  font-size: 10px;
+}
+
+.mission-phase-desc,
+.mission-phase-guide,
+.mission-mode-banner,
+.mission-nextmove-reason {
+  font-size: 12px;
+}
+
+.mission-nextmove-reco {
+  font-size: 14px;
+}
+
+.mission-rail-action {
+  min-height: 40px;
+  font-size: 11px;
+}
+
+.mission-workspace-eyebrow {
+  font-size: 10px;
+}
+
+.mission-workspace-head h1 {
+  font-size: clamp(24px, 2.2vw, 32px);
+}
+
+.mission-live-clock span {
+  font-size: 10px;
+}
+
+.mission-live-clock strong {
+  font-size: 18px;
+}
+
+.mission-metrics article {
+  min-height: 76px;
+  padding: 13px 15px;
+}
+
+.mission-metrics span,
+.mission-route-heading span {
+  font-size: 10px;
+}
+
+.mission-metrics strong {
+  font-size: 21px;
+}
+
+#mission-metric-health {
+  font-size: 15px;
+}
+
+.mission-route-heading strong {
+  font-size: 13px;
+}
+
+#mission-route-status,
+.mission-route button {
+  font-size: 10px;
+}
+
+.mission-section-badge,
+.mission-section-meta,
+.mission-deck-eyebrow {
+  font-size: 10px;
+}
+
+.mission-command-title {
+  font-size: 20px;
+}
+
+.mission-provider-row .provider-label {
+  font-size: 10px;
+}
+
+.mission-provider-row .provider-name {
+  font-size: 14px;
+}
+
+.mission-provider-mark {
+  width: 40px;
+  height: 40px;
+  font-size: 12px;
+}
+
+.mission-detail-list > div {
+  padding: 9px 0;
+  font-size: 12px;
+}
+
+.mission-field > span {
+  font-size: 11px;
+}
+
+.mission-field textarea,
+.mission-field select {
+  font-size: 13px;
+}
+
+.mission-field textarea {
+  min-height: 68px;
+  padding: 10px 12px;
+}
+
+.mission-field select {
+  min-height: 42px;
+}
+
+.mission-btn {
+  min-height: 44px;
+  font-size: 12px;
+}
+
+.mission-quick-actions button {
+  min-height: 48px;
+  font-size: 11px;
+}
+
+.mission-quick-actions button span {
+  font-size: 13px;
+}
+
+.mission-control-note {
+  font-size: 11px;
+}
+
+.mission-activity li {
+  padding: 11px 0 11px 22px;
+  font-size: 11px;
+}
+
+.mission-activity li strong {
+  font-size: 12px;
+}
+
+.mission-activity-empty,
+.mission-footer {
+  font-size: 11px;
+}
+
+.mission-footer strong {
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .mission-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* =========================================================
+   UI typography scale — readable at 100%, resilient at 200%
+   本文16px / 操作15px / ラベル14px / 補助12pxを下限にする。
+   pxで密度を詰めず、remとリフローで情報量を受け止める最終レイヤー。
+   ========================================================= */
+:root {
+  --mission-type-display: clamp(2rem, 3vw, 2.75rem);
+  --mission-type-title: 1.375rem;
+  --mission-type-body: 1rem;
+  --mission-type-control: 0.9375rem;
+  --mission-type-label: 0.875rem;
+  --mission-type-meta: 0.75rem;
+}
+
+html {
+  font-size: 100%;
+}
+
+body {
+  font-size: var(--mission-type-body);
+  line-height: 1.55;
+}
+
+.mission-shell {
+  max-width: 1680px;
+}
+
+.mission-topbar {
+  min-height: 84px;
+  padding-block: 20px;
+}
+
+.mission-brand-copy strong {
+  font-size: 1.125rem;
+}
+
+.mission-brand-copy small {
+  font-size: var(--mission-type-meta);
+  line-height: 1.45;
+}
+
+.mission-status-pill,
+.mission-back-panel {
+  min-height: 44px;
+  font-size: var(--mission-type-control);
+}
+
+.mission-main {
+  grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
+  gap: clamp(20px, 2vw, 32px);
+  padding-top: 24px;
+}
+
+.mission-command-rail {
+  gap: 16px;
+  padding: 16px;
+}
+
+.mission-command-rail .mission-card {
+  padding: 18px;
+}
+
+.mission-project-eyebrow,
+.mission-percent-row .label,
+.mission-progress-meta,
+.mission-workspace-eyebrow,
+.mission-live-clock span,
+.mission-metrics span,
+.mission-route-heading span,
+.mission-provider-row .provider-label,
+.mission-section-badge,
+.mission-section-meta,
+.mission-deck-eyebrow {
+  font-size: var(--mission-type-label);
+  line-height: 1.45;
+}
+
+.mission-project strong,
+#mission-project-switch,
+.mission-project-switch-note {
+  font-size: var(--mission-type-body);
+  line-height: 1.5;
+}
+
+#mission-project-switch {
+  min-height: 44px;
+}
+
+.mission-card-title {
+  font-size: var(--mission-type-label);
+  line-height: 1.45;
+}
+
+.mission-percent {
+  font-size: 2.625rem;
+}
+
+.mission-phase-head strong {
+  font-size: 1.375rem;
+  line-height: 1.35;
+}
+
+.mission-phase-status,
+#mission-route-status {
+  font-size: var(--mission-type-meta);
+  line-height: 1.4;
+}
+
+.mission-phase-desc,
+.mission-phase-guide,
+.mission-mode-banner,
+.mission-nextmove-reason,
+.mission-detail-list > div,
+.mission-control-note,
+.mission-activity li,
+.mission-activity-empty,
+.mission-footer {
+  font-size: var(--mission-type-body);
+  line-height: 1.6;
+}
+
+.mission-nextmove-reco,
+.mission-activity li strong,
+.mission-footer strong {
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+
+.mission-rail-action {
+  min-height: 48px;
+  font-size: var(--mission-type-control);
+}
+
+.mission-workspace-head h1 {
+  font-size: var(--mission-type-display);
+  line-height: 1.15;
+}
+
+.mission-live-clock strong {
+  font-size: 1.375rem;
+}
+
+.mission-metrics article {
+  min-height: 92px;
+  padding: 16px 18px;
+}
+
+.mission-metrics strong {
+  font-size: 1.625rem;
+}
+
+#mission-metric-health {
+  font-size: 1.125rem;
+}
+
+.mission-route-heading strong {
+  font-size: 1rem;
+}
+
+.mission-route button {
+  min-height: 48px;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.mission-command-title {
+  font-size: var(--mission-type-title);
+  line-height: 1.3;
+}
+
+.mission-provider-row .provider-name {
+  font-size: 1.0625rem;
+}
+
+.mission-provider-mark {
+  width: 48px;
+  height: 48px;
+  font-size: var(--mission-type-label);
+}
+
+.mission-field {
+  gap: 8px;
+}
+
+.mission-field > span {
+  font-size: var(--mission-type-label);
+  line-height: 1.45;
+}
+
+.mission-field textarea,
+.mission-field select {
+  font-size: var(--mission-type-body);
+  line-height: 1.55;
+}
+
+.mission-field textarea {
+  min-height: 96px;
+  padding: 12px 14px;
+}
+
+.mission-field select {
+  min-height: 48px;
+}
+
+.mission-btn {
+  min-height: 48px;
+  padding-inline: 16px;
+  font-size: var(--mission-type-control);
+}
+
+.mission-quick-actions button {
+  min-height: 56px;
+  padding: 10px 12px;
+  font-size: var(--mission-type-label);
+  line-height: 1.4;
+}
+
+.mission-quick-actions button span {
+  font-size: 1rem;
+}
+
+@media (max-width: 1100px) {
+  .mission-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mission-command-rail {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mission-project {
+    grid-column: 1 / -1;
+  }
+
+  .mission-workspace-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .mission-shell {
+    padding-inline: 14px;
+  }
+
+  .mission-topbar {
+    flex-wrap: wrap;
+  }
+
+  .mission-status-pill {
+    margin-left: auto;
+  }
+
+  .mission-back-panel {
+    width: 100%;
+  }
+
+  .mission-command-rail,
+  .mission-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mission-project {
+    grid-column: auto;
+  }
+
+  .mission-quick-actions {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -934,12 +934,16 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
 }
 
 .draft-decision-modal-root {
-  align-items: end;
+  align-items: flex-start;
   background: rgba(15, 23, 42, 0.42);
-  display: grid;
+  display: flex;
   inset: 0;
-  padding: 16px;
+  justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
   position: fixed;
+  scrollbar-gutter: stable;
   z-index: 10001;
 }
 
@@ -949,9 +953,15 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
   border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-sm);
   box-shadow: var(--shadow-lg);
   color: var(--ink);
-  margin: 0 auto;
+  flex: 0 0 auto;
+  margin: auto 0;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   max-width: 360px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px;
+  scrollbar-gutter: stable;
   width: 100%;
 }
 
@@ -6614,7 +6624,8 @@ textarea:focus-visible {
    needs-mode 時の engagement カードで到達可能） */
 #tab-phases .strategy-view-switch { display: none; }
 #tab-phases #engagement-mode { display: none; }
-#tab-phases.needs-mode #engagement-mode { display: block; margin: 0 12px 12px; }
+#tab-phases.needs-mode #engagement-mode,
+#tab-phases.show-engagement-mode #engagement-mode { display: block; margin: 0 12px 12px; }
 /* 初期設定 CTA はカード枠へ移設したため、常設の setup-status-strip は退避（DOM 温存） */
 #setup-status-strip { display: none; }
 
@@ -6647,6 +6658,27 @@ body { padding-top: 43px; }
 }
 .slim-bar-icon-btn:hover { color: var(--deep-route); background: rgba(16, 35, 61, 0.05); }
 .slim-bar-more { font-weight: 800; letter-spacing: 0.06em; }
+.slim-dashboard-open {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid rgba(28, 225, 230, 0.34);
+  border-radius: 9px;
+  background: linear-gradient(110deg, rgba(28, 225, 230, 0.12), rgba(130, 88, 244, 0.18));
+  color: var(--executive-text);
+  font: 750 0.75rem/1 inherit;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.slim-dashboard-open:hover {
+  border-color: rgba(28, 225, 230, 0.72);
+  background: linear-gradient(110deg, rgba(28, 225, 230, 0.2), rgba(130, 88, 244, 0.27));
+}
+.slim-dashboard-open:focus-visible {
+  outline: 2px solid var(--route-blue);
+  outline-offset: 2px;
+}
+.slim-dashboard-open span + span { margin-left: 3px; }
 .slim-bar-center {
   display: flex;
   min-width: 0;
@@ -6934,4 +6966,1663 @@ body { padding-top: 43px; }
   .phase-toggle-btn,
   .current-phase-primary,
   .current-phase-secondary { transition: none !important; }
+}
+
+/* =====================================================
+   Executive Mission Control: 半自動ワークスペース
+   Chromeは拡張側からサイドパネル幅を指定できないため、ユーザーが広げた
+   480px以上を「標準ワークスペース」として2カラム化する。
+   左は判断と操作、右は10フェーズの航路。狭い幅では従来の1カラムを維持する。
+   ===================================================== */
+@media (min-width: 480px) {
+  #tab-phases.is-active.is-phase-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(220px, 0.92fr);
+    align-items: start;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  #tab-phases.is-phase-card #current-phase-card {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  #tab-phases.is-phase-card .phase-section {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    min-height: 100%;
+    margin: 0;
+    border: 1px solid var(--studio-border);
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 8px 22px rgba(16, 35, 61, 0.07);
+  }
+
+  #tab-phases.is-phase-card .phase-section-head {
+    padding: 14px 14px 8px;
+  }
+
+  #tab-phases.is-phase-card .phase-list {
+    padding: 0 8px 10px;
+  }
+
+  #tab-phases.is-phase-card .phase-row {
+    min-height: 44px;
+  }
+
+  #tab-phases.is-phase-card .strategy-card-hint {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin: 0 8px;
+  }
+}
+
+/* =====================================================
+   Executive Mission Control — image direction
+   Near-black navigation surface + cyan/violet route signal.
+   This is the final effective layer and intentionally replaces the old
+   white Navigation Studio presentation without changing behavior.
+   ===================================================== */
+:root {
+  --executive-void: #040912;
+  --executive-panel: #08131d;
+  --executive-panel-2: #0b1924;
+  --executive-line: #193343;
+  --executive-line-soft: rgba(76, 143, 167, 0.18);
+  --executive-cyan: #1ce1e6;
+  --executive-cyan-soft: #7df7f3;
+  --executive-violet: #8258f4;
+  --executive-green: #44d7a2;
+  --executive-muted: #7890a0;
+  --executive-text: #e9f4f7;
+  --bg: var(--executive-void);
+  --surface: var(--executive-panel);
+  --text: var(--executive-text);
+  --text-muted: var(--executive-muted);
+  --studio-surface: var(--executive-panel);
+  --studio-border: var(--executive-line);
+  --deep-route: var(--executive-panel);
+  --route-blue: var(--executive-cyan);
+  --waypoint-mint: var(--executive-cyan);
+  --ink: var(--executive-text);
+  --ink-soft: #a4bac5;
+  --ink-mute: var(--executive-muted);
+  --ink-faint: #587080;
+  --border-soft: var(--executive-line-soft);
+  color-scheme: dark;
+}
+
+html,
+body,
+.sk-shell {
+  color: var(--executive-text);
+  background:
+    radial-gradient(circle at 110% -8%, rgba(96, 83, 238, 0.16), transparent 32%),
+    radial-gradient(circle at -10% 110%, rgba(28, 225, 230, 0.09), transparent 36%),
+    var(--executive-void);
+}
+
+body {
+  padding-top: 57px;
+}
+
+.slim-bar {
+  height: 54px;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  border-bottom: 1px solid var(--executive-line);
+  background: rgba(4, 12, 19, 0.96);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(14px);
+}
+
+.slim-bar::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--executive-cyan), var(--executive-violet), transparent);
+  opacity: 0.65;
+}
+
+.slim-bar-icon-btn {
+  width: 42px;
+  height: 54px;
+  color: #8ba2af;
+}
+
+.slim-bar-icon-btn:hover,
+.slim-bar-center:hover {
+  color: var(--executive-cyan-soft);
+  background: rgba(28, 225, 230, 0.06);
+}
+
+.slim-bar-center {
+  height: 54px;
+  gap: 8px;
+}
+
+.slim-bar-mark {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--executive-cyan);
+  border-radius: 7px;
+  color: var(--executive-cyan-soft);
+  background: linear-gradient(145deg, rgba(28, 225, 230, 0.16), rgba(130, 88, 244, 0.18));
+  box-shadow: 0 0 18px rgba(28, 225, 230, 0.16);
+}
+
+.slim-bar-phase {
+  color: var(--executive-text);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.slim-bar-percent {
+  color: var(--executive-cyan);
+}
+
+.slim-progress {
+  bottom: -3px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.slim-progress-fill {
+  background: linear-gradient(90deg, var(--executive-cyan), var(--executive-violet));
+  box-shadow: 0 0 12px rgba(28, 225, 230, 0.48);
+}
+
+.sk-shell-work,
+.tab-content,
+.sk-shell-context {
+  background: transparent;
+}
+
+.sk-shell-tabs {
+  border-top: 1px solid var(--executive-line);
+  background: rgba(4, 12, 19, 0.97);
+}
+
+.sk-shell-tabs .tab-btn {
+  color: var(--executive-muted);
+  background: transparent;
+}
+
+.sk-shell-tabs .tab-btn.is-active {
+  color: var(--executive-cyan-soft);
+  background: rgba(28, 225, 230, 0.07);
+  box-shadow: inset 0 2px 0 var(--executive-cyan);
+}
+
+.current-phase-card,
+#tab-phases.is-phase-card .phase-section {
+  border: 1px solid var(--executive-line);
+  background:
+    linear-gradient(145deg, rgba(13, 29, 40, 0.98), rgba(6, 17, 26, 0.98));
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.cpc-project-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--executive-line-soft);
+}
+
+.cpc-project-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.cpc-project-kicker,
+.cpc-ai-quick-label {
+  color: var(--executive-muted);
+  font: 700 9px/1.4 var(--font-mono);
+  letter-spacing: 0.14em;
+}
+
+.cpc-project-name {
+  color: var(--executive-text);
+  font-size: 13px;
+}
+
+.cpc-project-industry {
+  color: #6f8794;
+  font-size: 10px;
+}
+
+.cpc-project-progress {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--font-mono);
+}
+
+.cpc-project-progress-value {
+  color: var(--executive-cyan);
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.cpc-project-progress-total {
+  color: var(--executive-muted);
+  font-size: 11px;
+}
+
+.cpc-project-rail {
+  height: 4px;
+  margin: 11px 0 17px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.cpc-project-rail-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--executive-cyan), #4ea7ef);
+  box-shadow: 0 0 10px rgba(28, 225, 230, 0.55);
+}
+
+.current-phase-card .cpc-eyebrow {
+  color: var(--executive-cyan);
+  font: 700 9px/1.4 var(--font-mono);
+  letter-spacing: 0.12em;
+}
+
+.current-phase-card .cpc-title {
+  color: var(--executive-text);
+  font-size: clamp(17px, 4vw, 22px);
+  letter-spacing: -0.02em;
+}
+
+.current-phase-desc {
+  color: #8ea4af;
+}
+
+.current-phase-chip {
+  border: 1px solid var(--executive-line);
+  color: #8ea4af;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.current-phase-chip.is-filled {
+  border-color: rgba(68, 215, 162, 0.3);
+  color: var(--executive-green);
+  background: rgba(68, 215, 162, 0.08);
+}
+
+.current-phase-nextmove {
+  border-color: rgba(28, 225, 230, 0.22);
+  background: linear-gradient(135deg, rgba(28, 225, 230, 0.07), rgba(130, 88, 244, 0.07));
+}
+
+.current-phase-nextmove-mark,
+.current-phase-nextmove-eyebrow {
+  color: var(--executive-cyan);
+}
+
+.current-phase-nextmove-text {
+  color: #c4d4db;
+}
+
+.current-phase-primary {
+  min-height: 46px;
+  border: 1px solid rgba(115, 193, 255, 0.35);
+  color: #ffffff;
+  background: linear-gradient(100deg, #187ce4 0%, #7357ed 100%);
+  box-shadow: 0 8px 24px rgba(55, 89, 231, 0.25);
+}
+
+.current-phase-primary:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 10px 30px rgba(55, 89, 231, 0.36);
+}
+
+.current-phase-secondary {
+  border-color: var(--executive-line);
+  color: #9fb4bf;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.current-phase-secondary:hover {
+  border-color: rgba(28, 225, 230, 0.45);
+  color: var(--executive-cyan-soft);
+  background: rgba(28, 225, 230, 0.06);
+}
+
+.cpc-ai-quick {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--executive-line-soft);
+}
+
+.cpc-ai-quick-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.cpc-ai-quick-btn {
+  min-height: 32px;
+  padding: 3px 4px;
+  border: 1px solid var(--executive-line);
+  border-radius: 7px;
+  color: #9db2bc;
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.cpc-ai-quick-btn:hover,
+.cpc-ai-quick-btn:focus-visible {
+  border-color: var(--executive-cyan);
+  color: var(--executive-cyan-soft);
+  background: rgba(28, 225, 230, 0.08);
+}
+
+.current-phase-nav {
+  border-top-color: var(--executive-line-soft);
+}
+
+.current-phase-nav-btn,
+.current-phase-nav-btn.is-list {
+  color: var(--executive-muted);
+}
+
+.strategy-view-switch {
+  border: 1px solid var(--executive-line);
+  background: #06101a;
+}
+
+.strategy-view-btn {
+  color: var(--executive-muted);
+}
+
+.strategy-view-btn.is-active {
+  color: #dffeff;
+  background: linear-gradient(100deg, rgba(24, 124, 228, 0.58), rgba(115, 87, 237, 0.5));
+}
+
+.phase-section-head {
+  border-bottom-color: var(--executive-line-soft);
+  background: transparent;
+}
+
+.phase-section-title {
+  color: #a9bec7;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.phase-section-meta {
+  color: #587080;
+  font-size: 9px;
+}
+
+.phase-list {
+  position: relative;
+  gap: 3px;
+}
+
+.phase-list::before {
+  content: '';
+  position: absolute;
+  top: 17px;
+  bottom: 22px;
+  left: 27px;
+  width: 1px;
+  background: linear-gradient(var(--executive-cyan), rgba(67, 95, 108, 0.35) 55%, rgba(67, 95, 108, 0.12));
+}
+
+.phase-row,
+#tab-phases.is-phase-card .phase-row {
+  min-height: 39px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.phase-row:hover {
+  border-color: var(--executive-line);
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: none;
+}
+
+.phase-row[aria-current="step"] {
+  border-color: rgba(28, 225, 230, 0.48);
+  border-left-color: var(--executive-cyan);
+  background: linear-gradient(90deg, rgba(28, 225, 230, 0.12), rgba(78, 96, 232, 0.08));
+  box-shadow: 0 0 22px rgba(28, 225, 230, 0.08);
+}
+
+.phase-row-head {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  min-height: 39px;
+  gap: 6px;
+  padding: 5px 7px 5px 5px;
+}
+
+.phase-row-marker {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid #405663;
+  border-radius: 50%;
+  color: #738996;
+  background: var(--executive-panel);
+  font-size: 10px;
+}
+
+.phase-row[data-state="filled"] .phase-row-marker {
+  border-color: var(--executive-green);
+  color: #041611;
+  background: var(--executive-green);
+}
+
+.phase-row[aria-current="step"] .phase-row-marker {
+  border-color: var(--executive-cyan);
+  color: var(--executive-cyan-soft);
+  background: #0a2631;
+  box-shadow: 0 0 0 4px rgba(28, 225, 230, 0.11);
+}
+
+.phase-row-title {
+  color: #aebfc7;
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.phase-row[aria-current="step"] .phase-row-title {
+  color: #effeff;
+}
+
+.phase-row-meta,
+.phase-row-status {
+  color: #5f7581;
+  font-size: 8px;
+}
+
+.phase-row-expanded {
+  border-top-color: var(--executive-line-soft);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.mission-header .mission-menu,
+#mission-menu {
+  border-color: var(--executive-line);
+  color: var(--executive-text);
+  background: #07121c;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.5);
+}
+
+.mission-menu-item,
+.mission-menu-projects select,
+.mission-menu-projects .project-new-form input {
+  color: #b8cbd3;
+  background: #0a1721;
+  border-color: var(--executive-line);
+}
+
+.mission-menu-item:hover {
+  color: var(--executive-cyan-soft);
+  background: rgba(28, 225, 230, 0.07);
+}
+
+.strategy-card-hint,
+.footer {
+  color: #526b78;
+}
+
+@media (min-width: 480px) {
+  #tab-phases.is-active.is-phase-card {
+    grid-template-columns: minmax(0, 1.02fr) minmax(226px, 0.98fr);
+    gap: 10px;
+    padding: 10px;
+  }
+
+  #tab-phases.is-phase-card .strategy-view-switch {
+    display: grid;
+    grid-column: 1;
+    grid-row: 2;
+    margin: 0;
+  }
+
+  #tab-phases.is-phase-card .strategy-card-hint {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  #tab-phases.is-phase-card .phase-section {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+  }
+
+  .current-phase-card {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 479px) {
+  .cpc-ai-quick-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* =========================================================
+   Executive Mission Control — approved production sidepanel
+   Dense two-column command surface from 350px upward.
+   ========================================================= */
+body {
+  padding-top: 49px;
+}
+
+.slim-bar {
+  height: 47px;
+  grid-template-columns: 38px minmax(0, 1fr) auto 38px;
+}
+
+.slim-bar-icon-btn {
+  width: 38px;
+  height: 47px;
+}
+
+.slim-bar-center {
+  height: 47px;
+  justify-content: flex-start;
+  gap: 7px;
+  padding: 0 4px;
+}
+
+.slim-bar-mark {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  color: transparent;
+  background: linear-gradient(140deg, var(--executive-cyan), #4b8cff 48%, var(--executive-violet));
+  clip-path: polygon(50% 0, 94% 25%, 94% 75%, 50% 100%, 6% 75%, 6% 25%);
+}
+
+.slim-bar-mark::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: #07111c;
+  clip-path: inherit;
+}
+
+.slim-bar-mark::after {
+  content: "";
+  position: absolute;
+  inset: 6px 5px 5px;
+  background: linear-gradient(135deg, var(--executive-cyan), var(--executive-violet));
+  clip-path: polygon(50% 0, 100% 100%, 82% 100%, 50% 38%, 18% 100%, 0 100%);
+}
+
+.slim-brand-lockup {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.slim-brand-lockup strong {
+  overflow: hidden;
+  color: #f0f5f7;
+  font-family: "Avenir Next", "Segoe UI Variable Display", var(--font-sans);
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slim-brand-lockup em {
+  color: var(--executive-cyan);
+  font-size: 6px;
+  font-weight: 600;
+}
+
+.slim-bar-phase {
+  margin-left: auto;
+  color: #718792;
+  font-size: 8px;
+}
+
+.slim-bar-percent {
+  color: var(--executive-cyan);
+  font: 700 8px/1 var(--font-mono);
+}
+
+.slim-bar-caret {
+  color: #607680;
+}
+
+.sk-shell-tabs {
+  min-height: 43px;
+}
+
+.sk-shell-tabs .tab-btn {
+  min-height: 43px;
+  font-size: 8px;
+}
+
+.sk-shell-tabs .tab-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.tab-content {
+  padding-bottom: 48px;
+}
+
+@media (min-width: 350px) {
+  #tab-phases.is-active.is-phase-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1.03fr) minmax(164px, 0.97fr);
+    gap: 7px;
+    align-items: start;
+    padding: 7px;
+  }
+
+  #tab-phases.is-phase-card #current-phase-card {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  #tab-phases.is-phase-card .strategy-view-switch {
+    display: grid;
+    grid-column: 1;
+    grid-row: 2;
+    margin: 0;
+  }
+
+  #tab-phases.is-phase-card #engagement-mode {
+    grid-column: 1;
+    grid-row: 3;
+    margin: 0;
+  }
+
+  #tab-phases.is-phase-card .strategy-card-hint {
+    grid-column: 1;
+    grid-row: 4;
+    margin: 0 4px;
+  }
+
+  #tab-phases.is-phase-card .phase-section {
+    display: block;
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    min-width: 0;
+    min-height: 100%;
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid var(--executive-line);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(10, 27, 38, 0.97), rgba(5, 17, 26, 0.98));
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.24);
+  }
+
+  #tab-phases.is-phase-card .phase-section-head {
+    padding: 9px 8px 6px;
+  }
+
+  #tab-phases.is-phase-card .phase-list {
+    gap: 1px;
+    padding: 3px 4px 5px;
+  }
+
+  #tab-phases.is-phase-card .phase-row {
+    min-height: 31px;
+    border-radius: 5px;
+  }
+
+  #tab-phases.is-phase-card .phase-row-head {
+    min-height: 31px;
+    grid-template-columns: 25px minmax(0, 1fr) auto;
+    gap: 3px;
+    padding: 3px 3px 3px 2px;
+  }
+
+  #tab-phases.is-phase-card .phase-row-marker {
+    width: 17px;
+    height: 17px;
+    font-size: 7px;
+  }
+
+  #tab-phases.is-phase-card .phase-row-title {
+    font-size: 7px;
+    line-height: 1.15;
+  }
+
+  #tab-phases.is-phase-card .phase-row-meta,
+  #tab-phases.is-phase-card .phase-row-status {
+    font-size: 5.5px;
+  }
+
+  #tab-phases.is-phase-card .phase-row-expanded {
+    display: none;
+  }
+
+  #tab-phases.is-phase-card .phase-list::before {
+    top: 13px;
+    bottom: 18px;
+    left: 14px;
+  }
+}
+
+.current-phase-card {
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.cpc-project-head {
+  gap: 6px;
+  padding-bottom: 8px;
+}
+
+.cpc-project-kicker,
+.cpc-ai-quick-label {
+  font-size: 6px;
+  letter-spacing: 0.11em;
+}
+
+.cpc-project-name {
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.cpc-project-industry {
+  font-size: 6px;
+}
+
+.cpc-project-progress-value {
+  font-size: 20px;
+}
+
+.cpc-project-progress-total {
+  font-size: 7px;
+}
+
+.cpc-project-rail {
+  height: 3px;
+  margin: 7px 0 10px;
+}
+
+.current-phase-card .cpc-eyebrow {
+  font-size: 6px;
+}
+
+.current-phase-card .cpc-title {
+  margin-top: 3px;
+  font-size: clamp(12px, 3.6vw, 17px);
+  line-height: 1.25;
+}
+
+.current-phase-desc {
+  margin-top: 5px;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.current-phase-chips {
+  gap: 3px;
+  margin-top: 7px;
+}
+
+.current-phase-chip {
+  padding: 3px 6px;
+  font-size: 6px;
+}
+
+.current-phase-nextmove {
+  gap: 6px;
+  margin-top: 8px;
+  padding: 7px;
+  border-radius: 5px;
+}
+
+.current-phase-nextmove-mark {
+  width: 12px;
+  height: 12px;
+}
+
+.current-phase-nextmove-eyebrow {
+  font-size: 5.5px;
+}
+
+.current-phase-nextmove-text {
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.current-phase-actions {
+  margin-top: 8px;
+}
+
+.current-phase-primary {
+  min-height: 34px;
+  border-radius: 5px;
+  font-size: 8px;
+}
+
+.current-phase-primary .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.current-phase-subactions {
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.current-phase-secondary {
+  min-height: 30px;
+  gap: 3px;
+  padding: 2px;
+  border-radius: 5px;
+  font-size: 6px;
+}
+
+.current-phase-secondary .icon {
+  width: 10px;
+  height: 10px;
+}
+
+.current-phase-nav {
+  gap: 3px;
+  margin-top: 8px;
+  padding-top: 7px;
+}
+
+.current-phase-nav-btn {
+  min-height: 24px;
+  padding: 0 2px;
+  border-radius: 4px;
+  font-size: 5.5px;
+}
+
+.strategy-view-switch {
+  gap: 2px;
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.strategy-view-btn {
+  min-height: 28px;
+  gap: 3px;
+  border-radius: 4px;
+  font-size: 6px;
+}
+
+.phase-section-title {
+  font-size: 7px;
+}
+
+.phase-section-meta {
+  margin-top: 2px;
+  font-size: 5.5px;
+}
+
+.phase-ai-quick {
+  padding: 6px 5px;
+  border-top: 1px solid var(--executive-line-soft);
+}
+
+.phase-ai-quick:empty {
+  display: none;
+}
+
+.phase-ai-quick .cpc-ai-quick {
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.phase-ai-quick .cpc-ai-quick-buttons {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.cpc-ai-quick-btn {
+  min-width: 0;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  gap: 1px;
+  padding: 3px 1px;
+  border-radius: 4px;
+}
+
+.cpc-ai-quick-mark {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.cpc-ai-quick-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 4px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cpc-ai-quick-btn.is-gemini .cpc-ai-quick-mark { color: #9f7cff; }
+.cpc-ai-quick-btn.is-chatgpt .cpc-ai-quick-mark { color: #58c9ad; }
+.cpc-ai-quick-btn.is-claude .cpc-ai-quick-mark { color: #e88b5f; }
+.cpc-ai-quick-btn.is-perplexity .cpc-ai-quick-mark { color: #42d9d0; }
+.cpc-ai-quick-btn.is-genspark .cpc-ai-quick-mark { color: #6790ff; }
+
+.phase-activity-section {
+  display: block;
+  margin: 0;
+  padding: 6px 6px 8px;
+  border-top: 1px solid var(--executive-line-soft);
+}
+
+.phase-utility-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.phase-utility-heading h2 {
+  margin: 0;
+  color: #78909a;
+  font-size: 6px;
+  font-weight: 700;
+}
+
+.phase-utility-heading span {
+  color: #526b77;
+  font-size: 5px;
+}
+
+.phase-activity-section #mission-activity-log {
+  display: grid;
+  gap: 2px;
+  margin: 5px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.phase-activity-section #mission-activity-log li {
+  min-width: 0;
+  padding: 2px 0 2px 7px;
+  overflow: hidden;
+  color: #647b87;
+  font-size: 5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phase-activity-section #mission-activity-log li::before {
+  left: 0;
+  color: var(--executive-cyan);
+  font-size: 4px;
+}
+
+.strategy-card-hint {
+  font-size: 6px;
+}
+
+@media (max-width: 430px) {
+  .slim-bar-phase {
+    display: none;
+  }
+}
+
+@media (max-width: 349px) {
+  .slim-brand-lockup strong {
+    font-size: 8px;
+  }
+
+  .slim-brand-lockup em {
+    display: none;
+  }
+
+  .current-phase-card {
+    margin: 8px;
+  }
+
+  .cpc-ai-quick-buttons {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* Full-auto module still carries legacy inline light colors.
+   Keep its behavior untouched and normalize only its presentation here. */
+#mod-automation-slot {
+  border-color: var(--executive-line);
+  color: var(--executive-text);
+  background: linear-gradient(145deg, rgba(11, 27, 38, 0.98), rgba(6, 17, 26, 0.98));
+}
+
+#mod-automation-slot [style*="background:#f8fafc"],
+#mod-automation-slot [style*="background:#f1f5f9"],
+#mod-automation-slot [style*="background:#fff"],
+#mod-automation-slot [style*="background: #fff"] {
+  border-color: var(--executive-line) !important;
+  color: #a8bcc5 !important;
+  background: #071722 !important;
+}
+
+#mod-automation-slot [style*="background:#ecfdf5"],
+#mod-automation-slot [style*="background:#f0fdfa"],
+#mod-automation-slot [style*="background:#ccfbf1"],
+#mod-automation-slot [style*="background:#eff6ff"] {
+  border-color: rgba(28, 225, 230, 0.3) !important;
+  color: #9bd8d7 !important;
+  background: linear-gradient(135deg, rgba(28, 225, 230, 0.08), rgba(33, 77, 93, 0.12)) !important;
+}
+
+#mod-automation-slot [style*="background:#fef2f2"] {
+  border-color: rgba(219, 92, 85, 0.42) !important;
+  color: #ffaaa3 !important;
+  background: rgba(89, 27, 31, 0.26) !important;
+}
+
+#mod-automation-slot [style*="background:#fffdf6"],
+#mod-automation-slot [style*="background:#fef3c7"],
+#mod-automation-slot [style*="background:#fff7ed"] {
+  border-color: rgba(241, 168, 74, 0.38) !important;
+  color: #e9bd73 !important;
+  background: rgba(87, 59, 23, 0.25) !important;
+}
+
+#mod-automation-slot [style*="color:#0f172a"],
+#mod-automation-slot [style*="color:#475569"],
+#mod-automation-slot [style*="color:#64748b"] {
+  color: #91a7b1 !important;
+}
+
+#mod-automation-slot [style*="color:#166534"],
+#mod-automation-slot [style*="color:#0f766e"] {
+  color: var(--executive-cyan-soft) !important;
+}
+
+#mod-automation-slot [style*="color:#b91c1c"],
+#mod-automation-slot [style*="color:#7f1d1d"],
+#mod-automation-slot [style*="color:#991b1b"] {
+  color: #ffaaa3 !important;
+}
+
+#mod-automation-slot [style*="color:#78350f"],
+#mod-automation-slot [style*="color:#7c5a0d"] {
+  color: #e9bd73 !important;
+}
+
+#mod-automation-slot input:not([type="radio"]):not([type="checkbox"]),
+#mod-automation-slot select,
+#mod-automation-slot textarea {
+  border-color: var(--executive-line) !important;
+  color: #d2dee3 !important;
+  background: #05111a !important;
+}
+
+#mod-automation-slot input[type="radio"],
+#mod-automation-slot input[type="checkbox"] {
+  accent-color: var(--executive-cyan);
+}
+
+#mod-automation-slot .muted-note {
+  color: #8298a2;
+}
+
+#mod-automation-slot .btn {
+  border-color: rgba(115, 193, 255, 0.3);
+  color: #f3f8fa;
+  background: linear-gradient(100deg, #187ce4, #7357ed);
+}
+
+#mod-automation-slot .btn-ghost {
+  border-color: var(--executive-line);
+  color: #a7bbc4;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+/* =========================================================
+   Executive legibility floor
+   2カラムを維持しつつ、操作文字を実用サイズへ戻す最終レイヤー。
+   ========================================================= */
+.slim-brand-lockup strong {
+  font-size: 13px;
+}
+
+.slim-brand-lockup em {
+  font-size: 9px;
+}
+
+.slim-bar-phase,
+.slim-bar-percent {
+  font-size: 11px;
+}
+
+.sk-shell-tabs .tab-btn {
+  min-height: 48px;
+  font-size: 11px;
+}
+
+.current-phase-card {
+  padding: 14px;
+}
+
+.cpc-project-kicker,
+.cpc-ai-quick-label,
+.current-phase-card .cpc-eyebrow {
+  font-size: 9px;
+}
+
+.cpc-project-name {
+  font-size: 13px;
+}
+
+.cpc-project-industry,
+.cpc-project-progress-total {
+  font-size: 10px;
+}
+
+.cpc-project-progress-value {
+  font-size: 28px;
+}
+
+.current-phase-card .cpc-title {
+  font-size: clamp(16px, 4vw, 21px);
+}
+
+.current-phase-desc {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.current-phase-chip {
+  padding: 4px 7px;
+  font-size: 9px;
+}
+
+.current-phase-nextmove {
+  padding: 9px;
+}
+
+.current-phase-nextmove-eyebrow {
+  font-size: 8px;
+}
+
+.current-phase-nextmove-text {
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.current-phase-primary {
+  min-height: 42px;
+  font-size: 11px;
+}
+
+.current-phase-secondary {
+  min-height: 36px;
+  padding: 4px;
+  font-size: 9px;
+}
+
+.current-phase-nav-btn {
+  min-height: 32px;
+  font-size: 9px;
+}
+
+.strategy-view-btn {
+  min-height: 36px;
+  font-size: 10px;
+}
+
+.phase-section-title {
+  font-size: 10px;
+}
+
+.phase-section-meta,
+.strategy-card-hint {
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.cpc-ai-quick-btn {
+  min-height: 40px;
+}
+
+.cpc-ai-quick-mark {
+  font-size: 12px;
+}
+
+.cpc-ai-quick-name {
+  font-size: 7px;
+}
+
+.phase-utility-heading h2 {
+  font-size: 9px;
+}
+
+.phase-utility-heading span,
+.phase-activity-section #mission-activity-log li {
+  font-size: 8px;
+}
+
+@media (min-width: 350px) {
+  #tab-phases.is-active.is-phase-card {
+    grid-template-columns: minmax(0, 1.02fr) minmax(172px, 0.98fr);
+    gap: 10px;
+    padding: 10px;
+  }
+
+  #tab-phases.is-phase-card .phase-section-head {
+    padding: 11px 10px 8px;
+  }
+
+  #tab-phases.is-phase-card .phase-list {
+    gap: 3px;
+    padding: 5px 6px 8px;
+  }
+
+  #tab-phases.is-phase-card .phase-row,
+  #tab-phases.is-phase-card .phase-row-head {
+    min-height: 40px;
+  }
+
+  #tab-phases.is-phase-card .phase-row-head {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    gap: 5px;
+    padding: 5px 4px;
+  }
+
+  #tab-phases.is-phase-card .phase-row-marker {
+    width: 22px;
+    height: 22px;
+    font-size: 9px;
+  }
+
+  #tab-phases.is-phase-card .phase-row-title {
+    font-size: 10px;
+    line-height: 1.25;
+  }
+
+  #tab-phases.is-phase-card .phase-row-meta,
+  #tab-phases.is-phase-card .phase-row-status {
+    font-size: 8px;
+  }
+
+  #tab-phases.is-phase-card .phase-list::before {
+    top: 17px;
+    left: 17px;
+  }
+}
+
+@media (max-width: 390px) {
+  .slim-brand-lockup strong {
+    font-size: 11px;
+  }
+
+  #tab-phases.is-active.is-phase-card {
+    grid-template-columns: minmax(0, 1fr) minmax(164px, 0.96fr);
+    gap: 7px;
+    padding: 7px;
+  }
+
+  #tab-phases.is-phase-card .phase-row-title {
+    font-size: 9px;
+  }
+}
+
+/* =========================================================
+   UI typography scale — narrow-safe, wide when space permits
+   本文15–16px / 操作14–15px / 補助12pxを下限にする最終レイヤー。
+   350pxへ2カラムを押し込まず、520px未満は1カラムへリフローする。
+   ========================================================= */
+html {
+  font-size: 100%;
+}
+
+body {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.slim-brand-lockup strong {
+  font-size: 0.875rem;
+}
+
+.slim-brand-lockup em,
+.slim-bar-phase,
+.slim-bar-percent {
+  font-size: 0.75rem;
+}
+
+.sk-shell-tabs .tab-btn {
+  min-height: 52px;
+  font-size: 0.875rem;
+}
+
+.current-phase-card {
+  padding: 1rem;
+}
+
+.cpc-project-kicker,
+.cpc-ai-quick-label,
+.current-phase-card .cpc-eyebrow {
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.cpc-project-name {
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.cpc-project-industry,
+.cpc-project-progress-total {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.cpc-project-progress-value {
+  font-size: 2rem;
+}
+
+.current-phase-card .cpc-title {
+  font-size: clamp(1.375rem, 5vw, 1.75rem);
+  line-height: 1.3;
+}
+
+.current-phase-desc {
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+
+.current-phase-chip,
+.current-phase-nextmove-eyebrow {
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.current-phase-nextmove {
+  gap: 0.625rem;
+  padding: 0.875rem;
+}
+
+.current-phase-nextmove-text {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.current-phase-primary {
+  min-height: 50px;
+  font-size: 0.9375rem;
+}
+
+.current-phase-secondary {
+  min-height: 46px;
+  padding: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.current-phase-nav-btn {
+  min-height: 42px;
+  padding-inline: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.strategy-view-btn {
+  min-height: 46px;
+  font-size: 0.875rem;
+}
+
+.phase-section-title {
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.phase-section-meta,
+.strategy-card-hint {
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+#tab-phases.is-phase-card .phase-row,
+#tab-phases.is-phase-card .phase-row-head {
+  min-height: 52px;
+}
+
+#tab-phases.is-phase-card .phase-row-head {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  padding: 0.5rem 0.375rem;
+}
+
+#tab-phases.is-phase-card .phase-row-marker {
+  width: 26px;
+  height: 26px;
+  font-size: 0.75rem;
+}
+
+#tab-phases.is-phase-card .phase-row-title {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+#tab-phases.is-phase-card .phase-row-meta,
+#tab-phases.is-phase-card .phase-row-status {
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.cpc-ai-quick-btn {
+  min-height: 48px;
+  padding: 0.5rem 0.25rem;
+}
+
+.cpc-ai-quick-mark {
+  font-size: 1rem;
+}
+
+.cpc-ai-quick-name {
+  overflow: visible;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.phase-utility-heading h2 {
+  font-size: 0.8125rem;
+}
+
+.phase-utility-heading span,
+.phase-activity-section #mission-activity-log li {
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+#mod-automation-slot {
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+#mod-automation-slot input:not([type="radio"]):not([type="checkbox"]),
+#mod-automation-slot select,
+#mod-automation-slot textarea {
+  min-height: 46px;
+  font-size: 1rem !important;
+  line-height: 1.5;
+}
+
+.sk-automation-mode-summary,
+.sk-full-auto-model-settings {
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--executive-line);
+  border-radius: 10px;
+  color: var(--executive-text);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.sk-automation-mode-summary[data-mode="semi"] {
+  border-left: 3px solid var(--executive-cyan);
+}
+
+.sk-automation-mode-summary[data-mode="full"] {
+  border-left: 3px solid var(--executive-violet);
+}
+
+.sk-full-auto-model-title {
+  margin-bottom: 0.5rem;
+  color: var(--executive-cyan-soft);
+  font-size: 0.875rem;
+  font-weight: 750;
+}
+
+.sk-full-auto-model-settings select {
+  min-height: 44px;
+  color: var(--executive-text);
+  border-color: var(--executive-line) !important;
+  background: var(--executive-panel-2);
+}
+
+#mod-automation-slot .btn,
+#mod-automation-slot button {
+  min-height: 46px;
+  font-size: 0.875rem !important;
+  line-height: 1.4;
+}
+
+#mod-automation-slot [style*="font-size:8px"],
+#mod-automation-slot [style*="font-size: 8px"],
+#mod-automation-slot [style*="font-size:9px"],
+#mod-automation-slot [style*="font-size: 9px"],
+#mod-automation-slot [style*="font-size:10px"],
+#mod-automation-slot [style*="font-size: 10px"],
+#mod-automation-slot [style*="font-size:11px"],
+#mod-automation-slot [style*="font-size: 11px"],
+#mod-automation-slot [style*="font-size:12px"],
+#mod-automation-slot [style*="font-size: 12px"] {
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
+}
+
+@media (max-width: 519px) {
+  #tab-phases.is-active.is-phase-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.875rem;
+    padding: 0.75rem;
+  }
+
+  #tab-phases.is-phase-card #current-phase-card,
+  #tab-phases.is-phase-card .strategy-view-switch,
+  #tab-phases.is-phase-card #engagement-mode,
+  #tab-phases.is-phase-card .strategy-card-hint,
+  #tab-phases.is-phase-card .phase-section {
+    grid-column: 1;
+    grid-row: auto;
+    margin: 0;
+  }
+
+  #tab-phases.is-phase-card .phase-section {
+    display: block;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  #tab-phases.is-phase-card .phase-list {
+    gap: 0.25rem;
+    padding: 0.5rem 0.625rem 0.75rem;
+  }
+
+  .phase-ai-quick .cpc-ai-quick-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 520px) {
+  #tab-phases.is-active.is-phase-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(230px, 0.92fr);
+    gap: 0.875rem;
+    align-items: start;
+    padding: 0.875rem;
+  }
+
+  #tab-phases.is-phase-card #current-phase-card {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  #tab-phases.is-phase-card .strategy-view-switch {
+    display: grid;
+    grid-column: 1;
+    grid-row: 2;
+    margin: 0;
+  }
+
+  #tab-phases.is-phase-card #engagement-mode {
+    grid-column: 1;
+    grid-row: 3;
+    margin: 0;
+  }
+
+  #tab-phases.is-phase-card .strategy-card-hint {
+    grid-column: 1;
+    grid-row: 4;
+    margin: 0 0.25rem;
+  }
+
+  #tab-phases.is-phase-card .phase-section {
+    display: block;
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    min-width: 0;
+    min-height: 100%;
+    margin: 0;
+    overflow: visible;
+  }
+
+  #tab-phases.is-phase-card .phase-list {
+    gap: 0.25rem;
+    padding: 0.5rem 0.625rem 0.75rem;
+  }
+}
+
+/* 常設の全画面入口はモードに依存させない。最終レイヤーで4列構成を固定する。 */
+.slim-bar {
+  grid-template-columns: 38px minmax(0, 1fr) auto 38px;
+}
+
+@media (max-width: 390px) {
+  .slim-dashboard-open {
+    width: 36px;
+    padding-inline: 0;
+  }
+
+  .slim-dashboard-open span + span {
+    display: none;
+  }
 }

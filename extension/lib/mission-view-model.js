@@ -69,7 +69,7 @@ export function deriveMissionDetails(status, ctx) {
   let detailTitle = '次の一手';
   let details = [
     ['現在フェーズ', currentLabel],
-    ['進め方', '自分で進める / 全自動を管理'],
+    ['進め方', '半自動 / 全自動を選ぶ'],
   ];
   if (status === 'running') {
     detailTitle = '全自動の進行状況';
@@ -114,7 +114,7 @@ export function deriveMissionAction(hasBusiness, status, task) {
 // サイドパネルの現在フェーズカード next-move（isFilled/isPartial 分岐）を全画面へ移管し、
 // 見る側（ホーム）から「次に何をどこですればよいか」を1段詳しく提示する。
 export function deriveNextMove(status, ctx) {
-  const { hasBusiness, needsMode, workingPhase, isFilled, isPartial, completed } = ctx;
+  const { hasBusiness, needsMode, workingPhase, isFilled, isPartial, completed, executionMode } = ctx;
   const label = `§${workingPhase.no} ${workingPhase.title}`.trim();
   if (!hasBusiness) {
     return {
@@ -149,7 +149,19 @@ export function deriveNextMove(status, ctx) {
   if (needsMode) {
     return {
       recommendation: '進め方を選ぶ（自分で / 全自動）',
-      reason: 'サイドパネルの ☰「全自動を管理」から進め方を決めると、次のフェーズに進めます。',
+      reason: 'サイドパネルの ☰「実行モードを管理」から進め方を決めると、次のフェーズに進めます。',
+    };
+  }
+  if (executionMode === 'full') {
+    return {
+      recommendation: `${label} から全自動を開始する`,
+      reason: '入力内容とモデルを確認すると、Geminiが各フェーズを順番に生成してGoogle Docsへ保存します。',
+    };
+  }
+  if (executionMode === 'semi') {
+    return {
+      recommendation: `${label} から半自動を開始する`,
+      reason: 'サイドパネルでAIの回答を確認・貼り付けしながら、1ステップずつGoogle Docsへ保存します。',
     };
   }
   const recommendation = isFilled
@@ -188,6 +200,12 @@ export function deriveMissionModel(input, now = Date.now()) {
     total === 0 ? 0 : completed >= total ? 100 : Math.round(((completed + partial * 0.5) / total) * 100);
   const status = total > 0 && completed >= total ? 'completed' : (task && task.status) || 'ready';
   const isRunning = status === 'running' || status === 'retrying';
+  const executionMode = task
+    ? task.mode === 'semi' ? 'semi' : 'full'
+    : input?.executionMode === 'full' ? 'full' : 'semi';
+  const statusLabel = executionMode === 'semi'
+    ? missionStatusLabel(status).replace('全自動', '半自動')
+    : missionStatusLabel(status);
 
   // 現在地（§N）統一: 実行中はタスクのフェーズ（=first-incomplete currentPhase）、手動時は
   // サイドパネルの選択フェーズ(lastPhase)基準= selectedNo に一致させる。これで薄バー中央の §N と
@@ -204,8 +222,8 @@ export function deriveMissionModel(input, now = Date.now()) {
   const workingIsPartial = !workingIsFilled && partialSet.has(workNo);
   const needsMode = !!input?.needsMode && hasBusiness && !isRunning && status !== 'completed';
 
-  const { detailTitle, details } = deriveMissionDetails(status, { completed, total, currentPhase: workingPhase, task });
-  const nextMove = deriveNextMove(status, {
+  let { detailTitle, details } = deriveMissionDetails(status, { completed, total, currentPhase: workingPhase, task });
+  let nextMove = deriveNextMove(status, {
     hasBusiness,
     needsMode,
     workingPhase,
@@ -213,7 +231,25 @@ export function deriveMissionModel(input, now = Date.now()) {
     isPartial: workingIsPartial,
     completed,
     total,
+    executionMode,
   });
+  if (status === 'ready') {
+    details = [
+      ['現在フェーズ', `§${workingPhase.no} ${workingPhase.title}`],
+      ['実行方法', executionMode === 'full' ? '全自動モード' : '半自動モード'],
+    ];
+  }
+  if (executionMode === 'semi') {
+    detailTitle = detailTitle.replaceAll('全自動', '半自動');
+    details = details.map(([label, value]) => [
+      String(label).replaceAll('全自動', '半自動'),
+      String(value).replaceAll('全自動', '半自動'),
+    ]);
+    nextMove = {
+      recommendation: nextMove.recommendation.replaceAll('全自動', '半自動'),
+      reason: nextMove.reason.replaceAll('全自動', '半自動'),
+    };
+  }
 
   return {
     projectName: input?.projectName || '新規プロジェクト',
@@ -229,7 +265,8 @@ export function deriveMissionModel(input, now = Date.now()) {
     phaseDescription: (task && task.taskLabel) || workingPhase.frame || `${workingPhase.title || ''}を進めます。`,
     status,
     statusKey: hasBusiness ? status : 'setup',
-    statusLabel: missionStatusLabel(status),
+    statusLabel,
+    executionMode,
     provider: (task && task.provider) || '待機中',
     route: deriveMissionRoute(phases, filledSet, partialSet, workNo),
     detailTitle,
@@ -237,7 +274,7 @@ export function deriveMissionModel(input, now = Date.now()) {
     nextMove,
     // ホームは「見る場所」、実作業はサイドパネル、という役割分担の導き文言。
     homeGuide: isRunning
-      ? 'ここは司令塔です。進行を見守り、必要なときは下の操作で止められます。'
+      ? `ここは司令塔です。${executionMode === 'semi' ? '半自動' : '全自動'}の進行を見守り、必要なときは下の操作で止められます。`
       : 'ここは司令塔（見る場所）です。プロンプトのコピーなど実際の作業はサイドパネルで行います。',
     needsMode,
     activity: deriveMissionActivity(phases, filledSet, workingPhase, task),

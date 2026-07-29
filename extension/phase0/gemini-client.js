@@ -3,11 +3,24 @@ import { postGeminiProxy } from './apps-script-client.js';
 export const GEMINI_API_KEY_KEY = 'sk_gemini_api_key_v012';
 export const GEMINI_PROXY_KEY = 'sk_gemini_proxy_v012';
 export const GEMINI_PROXY_TOKEN_KEY = 'sk_gemini_proxy_token_v012';
-export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
-const DEFAULT_IMAGE_MODEL = 'gemini-3.1-flash-image-preview';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
+const DEFAULT_IMAGE_MODEL = 'gemini-3.1-flash-image';
 export { DEFAULT_IMAGE_MODEL as DEFAULT_GEMINI_IMAGE_MODEL };
-const IMAGE_MODEL_FALLBACKS = ['gemini-2.5-flash-image'];
+const IMAGE_MODEL_FALLBACKS = ['gemini-3-pro-image'];
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+// 429 レスポンスの details[].quotaMetric を取り出す。
+//   ..._input_token_count → 無料枠では呼べないモデル（モデルを変えるしかない）
+//   ..._requests          → 一時的なレート上限（待てば直る）
+export function extractQuotaMetric(text) {
+  const match = /"quotaMetric"\s*:\s*"([^"]+)"/.exec(String(text || ''));
+  return match ? match[1] : '';
+}
+
+function quotaMetricSuffix(text) {
+  const metric = extractQuotaMetric(text);
+  return metric ? ` quotaMetric=${metric}` : '';
+}
 
 function getChromeStorage(area) {
   return globalThis.chrome?.storage?.[area] || null;
@@ -15,6 +28,7 @@ function getChromeStorage(area) {
 
 export function buildGenerateContentRequest({
   prompt,
+  model = '',
   temperature = 0.3,
   responseModalities,
   responseFormat,
@@ -35,8 +49,10 @@ export function buildGenerateContentRequest({
         parts: [{ text: String(prompt || '') }],
       },
     ],
-    generationConfig,
   };
+  if (Object.keys(generationConfig).length) {
+    body.generationConfig = generationConfig;
+  }
   // tools（例: [{ google_search: {} }]）は指定時のみ body に載せる。
   // 未指定・空配列・非配列は付与せず、現行リクエストとバイト一致を維持する（後方互換）。
   if (Array.isArray(tools) && tools.length) {
@@ -124,6 +140,7 @@ async function generateDirect({
     },
     body: JSON.stringify(buildGenerateContentRequest({
       prompt,
+      model,
       temperature,
       responseModalities,
       responseFormat,
@@ -133,7 +150,12 @@ async function generateDirect({
 
   const text = await res.text();
   if (!res.ok) {
-    const err = new Error(`Gemini API HTTP ${res.status}: ${text.slice(0, 240)}`);
+    // 429 の本文は「無料枠では使えないモデル」と「一時的なレート上限」で同じ文面になり、
+    // 違いは details[].quotaMetric だけ。本文の後ろのほうに出るので、切り詰めで
+    // 落ちないよう先頭に付け直す（付けないと両者を取り違えて案内が噛み合わない）。
+    const err = new Error(
+      `Gemini API HTTP ${res.status}:${quotaMetricSuffix(text)} ${text.slice(0, 240)}`,
+    );
     err.status = res.status;
     throw err;
   }
@@ -162,10 +184,11 @@ async function generateViaProxy({
 }) {
   const generationConfig = buildGenerateContentRequest({
     prompt,
+    model,
     temperature,
     responseModalities,
     responseFormat,
-  }).generationConfig;
+  }).generationConfig || {};
   const payload = {
     action: 'generateContent',
     token,

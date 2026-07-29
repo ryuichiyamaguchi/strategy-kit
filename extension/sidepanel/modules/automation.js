@@ -40,12 +40,41 @@
     return taskMonitorTarget_;
   }
 
+  // 課金APIキーが必要なモデル。無料枠のキーでは 429 で拒否される。
+  // ここを変えたら lib/model-policy.js も同じ内容に揃えること（テストが一致を検査する）。
+  const SK_PAID_ONLY_MODELS = ['gemini-3.1-pro-preview', 'gemini-3.1-flash-image', 'gemini-3-pro-image'];
+  const SK_FREE_TIER_FALLBACK_MODEL = 'gemini-3.6-flash';
+  const SK_MODEL_POLICY_VERSION = 1;
+
+  // v0.12.28 では §7 の既定が gemini-3.1-pro-preview だった。その値は
+  // sk-state.projects.<id>.automation.uiDraft に残り、更新しても消えない。
+  // 保存値をそのまま復元すると、既存受講者だけ §7 で止まり続ける。
+  // ただし読み替えるのは版数の無い（＝旧バージョンが自動保存した）ドラフトだけ。
+  // 課金APIキーを貼って自分で Pro を選んだ人の設定は維持する。
+  function skNeedsLegacyModelRemap_(savedDraft) {
+    return (Number(savedDraft && savedDraft.modelPolicyVersion) || 0) < SK_MODEL_POLICY_VERSION;
+  }
+
+  function restoreSelectableModel_(savedModel, selectEl, remapLegacy) {
+    const selectable = Array.from(selectEl.options).some(function (option) {
+      return option.value === savedModel;
+    });
+    if (!selectable) return SK_FREE_TIER_FALLBACK_MODEL;
+    if (remapLegacy && SK_PAID_ONLY_MODELS.indexOf(savedModel) !== -1) {
+      return SK_FREE_TIER_FALLBACK_MODEL;
+    }
+    return savedModel;
+  }
+
   function publishTaskMonitor_(snapshot) {
     const input = snapshot || {};
+    const executionMode = document.getElementById('sk-mode-semi')?.checked ? 'semi' : 'full';
     const allowedStatuses = new Set(['idle', 'running', 'retrying', 'paused', 'blocked', 'completed']);
     const payload = {
       visible: true,
-      provider: 'Gemini',
+      provider: input.provider || (executionMode === 'semi' ? '複数AI' : 'Gemini'),
+      projectId: window.SK_STATE?._activeProjectId || '',
+      mode: executionMode,
       relativeTime: 'いま',
       updatedAt: Date.now(),
       status: allowedStatuses.has(input.status) ? input.status : 'running',
@@ -577,7 +606,9 @@
 
     // ===== モード切替ラジオボタン =====
     const modeCard = el('div', {
-      style: 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin-bottom:10px',
+      class: 'sk-automation-mode-inputs',
+      style: 'display:none',
+      attrs: { 'aria-hidden': 'true' },
     });
 
     const radioSemi = el('input', { type: 'radio', name: 'sk-automode', value: 'semi', id: 'sk-mode-semi' });
@@ -601,23 +632,25 @@
 
     // Geminiモデル選択（全自動時のみ表示）
     const modelSelect = el('select', {
+      id: 'sk-auto-model',
       style: 'font-size:12px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:4px',
     });
     [
-      { value: 'gemini-3.5-flash', label: '通常: gemini-3.5-flash（推奨・Stable）' },
-      { value: 'gemini-2.5-flash', label: '通常: gemini-2.5-flash（安定）' },
-      { value: 'gemini-2.5-flash-lite', label: '通常: gemini-2.5-flash-lite（低コスト）' },
-      { value: 'gemini-3.1-pro-preview', label: '通常: gemini-3.1-pro-preview（高精度・Preview）' },
+      { value: 'gemini-3.6-flash', label: '通常: gemini-3.6-flash（推奨・無料枠OK）' },
+      { value: 'gemini-3.5-flash', label: '通常: gemini-3.5-flash（無料枠OK）' },
+      { value: 'gemini-3.5-flash-lite', label: '通常: gemini-3.5-flash-lite（無料枠OK・低コスト）' },
+      { value: 'gemini-3.1-pro-preview', label: '通常: gemini-3.1-pro-preview（高精度・課金APIキーが必要）' },
     ].forEach(function (m) {
       modelSelect.appendChild(el('option', { value: m.value, text: m.label }));
     });
     const financeModelSelect = el('select', {
+      id: 'sk-auto-finance-model',
       style: 'font-size:12px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:4px',
     });
     [
-      { value: 'gemini-3.1-pro-preview', label: 'ユニットエコノミクス: gemini-3.1-pro-preview（推奨）' },
-      { value: 'gemini-2.5-pro', label: 'ユニットエコノミクス: gemini-2.5-pro（安定Pro）' },
-      { value: 'gemini-3.5-flash', label: 'ユニットエコノミクス: gemini-3.5-flash（節約）' },
+      { value: 'gemini-3.6-flash', label: 'ユニットエコノミクス: gemini-3.6-flash（推奨・無料枠OK）' },
+      { value: 'gemini-3.5-flash', label: 'ユニットエコノミクス: gemini-3.5-flash（無料枠OK・節約）' },
+      { value: 'gemini-3.1-pro-preview', label: 'ユニットエコノミクス: gemini-3.1-pro-preview（高精度・課金APIキーが必要）' },
     ].forEach(function (m) {
       financeModelSelect.appendChild(el('option', { value: m.value, text: m.label }));
     });
@@ -627,12 +660,32 @@
 
     modeCard.appendChild(semiRow);
     modeCard.appendChild(fullRow);
-    modeCard.appendChild(modelRow);
     slot.appendChild(modeCard);
+
+    const modeSummary = el('div', {
+      id: 'sk-automation-mode-summary',
+      class: 'sk-automation-mode-summary',
+    });
+    slot.appendChild(modeSummary);
+
+    const fullModelSettings = el('div', {
+      id: 'sk-full-auto-model-settings',
+      class: 'sk-full-auto-model-settings',
+      style: 'display:none',
+    },
+      el('div', { class: 'sk-full-auto-model-title', text: '全自動で使用するモデル' }),
+      modelRow
+    );
+    slot.appendChild(fullModelSettings);
 
     // モード切替でモデル選択の表示/非表示
     function updateModeUI() {
+      fullModelSettings.style.display = radioFull.checked ? '' : 'none';
       modelRow.style.display = radioFull.checked ? 'flex' : 'none';
+      modeSummary.dataset.mode = radioFull.checked ? 'full' : 'semi';
+      modeSummary.textContent = radioFull.checked
+        ? '全自動モード：Geminiが§0〜§9を順番に生成・保存します。'
+        : '半自動モード：AIの回答を確認・貼り付けしながら1ステップずつ進めます。';
       descP.textContent = radioFull.checked
         ? '§0〜§9 を Gemini API で順番に自動生成し、マスター本体に直接保存します。ユニットエコノミクスはFinance Gateで数値の算術整合（獲得人数=予算÷CAC・粗利LTV/CAC・Payback整合）まで検査し、合わなければ自動で数字を再計算（最大2回）。それでも残る不足は⚠要確認として明示しつつ完走します。'
         : '入力情報をベースに、各フェーズを順番に進めます。AIに送信→出力を貼付→次へ、を繰り返すことで、人間が選別しながらマスター本体へ保存します。';
@@ -648,6 +701,7 @@
       text: '入力情報をベースに、各フェーズを順番に進めます。AIに送信→出力を貼付→次へ、を繰り返すことで、人間が選別しながらマスター本体へ保存します。',
     });
     slot.appendChild(descP);
+    updateModeUI();
 
     const masterPrimaryCard = el('div', {
       style: 'background:#ecfdf5;border:1px solid #86efac;border-radius:6px;padding:8px 10px;margin:0 0 10px',
@@ -668,10 +722,12 @@
     //   - 読み取り専用表示 + 「変更」ボタンでトップ事業設定セクションへスクロール
     //   - 値は state.settings.industryLabel / storeName から都度参照
     const memoArea = el('textarea', {
+      id: 'sk-auto-memo',
       placeholder: '現状の口頭メモを5〜10行で入力（事業概要・課題感・予算など）',
       style: 'width:100%;min-height:80px;box-sizing:border-box;padding:6px;border:1px solid #e2e8f0;border-radius:5px;font-family:inherit;font-size:12px;resize:vertical',
     });
     const contextArea = el('textarea', {
+      id: 'sk-auto-context',
       placeholder: '追加コンテキスト（任意・10行以内）',
       style: 'width:100%;min-height:60px;box-sizing:border-box;padding:6px;border:1px solid #e2e8f0;border-radius:5px;font-family:inherit;font-size:12px;resize:vertical',
     });
@@ -681,8 +737,10 @@
         memo: memoArea.value || '',
         context: contextArea.value || '',
         mode: radioFull.checked ? 'full' : 'semi',
-        model: modelSelect.value || 'gemini-3.5-flash',
-        financeModel: financeModelSelect.value || 'gemini-3.1-pro-preview',
+        model: modelSelect.value || 'gemini-3.6-flash',
+        financeModel: financeModelSelect.value || 'gemini-3.6-flash',
+        // この版数があるドラフトは「受講者が選んだ値」として扱い、以後読み替えない。
+        modelPolicyVersion: SK_MODEL_POLICY_VERSION,
         draftUrl: typeof draftUrlInput !== 'undefined' && draftUrlInput ? draftUrlInput.value || '' : '',
         updatedAt: Date.now(),
       };
@@ -692,6 +750,31 @@
       if (!window.SK_STATE) return;
       window.SK_STATE.save('automation.uiDraft', snapshotAutomationDraft());
     }
+
+    function persistAutomationExecutionMode() {
+      if (!window.SK_STATE) return;
+      window.SK_STATE.save('automation.executionMode', radioFull.checked ? 'full' : 'semi');
+    }
+
+    function setExecutionMode(mode, options) {
+      const normalized = mode === 'full' ? 'full' : 'semi';
+      const opts = options || {};
+      radioSemi.checked = normalized === 'semi';
+      radioFull.checked = normalized === 'full';
+      updateModeUI();
+      if (opts.persistMode !== false) persistAutomationExecutionMode();
+      if (opts.persistDraft !== false) persistAutomationDraft();
+      if (automationPrimaryAction) applyAutomationPrimaryAction(automationPrimaryAction);
+      return normalized;
+    }
+
+    slot._skSetExecutionMode = setExecutionMode;
+    slot._skGetExecutionMode = function () {
+      return radioFull.checked ? 'full' : 'semi';
+    };
+    slot._skIsRunning = function () {
+      return isAutomationRunning;
+    };
 
     function row(labelText, inputNode) {
       return el(
@@ -1171,8 +1254,14 @@
     // 外部（core-ready 後の再開モーダル等）から参照できるよう slot に紐付け
     slot._skResume = { set: setResumeContext, clear: clearResumeContext, get: getResumeContext };
 
-    const startBtn = el('button', { class: 'btn', type: 'button', text: '§0 から実行' });
+    const startBtn = el('button', {
+      id: 'sk-auto-start',
+      class: 'btn',
+      type: 'button',
+      text: '§0 から実行',
+    });
     const secondaryActionBtn = el('button', {
+      id: 'sk-auto-secondary',
       class: 'btn btn-ghost',
       type: 'button',
       text: '',
@@ -1226,21 +1315,43 @@
       if (window.SK_STATE) window.SK_STATE.debounceSave('automation.context', contextArea.value, 350);
       persistAutomationDraft();
     });
-    radioSemi.addEventListener('change', persistAutomationDraft);
-    radioFull.addEventListener('change', persistAutomationDraft);
+    radioSemi.addEventListener('change', function () {
+      persistAutomationExecutionMode();
+      persistAutomationDraft();
+      if (automationPrimaryAction) applyAutomationPrimaryAction(automationPrimaryAction);
+    });
+    radioFull.addEventListener('change', function () {
+      persistAutomationExecutionMode();
+      persistAutomationDraft();
+      if (automationPrimaryAction) applyAutomationPrimaryAction(automationPrimaryAction);
+    });
     modelSelect.addEventListener('change', persistAutomationDraft);
     financeModelSelect.addEventListener('change', persistAutomationDraft);
     if (window.SK_STATE) {
-      window.SK_STATE.load('automation.uiDraft', null).then(function (savedDraft) {
-        if (!savedDraft || typeof savedDraft !== 'object') return;
+      Promise.all([
+        window.SK_STATE.load('automation.uiDraft', null),
+        window.SK_STATE.load('automation.executionMode', null),
+      ]).then(function (savedValues) {
+        const savedDraft = savedValues[0] && typeof savedValues[0] === 'object'
+          ? savedValues[0]
+          : {};
+        const savedMode = savedValues[1];
         if (!memoArea.value && savedDraft.memo) memoArea.value = savedDraft.memo;
         if (!contextArea.value && savedDraft.context) contextArea.value = savedDraft.context;
         if (savedDraft.draftUrl && !draftUrlInput.value) draftUrlInput.value = savedDraft.draftUrl;
-        if (savedDraft.model) modelSelect.value = savedDraft.model;
-        if (savedDraft.financeModel) financeModelSelect.value = savedDraft.financeModel;
-        if (savedDraft.mode === 'full') {
+        const remapLegacyModels = skNeedsLegacyModelRemap_(savedDraft);
+        if (savedDraft.model) {
+          modelSelect.value = restoreSelectableModel_(savedDraft.model, modelSelect, remapLegacyModels);
+        }
+        if (savedDraft.financeModel) {
+          financeModelSelect.value = restoreSelectableModel_(savedDraft.financeModel, financeModelSelect, remapLegacyModels);
+        }
+        // 読み替えたら版数を刻んで保存する。次回以降は受講者の選択をそのまま尊重する。
+        if (remapLegacyModels) persistAutomationDraft();
+        const restoredMode = savedMode || savedDraft.mode;
+        if (restoredMode === 'full') {
           radioFull.checked = true;
-        } else if (savedDraft.mode === 'semi') {
+        } else {
           radioSemi.checked = true;
         }
         updateModeUI();
@@ -1263,7 +1374,10 @@
 
     function applyAutomationPrimaryAction(action) {
       automationPrimaryAction = action;
-      startBtn.textContent = action.primaryLabel;
+      const modeLabel = radioFull.checked ? '全自動' : '半自動';
+      startBtn.textContent = action.primaryDisabled
+        ? action.primaryLabel
+        : modeLabel + '｜' + action.primaryLabel;
       startBtn.disabled = !!action.primaryDisabled || isAutomationRunning;
       if (action.secondaryLabel && !isAutomationRunning) {
         secondaryActionBtn.textContent = action.secondaryLabel;
@@ -1756,7 +1870,7 @@
             });
           }
           const geminiClient = await loadGeminiClient();
-          const model = modelSelect.value || 'gemini-3.5-flash';
+          const model = modelSelect.value || 'gemini-3.6-flash';
           const runOpts = { storage: chrome.storage.local, syncStorage: chrome.storage.sync };
 
           // context / メモに URL があれば url_context ツールも付けてページ内容を読ませる（v3.3）。
@@ -1889,7 +2003,7 @@
           const geminiClient = await loadGeminiClient();
           const result = await geminiClient.generateContent({
             prompt: promptText,
-            model: modelSelect.value || 'gemini-3.5-flash',
+            model: modelSelect.value || 'gemini-3.6-flash',
             temperature: 0.4,
           }, {
             storage: chrome.storage.local,
@@ -2061,7 +2175,22 @@
         persistAutomationDraft();
 
         const isFullAuto = radioFull.checked;
-        if (isFullAuto) await captureTaskMonitorTarget_();
+        await captureTaskMonitorTarget_();
+        publishTaskMonitor_({
+          status: 'running',
+          taskLabel: isFullAuto ? '全自動を開始しています' : '半自動を開始しています',
+          lastEvent: isFullAuto
+            ? 'Geminiで順番に生成します'
+            : 'サイドパネルでAIの回答を確認しながら進めます',
+        });
+        if (isFullAuto) {
+          // 実行本体はこのサイドパネルで継続し、操作UIを専用の最大化
+          // ウィンドウへ切り替える。ここを await するとウィンドウ生成の失敗で
+          // 全自動まで止めてしまうため、UI handoff は best-effort にする。
+          Promise.resolve(window.SK_CORE?.openMissionFullscreen?.()).catch(function (error) {
+            console.warn('[STRATEGY-KIT] command center handoff failed:', error);
+          });
+        }
 
         const startIndex = (freshRunStartOverride != null)
           ? freshRunStartOverride
@@ -2105,13 +2234,11 @@
           setCurrentLocationText(mode + 'でエラーが発生しました', 'Google連携とマスターの状態を確認してください');
           const help = describeAutomationError(e);
           progressLabel.textContent = '⚠ ' + mode + 'で停止しました: ' + help.short;
-          if (isFullAuto) {
-            publishTaskMonitor_({
-              status: 'blocked',
-              taskLabel: '全自動処理が停止しました',
-              lastEvent: mode + 'の実行エラー',
-            });
-          }
+          publishTaskMonitor_({
+            status: 'blocked',
+            taskLabel: mode + 'が停止しました',
+            lastEvent: mode + 'の実行エラー',
+          });
           appendAutomationErrorLog(logArea, mode + 'の実行エラー', e);
           window.SK_CORE.showToast(mode + 'を実行中にエラーが発生しました。' + help.short, true, 6000);
         } finally {
@@ -2131,6 +2258,32 @@
         }
       }
     }
+
+    // 全画面ダッシュボードから任意の §N を指定して再実行する公開フック。
+    // 既存 executeAutomation の forceResumeContext を再利用し、§N より前は保持、
+    // §N 以降だけを同じマスター本体へ上書きする。
+    slot._skRunFromPhase = function (phaseNo, options) {
+      const parsed = parseSubIndexStr(phaseNo);
+      const phases = window.SK_CORE.getPhases ? window.SK_CORE.getPhases() : [];
+      const exists = phases.some(function (phase) {
+        return Number.parseInt(String(phase.no), 10) === parsed.phaseNo;
+      });
+      if (!exists) return Promise.reject(new Error('指定したフェーズが見つかりません'));
+
+      const mode = options && options.mode === 'semi' ? 'semi' : 'full';
+      setExecutionMode(mode, { persistMode: true, persistDraft: true });
+      clearResumeContext(true);
+      return executeAutomation({
+        ignoreFailedSections: true,
+        forceResumeContext: {
+          source: 'manual-restart',
+          rawIndex: String(parsed.phaseNo),
+          startIndex: parsed.phaseNo,
+          startSubNo: null,
+          accumulated: null,
+        },
+      });
+    };
 
     // 実行ハンドラ
     startBtn.addEventListener('click', async function (event) {
@@ -2572,7 +2725,7 @@
         ].join('\n');
     const generated = await geminiClient.generateContent({
       prompt,
-      model: 'gemini-3.5-flash',
+      model: 'gemini-3.6-flash',
       temperature: isSummary ? 0.2 : 0.25,
     });
     const titlePrefix = isSummary ? '[SUMMARY]' : '[CLEAN]';
@@ -2782,6 +2935,17 @@
       if (msg.indexOf('Finance Gate 不合格') !== -1) {
         return msg.slice(0, 180);
       }
+      // 「無料枠では使えないモデル」と「一時的なレート上限」は、どちらも 429 で
+      // 同じ本文（You exceeded your current quota... / RESOURCE_EXHAUSTED）が返る。
+      // 区別できるのは quotaMetric だけ:
+      //   ..._input_token_count → モデルを変えるしかない
+      //   ..._requests          → 待てば直る
+      // 取り違えると、既定モデルで毎分上限に触れた受講者へ「モデルを変えてください
+      // （無料枠なら gemini-3.6-flash）」と、すでに使っているモデルを案内してしまう。
+      // モデル不在・権限拒否（404 / 403）は quotaMetric が無くても確実にモデル側の問題。
+      if (/input_token_count|PERMISSION_DENIED|NOT_FOUND|model not found|is not found for API version|HTTP 40[34]\b/i.test(msg)) {
+        return '選択中のAIモデルは、このAPIキーでは使えません。「実行モードを管理」でモデルを変更してください（無料枠なら gemini-3.6-flash / gemini-3.5-flash）';
+      }
       if (msg.indexOf('503') !== -1 || /unavailable/i.test(msg)) {
         return 'AI が一時的に混雑しています（503）。あとで再試行してください';
       }
@@ -2838,7 +3002,7 @@
       appendAutomationErrorLog(ui.logArea, '§' + dispNo + ' ' + dispLabel + ' の実行エラー', new Error(reason));
     }
 
-    const financeModel = (opts && opts.financeModel) || 'gemini-3.1-pro-preview';
+    const financeModel = (opts && opts.financeModel) || 'gemini-3.6-flash';
     const financeGate = await loadFinanceGateDeps();
     const geminiClient = await loadGeminiClient();
     let effectiveStartIndex = startIndex;
@@ -3211,7 +3375,7 @@
           prompt: unit.prompt,
           promptText: unit.promptText,
           selectedModel: model,
-          financeModel: financeModel || 'gemini-3.1-pro-preview',
+          financeModel: financeModel || 'gemini-3.6-flash',
           sectionLabel: '§' + unit.sectionNo + ' ' + unit.title,
         });
         bodyText = generated.bodyText;
@@ -3292,6 +3456,11 @@
     // B8: 全章完了済みなら再実行しない
     if (startIndex >= phases.length) {
       ui.progressLabel.textContent = 'すでに全章完了しています。マスターを確認してください。';
+      publishTaskMonitor_({
+        status: 'completed',
+        taskLabel: '半自動の全ステップが完了しています',
+        lastEvent: 'マスタードキュメントを確認できます',
+      });
       return;
     }
 
@@ -3330,6 +3499,11 @@
     // B8: 全ステップ完了済みなら再実行しない
     if (stepStartIndex >= allSteps.length) {
       ui.progressLabel.textContent = 'すでに全章完了しています。マスターを確認してください。';
+      publishTaskMonitor_({
+        status: 'completed',
+        taskLabel: '半自動の全ステップが完了しています',
+        lastEvent: 'マスタードキュメントを確認できます',
+      });
       return;
     }
 
@@ -3342,6 +3516,7 @@
     const masterReady = await ensureFullAutoMasterTarget_(ui, skipBackup);
     if (masterReady === 'cancelled') {
       ui.progressLabel.textContent = 'キャンセルされました。';
+      publishTaskMonitor_({ status: 'idle', visible: false });
       return;
     }
 
@@ -3371,6 +3546,11 @@
           ? (cancelStep.phase.no + '-' + cancelStep.subNo)
           : parseInt(cancelStep.phase.no, 10);
         saveAutomationState(cancelKey, accumulated, 'semi');
+        publishTaskMonitor_({
+          status: 'paused',
+          taskLabel: '半自動を中断しました',
+          lastEvent: '§' + cancelKey + ' から再開できます',
+        });
         setCurrentLocationText('自動化を中断しました', '§' + cancelKey + ' から再開できます');
         return;
       }
@@ -3391,6 +3571,13 @@
 
       ui.progressLabel.textContent =
         '進行中: ' + subLabel + '（' + (i + 1) + '/' + total + '）';
+      publishTaskMonitor_({
+        status: 'running',
+        provider: '複数AI',
+        taskLabel: subLabel + ' の回答待ち',
+        taskCount: (i + 1) + ' / ' + total,
+        lastEvent: 'サイドパネルでAIの回答を確認・貼り付けしてください',
+      });
 
       if (step.isPlaceholder) {
         ui.progressBarInner.style.width = ((i + 1) / total * 100) + '%';
@@ -3404,6 +3591,11 @@
 
       if (ctrl.cancelled || userOutput === null) {
         ui.progressLabel.textContent = 'キャンセルされました';
+        publishTaskMonitor_({
+          status: 'paused',
+          taskLabel: '半自動を中断しました',
+          lastEvent: subLabel + ' の手前から再開できます',
+        });
         setCurrentLocationText('自動化を中断しました', subLabel + ' の手前で停止しました');
         return;
       }
@@ -3490,6 +3682,12 @@
     if (!ctrl.cancelled) {
       ui.progressLabel.textContent = '✅ 全ステップ完了（' + total + '/' + total + '）';
       clearAutomationState();
+      publishTaskMonitor_({
+        status: 'completed',
+        provider: '複数AI',
+        taskLabel: '半自動の全ステップが完了しました',
+        lastEvent: 'マスタードキュメントへ保存済み',
+      });
       hideCurrentLocation();
       window.SK_CORE.showToast('半自動完了。マスターを確認してください', false, 4000);
     }
@@ -4699,6 +4897,32 @@
   // sidepanel から連携検知時に呼べる公開 API
   window.SK_AUTOMATION = window.SK_AUTOMATION || {};
   window.SK_AUTOMATION.ensureReady = initAutomationSlot;
+  window.SK_AUTOMATION.setMode = function (mode, options) {
+    const slot = document.getElementById('mod-automation-slot');
+    if (!slot || typeof slot._skSetExecutionMode !== 'function') return false;
+    slot._skSetExecutionMode(mode, options || {});
+    return true;
+  };
+  window.SK_AUTOMATION.getMode = function () {
+    const slot = document.getElementById('mod-automation-slot');
+    if (!slot || typeof slot._skGetExecutionMode !== 'function') return null;
+    return slot._skGetExecutionMode();
+  };
+  // 実行中かどうかの唯一の真実。タスク監視スナップショットは 10 分で失効するため、
+  // 半自動で受講者が長く考えていると「停止した」と誤判定される。
+  window.SK_AUTOMATION.isRunning = function () {
+    const slot = document.getElementById('mod-automation-slot');
+    if (!slot || typeof slot._skIsRunning !== 'function') return false;
+    return slot._skIsRunning();
+  };
+  window.SK_AUTOMATION.runFromPhase = async function (phaseNo, options) {
+    const ready = await initAutomationSlot();
+    const slot = document.getElementById('mod-automation-slot');
+    if (!ready || !slot || typeof slot._skRunFromPhase !== 'function') {
+      throw new Error('自動化を利用できません');
+    }
+    return slot._skRunFromPhase(phaseNo, options || {});
+  };
 
   // core-ready 後に初期化（連携済みのときだけ構築）
   window.SK_CORE.on('core-ready', function () {

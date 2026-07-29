@@ -11,31 +11,47 @@
       <!-- 上バー: ブランド + 実行状態 + プロジェクト切替 -->
       <header id="mission-topbar" class="mission-topbar" data-running="false">
         <div class="mission-brand">
-          <span class="brand-mark" aria-hidden="true">SK</span>
-          <strong>STRATEGY-KIT</strong>
-          <span class="mission-brand-sub">ホーム · 司令塔</span>
+          <span class="brand-mark" aria-hidden="true"><i></i></span>
+          <span class="mission-brand-copy">
+            <strong>STRATEGY-KIT</strong>
+            <small>Executive Mission Control</small>
+          </span>
         </div>
         <span class="mission-status-pill" role="status" aria-live="polite">
           <span class="live-dot" aria-hidden="true"></span>
           <span id="mission-status-text">待機中</span>
         </span>
-        <div class="mission-project">
-          <span class="mission-project-eyebrow">対象プロジェクト</span>
-          <strong id="mission-project-name">—</strong>
-          <label class="mission-project-switch-wrap" hidden>
-            <span class="visually-hidden">プロジェクトを切り替え</span>
-            <select id="mission-project-switch" aria-label="プロジェクトを切り替え"></select>
-          </label>
-          <p id="mission-project-switch-note" class="mission-project-switch-note" role="status" aria-live="polite" hidden></p>
-        </div>
+        <button id="mission-back-panel" class="mission-back-panel" type="button">サイドパネルに戻る</button>
       </header>
 
       <main class="mission-main">
-        <!-- 左カラム: 進捗ヒーロー + 航路 + 現在フェーズ + 次の一手 -->
-        <section class="mission-col" aria-label="戦略の進捗">
-          <div class="mission-card mission-progress-card">
+        <aside class="mission-command-rail" aria-label="プロジェクトと現在地">
+          <div class="mission-project">
+            <span class="mission-project-eyebrow">対象プロジェクト</span>
+            <strong id="mission-project-name">—</strong>
+            <label class="mission-project-switch-wrap" hidden>
+              <span class="visually-hidden">プロジェクトを切り替え</span>
+              <select id="mission-project-switch" aria-label="プロジェクトを切り替え"></select>
+            </label>
+            <div class="mission-project-actions">
+              <button id="mission-project-new" type="button">＋ 新規プロジェクト</button>
+            </div>
+            <form id="mission-project-new-form" class="mission-project-new-form" hidden>
+              <label>
+                <span>プロジェクト名</span>
+                <input id="mission-project-new-input" type="text" maxlength="40" placeholder="例：新店舗オープン戦略" />
+              </label>
+              <div>
+                <button id="mission-project-new-confirm" type="submit">作成</button>
+                <button id="mission-project-new-cancel" type="button">キャンセル</button>
+              </div>
+            </form>
+            <p id="mission-project-switch-note" class="mission-project-switch-note" role="status" aria-live="polite" hidden></p>
+          </div>
+
+          <div class="mission-card mission-progress-card mission-rail-progress">
             <div class="mission-percent-row">
-              <span class="label">戦略完成まで</span>
+              <span class="label">プロジェクト進行状況</span>
               <span class="mission-percent"><span id="mission-percent-value">0</span><small>%</small></span>
             </div>
             <p id="mission-progress-meta" class="mission-progress-meta">0 / 10フェーズ完了</p>
@@ -50,10 +66,9 @@
             >
               <span id="mission-progress-bar"></span>
             </div>
-            <ol id="mission-route" class="mission-route" aria-label="10フェーズの航路"></ol>
           </div>
 
-          <div class="mission-card">
+          <div class="mission-card mission-current-card">
             <h2 class="mission-card-title">現在のフェーズ</h2>
             <div class="mission-phase-head">
               <strong id="mission-phase-title">§0</strong>
@@ -62,8 +77,14 @@
             <p id="mission-phase-desc" class="mission-phase-desc"></p>
             <div id="mission-mode-banner" class="mission-mode-banner" hidden></div>
             <p id="mission-phase-guide" class="mission-phase-guide">
-              ここは司令塔（見る場所）です。プロンプトのコピーなど実際の作業はサイドパネルで行います。
+              この画面から、フェーズ選択・プロンプト・AI・半自動／全自動の実行を直接操作できます。
             </p>
+            <button id="mission-open-phase" class="mission-rail-action" type="button">
+              このフェーズを操作
+            </button>
+            <button id="mission-restart-phase" class="mission-rail-action mission-rail-action-danger" type="button">
+              このフェーズからやり直す
+            </button>
           </div>
 
           <div class="mission-card mission-nextmove-card">
@@ -71,47 +92,163 @@
             <p id="mission-nextmove-recommendation" class="mission-nextmove-reco">—</p>
             <p id="mission-nextmove-reason" class="mission-nextmove-reason"></p>
           </div>
-        </section>
+        </aside>
 
-        <!-- 右カラム: 全自動の進行状況 + 操作 + 活動履歴 -->
-        <section class="mission-col" aria-label="全自動の進行状況">
-          <div class="mission-card">
-            <h2 id="mission-detail-title" class="mission-card-title">次の一手</h2>
-            <div class="mission-provider-row">
-              <span class="mission-provider-mark" aria-hidden="true" id="mission-provider-mark">AI</span>
-              <div>
-                <span class="provider-label">実行AI</span>
-                <span class="provider-name" id="mission-provider-name">待機中</span>
-              </div>
+        <section class="mission-workspace" aria-label="戦略ダッシュボード">
+          <header class="mission-workspace-head">
+            <div>
+              <span class="mission-workspace-eyebrow">FULL SCREEN · COMMAND CENTER</span>
+              <h1>戦略ダッシュボード</h1>
             </div>
-            <dl id="mission-details" class="mission-detail-list"></dl>
-            <div class="mission-controls">
-              <button id="mission-pause" class="mission-btn mission-btn-pause" type="button" disabled>
-                一時停止
-              </button>
-              <button id="mission-stop" class="mission-btn mission-btn-stop" type="button" disabled>
-                停止
-              </button>
+            <div class="mission-live-clock">
+              <span>経過時間</span>
+              <strong id="mission-metric-time">00:00:00</strong>
             </div>
-            <p id="mission-control-note" class="mission-control-note">
-              一時停止・停止はサイドパネル経由で実行されます。サイドパネルを閉じている場合は反応しません。
-            </p>
+          </header>
+
+          <div class="mission-metrics" aria-label="主要指標">
+            <article>
+              <span>総合進捗率</span>
+              <strong id="mission-metric-percent">0%</strong>
+            </article>
+            <article>
+              <span>完了フェーズ</span>
+              <strong id="mission-metric-phase">0 / 10</strong>
+            </article>
+            <article>
+              <span>生成アウトプット</span>
+              <strong id="mission-metric-output">0</strong>
+            </article>
+            <article>
+              <span>AI稼働状況</span>
+              <strong id="mission-metric-health">待機中</strong>
+            </article>
           </div>
 
-          <div class="mission-card">
-            <h2 class="mission-card-title">活動履歴</h2>
-            <ul id="mission-activity" class="mission-activity"></ul>
-            <p id="mission-activity-empty" class="mission-activity-empty" hidden>
-              まだ活動記録はありません。
-            </p>
+          <div class="mission-card mission-route-card">
+            <div class="mission-route-heading">
+              <div>
+                <span>10フェーズ進行マップ</span>
+                <strong>戦略ルート</strong>
+              </div>
+              <span id="mission-route-status">現在地を同期中</span>
+            </div>
+            <ol id="mission-route" class="mission-route" aria-label="10フェーズの航路"></ol>
+          </div>
+
+          <div class="mission-workspace-grid">
+            <div class="mission-card mission-execution-card mission-command-deck">
+              <div class="mission-section-heading">
+                <div>
+                  <span class="mission-deck-eyebrow">EXECUTION DESK</span>
+                  <h2 id="mission-detail-title" class="mission-command-title">戦略を実行する</h2>
+                </div>
+                <span id="mission-command-state" class="mission-section-badge">READY</span>
+              </div>
+              <div class="mission-provider-row">
+                <span class="mission-provider-mark" aria-hidden="true" id="mission-provider-mark">AI</span>
+                <div>
+                  <span class="provider-label">実行AI</span>
+                  <span class="provider-name" id="mission-provider-name">待機中</span>
+                </div>
+              </div>
+              <dl id="mission-details" class="mission-detail-list"></dl>
+
+              <form id="mission-run-form" class="mission-run-form">
+                <label class="mission-field">
+                  <span>実行方法</span>
+                  <select id="mission-mode-select">
+                    <option value="semi">半自動モード</option>
+                    <option value="full">全自動モード</option>
+                  </select>
+                </label>
+                <label class="mission-field mission-field-wide">
+                  <span>現状メモ</span>
+                  <textarea
+                    id="mission-automation-memo"
+                    rows="3"
+                    placeholder="事業概要・課題・予算など、AIに渡す前提を入力"
+                  ></textarea>
+                </label>
+                <label class="mission-field mission-field-wide">
+                  <span>追加コンテキスト</span>
+                  <textarea
+                    id="mission-automation-context"
+                    rows="2"
+                    placeholder="今回だけ加味したい条件（任意）"
+                  ></textarea>
+                </label>
+                <label class="mission-field mission-full-auto-only">
+                  <span>生成モデル</span>
+                  <select id="mission-model-select">
+                    <option value="gemini-3.6-flash">Gemini 3.6 Flash（推奨・無料枠OK）</option>
+                    <option value="gemini-3.5-flash">Gemini 3.5 Flash（無料枠OK）</option>
+                    <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite（無料枠OK）</option>
+                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro（課金APIキーが必要）</option>
+                  </select>
+                </label>
+                <label class="mission-field mission-full-auto-only">
+                  <span>数値検証モデル</span>
+                  <select id="mission-finance-model-select">
+                    <option value="gemini-3.6-flash">Gemini 3.6 Flash（無料枠OK）</option>
+                    <option value="gemini-3.5-flash">Gemini 3.5 Flash（無料枠OK）</option>
+                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro（課金APIキーが必要）</option>
+                  </select>
+                </label>
+              </form>
+
+              <div class="mission-primary-controls">
+                <button id="mission-run" class="mission-btn mission-btn-run" type="button">
+                  全自動を開始
+                </button>
+                <button id="mission-pause" class="mission-btn mission-btn-pause" type="button" disabled>
+                  中断して保存
+                </button>
+                <button id="mission-stop" class="mission-btn mission-btn-detail" type="button">
+                  実行設定を開く
+                </button>
+              </div>
+
+              <div class="mission-quick-actions" aria-label="現在のフェーズの操作">
+                <button id="mission-copy-prompt" type="button">
+                  <span aria-hidden="true">⌘</span>
+                  プロンプトをコピー
+                </button>
+                <button id="mission-open-ai" type="button">
+                  <span aria-hidden="true">✦</span>
+                  AIで開く
+                </button>
+                <button id="mission-open-master" type="button">
+                  <span aria-hidden="true">▣</span>
+                  マスターを開く
+                </button>
+                <button id="mission-open-settings" type="button">
+                  <span aria-hidden="true">◎</span>
+                  設定
+                </button>
+              </div>
+              <p id="mission-control-note" class="mission-control-note" role="status" aria-live="polite">
+                実行すると、サイドパネルの既存処理を使ってGoogle Docsへ順番に保存します。
+              </p>
+            </div>
+
+            <div class="mission-card mission-activity-card">
+              <div class="mission-section-heading">
+                <h2 class="mission-card-title">最近のアクティビティ</h2>
+                <span class="mission-section-meta">自動更新</span>
+              </div>
+              <ul id="mission-activity" class="mission-activity"></ul>
+              <p id="mission-activity-empty" class="mission-activity-empty" hidden>
+                まだ活動記録はありません。
+              </p>
+            </div>
           </div>
         </section>
       </main>
 
       <footer class="mission-footer">
-        このホームは STRATEGY-KIT の司令塔です。進捗・現在地・次の一手をここで見渡し、
-        プロンプト操作などの作業はサイドパネルで行います。全自動の実行タブは裏で動き、
-        このホームを開いている間はフォーカスを奪いません。
+        <span>戦略を、AIと共に。次の一手を、確信に変える。</span>
+        <strong>STRATEGY-KIT <em>Helper</em></strong>
       </footer>
     </div>
 

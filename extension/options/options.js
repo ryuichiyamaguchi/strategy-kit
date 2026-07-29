@@ -18,6 +18,7 @@ import {
   getStoredMasterDocInfo,
   setMasterDocFromUrl,
 } from '../phase0/master-doc-manager.js';
+import { patchActiveProjectWorkspace } from '../phase0/project-workspace.js';
 
 async function loadJson(path) {
   const res = await fetch(chrome.runtime.getURL(path));
@@ -169,11 +170,17 @@ async function loadBusinessSettings() {
 	  }
 
   document.getElementById('save').addEventListener('click', async () => {
-    await chrome.storage.sync.set({
+    const businessPatch = {
       industry: sel.value,
       industryLabel: document.getElementById('industry-label').value,
       storeName: document.getElementById('store-name').value,
       showSafetyNotice: document.getElementById('show-safety').checked,
+    };
+    await chrome.storage.sync.set(businessPatch);
+    await patchActiveProjectWorkspace({
+      patch: businessPatch,
+      localStorage: chrome.storage.local,
+      syncStorage: chrome.storage.sync,
     });
     const msg = document.getElementById('saved-msg');
     msg.classList.remove('hidden');
@@ -196,6 +203,24 @@ async function loadBusinessSettings() {
       if (modeReadout) modeReadout.textContent = getEngagementModeLabel(changes.sk_engagement_mode.newValue);
     }
   });
+}
+
+async function applyImportedBusinessInfo(businessInfo) {
+  const industryLabel = String(businessInfo?.industryLabel || '').trim();
+  const storeName = String(businessInfo?.storeName || '').trim();
+  if (!industryLabel && !storeName) return false;
+  const patch = {};
+  if (industryLabel) patch.industryLabel = industryLabel;
+  if (storeName) patch.storeName = storeName;
+  await chrome.storage.sync.set(patch);
+  await patchActiveProjectWorkspace({
+    patch,
+    localStorage: chrome.storage.local,
+    syncStorage: chrome.storage.sync,
+  });
+  if (industryLabel) document.getElementById('industry-label').value = industryLabel;
+  if (storeName) document.getElementById('store-name').value = storeName;
+  return true;
 }
 
 async function refreshOAuthStatus({ interactive = false } = {}) {
@@ -277,7 +302,19 @@ function bindMasterDocCard() {
         docsClient: { getDocument },
         storageArea: chrome.storage.sync,
       });
-      setStatus(status, result.title || '保存しました', 'ok');
+      await patchActiveProjectWorkspace({
+        patch: { sk_master_doc_v012: result.masterInfo },
+        localStorage: chrome.storage.local,
+        syncStorage: chrome.storage.sync,
+      });
+      const businessApplied = await applyImportedBusinessInfo(result.businessInfo);
+      setStatus(
+        status,
+        businessApplied
+          ? `${result.title || '保存しました'} · 事業情報も反映しました`
+          : result.title || '保存しました',
+        'ok',
+      );
     } catch (error) {
       setStatus(status, getErrorMessage(error), 'ng');
     }
@@ -298,6 +335,11 @@ function bindMasterDocCard() {
         storeName: document.getElementById('store-name').value,
       });
       document.getElementById('master-doc-url').value = result.masterDocUrl;
+      await patchActiveProjectWorkspace({
+        patch: { sk_master_doc_v012: result.masterInfo },
+        localStorage: chrome.storage.local,
+        syncStorage: chrome.storage.sync,
+      });
       setStatus(status, result.title || '作成しました', 'ok');
       chrome.tabs.create({ url: result.masterDocUrl });
     } catch (error) {

@@ -181,6 +181,7 @@ const state = {
   },
   modeLocal: {
     [HEARING_RAWTEXT_LOCAL_KEY]: '',
+    automationExecutionMode: 'semi',
     hearingSummaryDraft: '',
     hearingStatus: 'idle',
     hearingStatusMessage: '',
@@ -194,11 +195,14 @@ const state = {
 const MISSION_TASK_STORAGE_KEY = 'sk_task_monitor_v1';
 let missionTaskSnapshot = null;
 
-// 段階3: 全画面 見守りページ(mission.html)との受け渡し用の新規キー(sk-state.ui.* 配下)。
+// 全画面コマンドセンター(mission.html)との受け渡し用キー(sk-state.ui.* 配下)。
 //   - missionSnapshot: サイドパネル → mission (phases / 進捗 / 案件名 の raw 入力を publish)
-//   - missionCommand : mission → サイドパネル (一時停止/停止コマンド。既存キャンセルへ委譲)
+//   - missionCommand : mission → サイドパネル (既存の実行・フェーズ・AI・Docs操作へ委譲)
+//   - missionCommandResult: サイドパネル → mission (受付結果とユーザー向けメッセージ)
 const MISSION_SNAPSHOT_STORAGE_KEY = 'sk-state.ui.missionSnapshot';
 const MISSION_COMMAND_STORAGE_KEY = 'sk-state.ui.missionCommand';
+const MISSION_COMMAND_RESULT_STORAGE_KEY = 'sk-state.ui.missionCommandResult';
+const AUTOMATION_EXECUTION_MODE_PATH = 'automation.executionMode';
 let lastMissionSnapshotSignature = '';
 let lastMissionCommandTs = 0;
 
@@ -1378,7 +1382,7 @@ async function summarizeHearingRawText(rawText) {
     const geminiClient = await import(chrome.runtime.getURL('phase0/gemini-client.js'));
     const request = {
       prompt: buildHearingSummaryPrompt(raw),
-      model: 'gemini-3.5-flash',
+      model: 'gemini-3.6-flash',
       temperature: 0.2,
     };
     const result = typeof geminiClient.generateSummary === 'function'
@@ -1874,6 +1878,13 @@ function renderModeSelector() {
 
 async function handleModeChange(mode) {
   if (!['A', 'B', 'C'].includes(mode)) return;
+  // 実行中に入口モードを変えると、生成の途中で §0 と AI に渡す前提文が入れ替わる。
+  // 表示は許すが、変更は実行が終わってからにしてもらう。
+  if (isAutomationRunningNow()) {
+    showToast('実行中は入口モードを変更できません。中断するか、完了してから変更してください。', true, 5000);
+    renderModeSelector();
+    return;
+  }
   const current = state.settings[ENGAGEMENT_MODE_KEY];
   if (current === mode) {
     state.modeLocal.modeSelectorExpanded = false;
@@ -2029,13 +2040,26 @@ function missionEl(id) {
 function getLiveMissionTask() {
   const snapshot = missionTaskSnapshot;
   if (!snapshot || snapshot.visible === false || snapshot.status === 'idle') return null;
+  const activeProjectId = window.SK_STATE?._activeProjectId || '';
+  if (snapshot.projectId && activeProjectId && snapshot.projectId !== activeProjectId) return null;
   const updatedAt = Number(snapshot.updatedAt || 0);
   if (!updatedAt || Date.now() - updatedAt > 10 * 60 * 1000) return null;
   return snapshot;
 }
 
-function missionStatusLabel(status) {
-  return {
+// 実行中かどうかは automation.js の実フラグを見る。タスク監視スナップショットは
+// 10 分で失効するため、半自動で受講者が長く考えていると「停止した」と誤判定され、
+// 実行途中に入口モードカードが再び現れて §0 の前提を変えられてしまう。
+function isAutomationRunningNow() {
+  try {
+    return window.SK_AUTOMATION?.isRunning?.() === true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function missionStatusLabel(status, mode) {
+  const label = {
     running: '全自動 · 実行中',
     retrying: '全自動 · 再試行中',
     paused: '全自動 · 一時停止',
@@ -2043,6 +2067,7 @@ function missionStatusLabel(status) {
     completed: '全自動 · 完了',
     ready: '開始前',
   }[status] || '開始前';
+  return mode === 'semi' ? label.replace('全自動', '半自動') : label;
 }
 
 function renderMissionRoute(phases, filledSet, partialSet, currentNo) {
@@ -2085,10 +2110,11 @@ function renderMissionActivity(phases, filledSet, currentPhase, task) {
     activity.push({ done: true, title: `§${phase.no} ${phase.title}`, detail: 'Google Docsへ保存済み' });
   }
   if (task) {
+    const taskModeLabel = task.mode === 'semi' ? '半自動' : '全自動';
     activity.push({
       done: task.status === 'completed',
       title: task.taskLabel || `§${currentPhase.no} ${currentPhase.title}`,
-      detail: task.lastEvent || '全自動で処理中',
+      detail: task.lastEvent || `${taskModeLabel}で処理中`,
     });
   } else if (currentPhase) {
     activity.push({ done: false, title: `§${currentPhase.no} ${currentPhase.title}`, detail: '次に進めるフェーズ' });
@@ -2126,10 +2152,10 @@ function renderMissionActions(action, status) {
       button.dataset.action = secondaryAction;
       secondary.appendChild(button);
     }
-    // 段階3: 全自動実行中は「全画面で見守る」動線を追加（専用タブで見守り、AIタブは裏で駆動）。
+    // 半自動／全自動の実行中は共通の全画面コマンドセンターへ移動できる。
     const fullscreenButton = document.createElement('button');
     fullscreenButton.type = 'button';
-    fullscreenButton.textContent = '全画面で見守る';
+    fullscreenButton.textContent = '全画面で操作する';
     fullscreenButton.dataset.action = 'fullscreen';
     secondary.appendChild(fullscreenButton);
   } else if (status === 'blocked' || status === 'paused') {
@@ -2180,19 +2206,23 @@ function renderMissionControl() {
   if (progressEl) progressEl.setAttribute('aria-valuenow', String(percent));
   if (progressBar) progressBar.style.width = `${percent}%`;
   if (phaseTitle) phaseTitle.textContent = `§${currentPhase.no} ${currentPhase.title}`;
-  if (phaseStatus) phaseStatus.textContent = missionStatusLabel(status);
+  if (phaseStatus) phaseStatus.textContent = missionStatusLabel(status, task?.mode);
   if (phaseDescription) {
     phaseDescription.textContent = task?.taskLabel || currentPhase.frame || `${currentPhase.title}を進めます。`;
   }
   renderMissionRoute(phases, filledSet, partialSet, String(currentPhase.no));
 
   let detailTitle = '次の一手';
+  const executionMode = task?.mode === 'full' || task?.mode === 'semi'
+    ? task.mode
+    : getAutomationExecutionMode();
+  const executionModeLabel = executionMode === 'full' ? '全自動' : '半自動';
   let details = [
     ['現在フェーズ', `§${currentPhase.no} ${currentPhase.title}`],
-    ['進め方', '自分で進める / 全自動を管理'],
+    ['実行方法', `${executionModeLabel}モード`],
   ];
   if (status === 'running') {
-    detailTitle = '全自動の進行状況';
+    detailTitle = `${executionModeLabel}の進行状況`;
     details = [
       ['全体の流れ', `${completed} / ${total}フェーズ完了`],
       ['現在地点', task.taskLabel || `§${currentPhase.no} ${currentPhase.title}`],
@@ -2231,17 +2261,18 @@ function publishMissionSnapshot(phases, filledSet, partialSet, hasBusiness, proj
     if (!chrome?.storage?.local) return;
     // 現在地（§N）統一: 全画面ホームが薄バーと同じフェーズを指せるよう、選択フェーズ(lastPhase)基準の
     // 番号を publish する（薄バー renderSlimBar と同一の findModeAdjustedPhaseById(lastPhase) || currentPhase）。
-    const total = phases.length;
-    const completed = phases.filter((phase) => filledSet.has(String(phase.no))).length;
     const currentPhase =
       phases.find((phase) => partialSet.has(String(phase.no)) && !filledSet.has(String(phase.no))) ||
       phases.find((phase) => !filledSet.has(String(phase.no))) ||
       phases[phases.length - 1] ||
       null;
     const selected = findModeAdjustedPhaseById(state.settings.lastPhase) || currentPhase;
+    const executionMode = getAutomationExecutionMode();
+    // 進め方（入口モード）未選択の判定は renderCurrentPhaseCard の needs-mode 規則と同一。
+    const total = phases.length;
+    const completed = phases.filter((phase) => filledSet.has(String(phase.no))).length;
     const task = getLiveMissionTask();
-    const running = task?.status === 'running' || task?.status === 'retrying';
-    // 進め方（自分で/全自動）未選択の判定は renderCurrentPhaseCard の needs-mode 規則と同一。
+    const running = task?.status === 'running' || task?.status === 'retrying' || isAutomationRunningNow();
     const needsMode =
       hasBusiness && !state.settings[ENGAGEMENT_MODE_KEY] && completed < total && !running;
     // 案件一覧は既にサイドパネルが同期している #project-select の DOM から読む（二重実装を避ける）。
@@ -2258,6 +2289,7 @@ function publishMissionSnapshot(phases, filledSet, partialSet, hasBusiness, proj
       projectName: projectName || '',
       selectedNo: selected ? String(selected.no) : '',
       needsMode: !!needsMode,
+      executionMode,
       projects,
       activeProjectId,
       updatedAt: Date.now(),
@@ -2271,22 +2303,292 @@ function publishMissionSnapshot(phases, filledSet, partialSet, hasBusiness, proj
   }
 }
 
-// 全画面 見守りページを開く。既に開いていれば新規作成せずアクティブ化（重複タブ防止）。
+async function publishMissionCommandResult(command, ok, message, extra = {}) {
+  try {
+    await chrome.storage.local.set({
+      [MISSION_COMMAND_RESULT_STORAGE_KEY]: {
+        commandTs: command?.ts || 0,
+        action: command?.action || '',
+        ok: !!ok,
+        message: String(message || ''),
+        ...extra,
+        ts: Date.now(),
+      },
+    });
+    await chrome.storage.local.remove([MISSION_COMMAND_STORAGE_KEY]);
+  } catch (_) {
+    /* 結果通知の失敗は既存処理を止めない */
+  }
+}
+
+function applyMissionAutomationDraft(draft) {
+  if (!draft || typeof draft !== 'object') return;
+  // 受講者が全画面で意図的に消した欄は、空のまま反映する（そうしないと消した内容が復活する）。
+  const clearedFields = new Set(Array.isArray(draft.clearedFields) ? draft.clearedFields : []);
+  const values = [
+    ['sk-auto-memo', draft.memo, 'input', 'memo'],
+    ['sk-auto-context', draft.context, 'input', 'context'],
+    ['sk-auto-model', draft.model, 'change', ''],
+    ['sk-auto-finance-model', draft.financeModel, 'change', ''],
+  ];
+  for (const [id, value, eventName, field] of values) {
+    const input = document.getElementById(id);
+    if (!input || value === undefined || value === null) continue;
+    // 空文字は原則「未指定」として扱い、サイドパネル側に入力済みの内容を消さない。
+    // 全画面の入力欄が空のまま実行されたときに、現状メモごと失うのを防ぐ。
+    if (String(value) === '' && String(input.value || '') !== '' && !clearedFields.has(field)) continue;
+    input.value = String(value);
+    input.dispatchEvent(new Event(eventName, { bubbles: true }));
+  }
+  const requestedMode = draft.mode === 'semi' ? 'semi' : 'full';
+  setAutomationExecutionMode(requestedMode, {
+    persist: true,
+    persistDraft: true,
+    openWorkspace: false,
+  });
+}
+
+async function ensureMissionAutomationUi() {
+  switchTab('automation');
+  const ready = await window.SK_AUTOMATION?.ensureReady?.();
+  if (!ready) return false;
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  return true;
+}
+
+// 別案件のマスタードキュメントへ書き込む/読み出す可能性のある操作。projectId の一致を要求する。
+const MISSION_PROJECT_SCOPED_ACTIONS = new Set([
+  'startAutomation',
+  'startFullAuto',
+  'restartFromPhase',
+  'openMaster',
+  'copyPrompt',
+  'openPhase',
+]);
+// サイドパネルが閉じている間に書かれたコマンドの有効期限。これを過ぎたものは破棄する。
+const MISSION_COMMAND_MAX_AGE_MS = 60 * 1000;
+
+async function processMissionCommand(command) {
+  if (!command || !command.action || !command.ts || command.ts === lastMissionCommandTs) return;
+  lastMissionCommandTs = command.ts;
+  // サイドパネルが閉じていた等でコマンドが storage に残り続けた場合、次回起動時に
+  // 意図しない全自動が走らないよう、古いコマンドは実行せず捨てる。
+  if (Date.now() - Number(command.ts) > MISSION_COMMAND_MAX_AGE_MS) {
+    try {
+      await chrome.storage.local.remove([MISSION_COMMAND_STORAGE_KEY]);
+    } catch (_) {
+      /* 破棄に失敗しても実行はしない */
+    }
+    return;
+  }
+  // 全画面が表示していた案件と、いまサイドパネルが開いている案件が違うなら実行しない。
+  const activeProjectId = window.SK_STATE?._activeProjectId || '';
+  if (command.projectId && activeProjectId && command.projectId !== activeProjectId
+      && MISSION_PROJECT_SCOPED_ACTIONS.has(command.action)) {
+    await publishMissionCommandResult(
+      command,
+      false,
+      '表示中のプロジェクトとサイドパネルのプロジェクトが違います。全画面を再読み込みしてからお試しください。',
+    );
+    return;
+  }
+  try {
+    if (command.action === 'pauseAutomation' || command.action === 'cancel') {
+      const ready = await ensureMissionAutomationUi();
+      const cancel = ready ? document.getElementById('sk-auto-cancel') : null;
+      if (!cancel || cancel.disabled || cancel.style.display === 'none') {
+        await publishMissionCommandResult(command, false, '現在、中断できる実行はありません。');
+        return;
+      }
+      cancel.click();
+      await publishMissionCommandResult(command, true, '現在地点を保存して中断します。');
+      return;
+    }
+
+    if (command.action === 'startAutomation' || command.action === 'startFullAuto') {
+      const ready = await ensureMissionAutomationUi();
+      if (!ready) {
+        await publishMissionCommandResult(command, false, 'Google連携を確認してから実行してください。');
+        return;
+      }
+      const commandDraft = {
+        ...(command.draft || {}),
+        mode: command.action === 'startFullAuto'
+          ? 'full'
+          : command.draft?.mode === 'semi' ? 'semi' : 'full',
+      };
+      applyMissionAutomationDraft(commandDraft);
+      const start = document.getElementById('sk-auto-start');
+      if (!start || start.disabled) {
+        await publishMissionCommandResult(command, false, '実行中か、開始条件を確認しています。少し待って再度お試しください。');
+        return;
+      }
+      start.click();
+      const modeLabel = commandDraft.mode === 'semi' ? '半自動' : '全自動';
+      const suffix = commandDraft.mode === 'semi'
+        ? 'サイドパネルでAIの回答を確認・貼り付けながら進めてください。'
+        : '進行状況はこの全画面ダッシュボードにも同期されます。';
+      await publishMissionCommandResult(command, true, `${modeLabel}を開始しました。${suffix}`);
+      return;
+    }
+
+    if (command.action === 'restartFromPhase') {
+      const ready = await ensureMissionAutomationUi();
+      if (!ready || typeof window.SK_AUTOMATION?.runFromPhase !== 'function') {
+        await publishMissionCommandResult(command, false, 'Google連携後にフェーズ再実行を利用できます。');
+        return;
+      }
+      const phase = getVisiblePhases().find((item) => String(item.no) === String(command.phaseNo));
+      if (!phase) {
+        await publishMissionCommandResult(command, false, '指定したフェーズを確認できませんでした。');
+        return;
+      }
+      applyMissionAutomationDraft(command.draft);
+      await publishMissionCommandResult(
+        command,
+        true,
+        `§${phase.no} ${phase.title} 以降の再実行を開始します。`,
+      );
+      await window.SK_AUTOMATION.runFromPhase(String(phase.no), {
+        mode: command.draft?.mode === 'semi' ? 'semi' : 'full',
+      });
+      return;
+    }
+
+    if (command.action === 'openAutomation') {
+      const ready = await ensureMissionAutomationUi();
+      await publishMissionCommandResult(
+        command,
+        !!ready,
+        ready ? '実行設定をサイドパネルに表示しました。' : 'Google連携後に実行設定を利用できます。',
+      );
+      return;
+    }
+
+    if (command.action === 'openPhase') {
+      const phase = getVisiblePhases().find((item) => String(item.no) === String(command.phaseNo));
+      if (!phase) {
+        await publishMissionCommandResult(command, false, '指定したフェーズを確認できませんでした。');
+        return;
+      }
+      state.settings.lastPhase = phase.id;
+      persistSettings();
+      switchTab('phases');
+      emit('phase-changed', phase);
+      renderCurrentPhaseCard();
+      renderMissionControl();
+      await publishMissionCommandResult(command, true, `§${phase.no} ${phase.title} を操作対象にしました。`);
+      return;
+    }
+
+    if (command.action === 'copyPrompt') {
+      const phase = findModeAdjustedPhaseById(state.settings.lastPhase) || getNextStatusPhase();
+      if (!phase) {
+        await publishMissionCommandResult(command, false, 'コピーできるフェーズがありません。');
+        return;
+      }
+      const rawPrompt = phase.prompts?.[0]?.body || phase.prompts?.[0]?.text || '';
+      if (!rawPrompt) {
+        await publishMissionCommandResult(command, false, 'このフェーズにコピーできるプロンプトがありません。');
+        return;
+      }
+      // クリップボードへの書き込みは、フォーカスを持っている全画面タブ側で行う。
+      // サイドパネルは非フォーカスなので navigator.clipboard.writeText が必ず失敗する。
+      const promptText = await enrichWithMasterSummaries(rawPrompt);
+      await publishMissionCommandResult(command, true, '', { promptText, phaseNo: String(phase.no) });
+      return;
+    }
+
+    if (command.action === 'openAi') {
+      const phase = findModeAdjustedPhaseById(state.settings.lastPhase) || getNextStatusPhase();
+      const ai = phase?.primaryAi || 'gemini';
+      await openOrFocusAiTab(ai);
+      await publishMissionCommandResult(command, true, `${ai} を作業用に開きました。`);
+      return;
+    }
+
+    if (command.action === 'openMaster') {
+      document.getElementById('open-master-doc')?.click();
+      await publishMissionCommandResult(command, true, 'マスタードキュメントを確認します。');
+      return;
+    }
+
+    if (command.action === 'switchProject' && command.projectId && window.SK_STATE?.project) {
+      // 実行中かどうかは実フラグで見る。10分で失効するスナップショットで判定すると、
+      // 半自動で長く考えている間にガードを素通りし、reload で実行中のチェーンが消える。
+      if (isAutomationRunningNow()) {
+        await publishMissionCommandResult(command, false, '実行中はプロジェクトを切り替えられません。先に中断してください。');
+        return;
+      }
+      await window.SK_STATE.project.activate(command.projectId);
+      await publishMissionCommandResult(command, true, 'プロジェクトを切り替えました。');
+      window.location.reload();
+      return;
+    }
+
+    if (command.action === 'createProject' && window.SK_STATE?.project) {
+      if (isAutomationRunningNow()) {
+        await publishMissionCommandResult(command, false, '実行中は新しいプロジェクトへ切り替えられません。先に中断してください。');
+        return;
+      }
+      const label = String(command.label || '').trim();
+      if (!label) {
+        await publishMissionCommandResult(command, false, 'プロジェクト名を入力してください。');
+        return;
+      }
+      await window.SK_STATE.project.create(label);
+      await publishMissionCommandResult(command, true, `「${label}」を作成しました。`);
+      window.location.reload();
+      return;
+    }
+
+    await publishMissionCommandResult(command, false, 'この操作には対応していません。');
+  } catch (error) {
+    console.warn('[STRATEGY-KIT] mission command failed:', command.action, error);
+    await publishMissionCommandResult(command, false, '操作を完了できませんでした。サイドパネルで状態を確認してください。');
+  }
+}
+
+// コマンドセンターを同じChromeウィンドウの通常タブで開く。
+// メイン領域は mission.html、右側はサイドパネルのままなので、進捗と詳細操作を同時に扱える。
+// 旧版の popup に既存タブが残っている場合は、現在の通常ウィンドウへ移して再利用する。
 async function openMissionFullscreen() {
   try {
     const url = chrome.runtime.getURL('sidepanel/mission.html');
+    const currentWindow = await chrome.windows.getCurrent();
+    const targetWindowId = currentWindow?.type === 'normal' ? currentWindow.id : undefined;
     const existing = await chrome.tabs.query({ url });
     if (existing && existing.length) {
-      const tab = existing[0];
-      await chrome.tabs.update(tab.id, { active: true });
-      if (tab.windowId) {
-        await chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
+      let tab = existing[0];
+      if (targetWindowId && tab.windowId !== targetWindowId) {
+        const moved = await chrome.tabs.move(tab.id, {
+          windowId: targetWindowId,
+          index: -1,
+        });
+        tab = Array.isArray(moved) ? moved[0] : moved;
       }
-      return;
+      await chrome.tabs.update(tab.id, { active: true });
+      if (targetWindowId) {
+        await chrome.windows.update(targetWindowId, { focused: true }).catch(() => {});
+      }
+      return tab;
     }
-    await chrome.tabs.create({ url });
+    return await chrome.tabs.create({
+      url,
+      active: true,
+      ...(targetWindowId ? { windowId: targetWindowId } : {}),
+    });
   } catch (e) {
     console.warn('[STRATEGY-KIT] openMissionFullscreen failed:', e);
+    // ウィンドウ情報の取得・移動に失敗しても、通常タブで開く導線は失わない。
+    try {
+      return await chrome.tabs.create({
+        url: chrome.runtime.getURL('sidepanel/mission.html'),
+        active: true,
+      });
+    } catch (_) {
+      return null;
+    }
   }
 }
 
@@ -2358,7 +2660,7 @@ function bindMissionControl() {
     }
   });
 
-  // 段階3: 全自動管理ビュー内の「全画面で見守る」ボタン。
+  // 全自動管理ビュー内の「全画面で操作する」ボタン。
   document.getElementById('mission-fullscreen-open')?.addEventListener('click', openMissionFullscreen);
 
   // 薄型パネル v2: 薄バーの ☰ / ••• → ドロワー(メニュー)トグル、中央タップ → 全画面ホーム
@@ -2371,8 +2673,20 @@ function bindMissionControl() {
     setMissionMenuOpen();
   });
   document.getElementById('slim-center')?.addEventListener('click', openMissionFullscreen);
+  document.getElementById('slim-dashboard-open')?.addEventListener('click', openMissionFullscreen);
 
-  // ドロワーの「全自動を管理」→ 全自動タブへ（進め方スイッチの退避先）
+  // ドロワーの「実行モードを管理」→ 半自動／全自動の共通設定へ。
+  // ドロワーの「入口モードを変える」→ 戦略タブの入口モードカードを開く。
+  // 選択後は needs-mode が外れてカードが隠れるため、ここが唯一の再入導線になる。
+  document.getElementById('menu-engagement-mode')?.addEventListener('click', function () {
+    setMissionMenuOpen(false);
+    switchTab('phases');
+    document.getElementById('tab-phases')?.classList.add('show-engagement-mode');
+    state.modeLocal.modeSelectorExpanded = true;
+    renderModeSelector();
+    document.getElementById('engagement-mode')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+
   document.getElementById('menu-automation')?.addEventListener('click', function () {
     setMissionMenuOpen(false);
     switchTab('automation');
@@ -2388,6 +2702,7 @@ function renderStableShell(reason) {
   renderIndustryOptions();
   renderIndustryHint();
   renderBusinessSettingsReadout();
+  renderAutomationModeControls();
   renderModeSelector();
   renderPhaseList();
   renderResearchTab();
@@ -2414,6 +2729,58 @@ function openBusinessSettings() {
   chrome.runtime.openOptionsPage?.();
 }
 
+function normalizeAutomationExecutionMode(mode) {
+  return mode === 'full' ? 'full' : 'semi';
+}
+
+function automationExecutionModeStorageKey(projectId) {
+  return projectId
+    ? `sk-state.projects.${projectId}.${AUTOMATION_EXECUTION_MODE_PATH}`
+    : `sk-state.${AUTOMATION_EXECUTION_MODE_PATH}`;
+}
+
+function getAutomationExecutionMode() {
+  return normalizeAutomationExecutionMode(state.modeLocal.automationExecutionMode);
+}
+
+function renderAutomationModeControls() {
+  const mode = getAutomationExecutionMode();
+  for (const button of document.querySelectorAll('[data-automation-mode]')) {
+    const selected = button.dataset.automationMode === mode;
+    button.classList.toggle('is-active', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  }
+}
+
+function setAutomationExecutionMode(mode, options = {}) {
+  const normalized = normalizeAutomationExecutionMode(mode);
+  state.modeLocal.automationExecutionMode = normalized;
+  renderAutomationModeControls();
+
+  if (window.SK_AUTOMATION && typeof window.SK_AUTOMATION.setMode === 'function') {
+    window.SK_AUTOMATION.setMode(normalized, {
+      persistMode: false,
+      persistDraft: options.persistDraft !== false,
+    });
+  }
+  if (options.persist !== false && window.SK_STATE) {
+    window.SK_STATE.save(AUTOMATION_EXECUTION_MODE_PATH, normalized);
+  }
+  if (options.openWorkspace === true) {
+    switchTab('automation');
+  }
+  renderMissionControl();
+  renderCurrentPhaseCard();
+}
+
+function applyAutomationExecutionModeFromStorage(mode) {
+  setAutomationExecutionMode(mode, {
+    persist: false,
+    persistDraft: true,
+    openWorkspace: false,
+  });
+}
+
 // =====================================================
 // タブ切替 (Wave 4: セグメント廃止、3タブ単段化)
 // =====================================================
@@ -2432,11 +2799,7 @@ function switchTab(name, options = {}) {
       btn.classList.toggle('is-active', isOn);
       btn.setAttribute('aria-selected', String(isOn));
     }
-    for (const btn of document.querySelectorAll('[data-strategy-view]')) {
-      const isOn = btn.dataset.strategyView === name;
-      btn.classList.toggle('is-active', isOn);
-      btn.setAttribute('aria-pressed', String(isOn));
-    }
+    renderAutomationModeControls();
     for (const cnt of document.querySelectorAll('.tab-content')) {
       cnt.classList.toggle('is-active', cnt.id === `tab-${name}`);
     }
@@ -2476,8 +2839,13 @@ function bindTabs() {
     });
   }
 
-  for (const btn of document.querySelectorAll('[data-strategy-view]')) {
-    btn.addEventListener('click', () => switchTab(btn.dataset.strategyView));
+  for (const btn of document.querySelectorAll('[data-automation-mode]')) {
+    btn.addEventListener('click', () => {
+      setAutomationExecutionMode(btn.dataset.automationMode, {
+        persist: true,
+        openWorkspace: true,
+      });
+    });
   }
 
   switchTab(state.settings.lastTab || 'phases', { persist: false });
@@ -3788,16 +4156,18 @@ function setPhaseView(view) {
 async function copyPhasePrompt(phase) {
   if (!phase || !phase.prompts || !phase.prompts.length) {
     showToast('このフェーズにコピー可能なプロンプトがありません', true);
-    return;
+    return false;
   }
   const raw = phase.prompts[0].body || phase.prompts[0].text || '';
-  if (!raw) return;
+  if (!raw) return false;
   try {
     const text = await enrichWithMasterSummaries(raw);
     await navigator.clipboard.writeText(text);
     showToast('プロンプトをコピーしました');
+    return true;
   } catch (_) {
     showToast('コピーに失敗しました', true);
+    return false;
   }
 }
 
@@ -3859,10 +4229,12 @@ function renderCurrentPhaseCard() {
   if (tab) {
     tab.classList.toggle('needs-mode',
       hasBusiness && !state.settings[ENGAGEMENT_MODE_KEY] && completed < total &&
-      status !== 'running' && status !== 'retrying');
+      status !== 'running' && status !== 'retrying' && !isAutomationRunningNow());
   }
 
   clearChildren(card);
+  const quickMount = document.getElementById('phase-ai-quick');
+  if (quickMount) clearChildren(quickMount);
 
   // 未設定: はじめに 3ステップ CTA
   if (!hasBusiness) {
@@ -3879,6 +4251,36 @@ function renderCurrentPhaseCard() {
     card.appendChild(bar);
     return;
   }
+
+  const progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const projectHead = el('div', { class: 'cpc-project-head' });
+  const projectCopy = el('div', { class: 'cpc-project-copy' });
+  projectCopy.append(
+    el('span', { class: 'cpc-project-kicker', text: 'PROJECT' }),
+    el('strong', { class: 'cpc-project-name', text: store }),
+    el('span', { class: 'cpc-project-industry', text: industry })
+  );
+  const projectProgress = el('div', { class: 'cpc-project-progress' });
+  projectProgress.append(
+    el('span', { class: 'cpc-project-progress-value', text: String(completed) }),
+    el('span', { class: 'cpc-project-progress-total', text: `/ ${total}` })
+  );
+  projectHead.append(projectCopy, projectProgress);
+  const projectRail = el('div', {
+    class: 'cpc-project-rail',
+    attrs: {
+      role: 'progressbar',
+      'aria-label': 'プロジェクト進捗',
+      'aria-valuemin': '0',
+      'aria-valuemax': '100',
+      'aria-valuenow': String(progressPercent),
+    },
+  });
+  projectRail.appendChild(el('span', {
+    class: 'cpc-project-rail-fill',
+    attrs: { style: `width:${progressPercent}%` },
+  }));
+  card.append(projectHead, projectRail);
 
   // 完了: 完了カード
   if (status === 'completed') {
@@ -3898,17 +4300,18 @@ function renderCurrentPhaseCard() {
     return;
   }
 
-  // 全自動: 実行中カード（操作はパネル委譲／全画面は表示専用の現行方針を踏襲）
+  // 半自動 / 全自動: 実行中カード。task.mode を表示と操作の共通ソースにする。
   if (task && (status === 'running' || status === 'retrying' || status === 'blocked' || status === 'paused')) {
     card.dataset.cardState = 'automation';
     const runningish = status === 'running' || status === 'retrying';
+    const runningModeLabel = task.mode === 'semi' ? '半自動' : '全自動';
     card.append(
-      el('span', { class: 'cpc-eyebrow', text: missionStatusLabel(status) }),
-      el('h2', { class: 'cpc-title', text: task.taskLabel || (currentPhase ? `§${currentPhase.no} ${currentPhase.title}` : '全自動で処理中') }),
-      el('p', { class: 'current-phase-desc', text: task.lastEvent || '全自動で処理を進めています。' })
+      el('span', { class: 'cpc-eyebrow', text: missionStatusLabel(status, task?.mode) }),
+      el('h2', { class: 'cpc-title', text: task.taskLabel || (currentPhase ? `§${currentPhase.no} ${currentPhase.title}` : `${runningModeLabel}で処理中`) }),
+      el('p', { class: 'current-phase-desc', text: task.lastEvent || `${runningModeLabel}で処理を進めています。` })
     );
     const bar = el('div', { class: 'current-phase-actions' });
-    bar.appendChild(_cardActionBtn('全画面で見守る', '#i-auto', 'current-phase-primary', openMissionFullscreen));
+    bar.appendChild(_cardActionBtn('全画面で操作する', '#i-auto', 'current-phase-primary', openMissionFullscreen));
     const sub = el('div', { class: 'current-phase-subactions' });
     if (runningish) {
       sub.appendChild(_cardActionBtn('一時停止 / 停止', '#i-warn', 'current-phase-secondary', () => {
@@ -3922,16 +4325,23 @@ function renderCurrentPhaseCard() {
     return;
   }
 
-  // 手動: 現在フェーズ（選択中フェーズ）カード
+  // 実行前: プロジェクト共通の実行モードに合わせて、次の操作を明示する。
   card.dataset.cardState = 'phase';
   const selected = findModeAdjustedPhaseById(state.settings.lastPhase) || currentPhase || phases[0];
   if (!selected) return;
+  const executionMode = getAutomationExecutionMode();
+  const executionModeLabel = executionMode === 'full' ? '全自動モード' : '半自動モード';
   const isFilled = filledSet.has(String(selected.no));
   const isPartial = !isFilled && partialSet.has(String(selected.no));
 
-  card.appendChild(el('span', { class: 'cpc-eyebrow', text: '現在のフェーズ · 手動で進める' }));
+  card.appendChild(el('span', { class: 'cpc-eyebrow', text: `選択中 · ${executionModeLabel}` }));
   card.appendChild(el('h2', { class: 'cpc-title', text: `§${selected.no} ${selected.title}` }));
-  if (selected.frame) card.appendChild(el('p', { class: 'current-phase-desc', text: selected.frame }));
+  card.appendChild(el('p', {
+    class: 'current-phase-desc',
+    text: executionMode === 'full'
+      ? 'Geminiで各フェーズを順番に生成します。開始前にモデルと入力内容を確認してください。'
+      : (selected.frame || 'AIの回答を確認・貼り付けしながら、1ステップずつ進めます。'),
+  }));
 
   const chips = el('div', { class: 'current-phase-chips' });
   if (selected.estimatedMinutes) chips.appendChild(el('span', { class: 'current-phase-chip', text: `所要 ${selected.estimatedMinutes}分` }));
@@ -3948,26 +4358,63 @@ function renderCurrentPhaseCard() {
   nmBody.appendChild(el('span', { class: 'current-phase-nextmove-eyebrow', text: 'NEXT MOVE' }));
   nmBody.appendChild(el('span', {
     class: 'current-phase-nextmove-text',
-    text: isFilled
-      ? '記入済み。内容を見直すか、次のフェーズへ進めます。'
-      : isPartial
-        ? '下書きを仕上げます。プロンプトをコピーして AI に貼り付け。'
-        : 'プロンプトをコピーして AI に貼り付け。',
+    text: executionMode === 'full'
+      ? '実行設定を確認して、全自動を開始します。'
+      : isFilled
+        ? '記入済み。内容を見直すか、次のフェーズへ進めます。'
+        : isPartial
+          ? '下書きを仕上げます。AIの回答を確認して貼り付けます。'
+          : '半自動の実行画面で、AIの回答を確認しながら進めます。',
   }));
   nm.appendChild(nmBody);
   card.appendChild(nm);
 
-  // 主アクション: プロンプトをコピー
+  // 主アクション: 選択中の実行モードと同じ設定画面へ進む。
   const primaryBar = el('div', { class: 'current-phase-actions' });
-  primaryBar.appendChild(_cardActionBtn('プロンプトをコピー', '#i-copy', 'current-phase-primary', () => copyPhasePrompt(selected)));
+  primaryBar.appendChild(_cardActionBtn(
+    `${executionModeLabel}の設定を開く`,
+    '#i-auto',
+    'current-phase-primary',
+    () => switchTab('automation')
+  ));
   card.appendChild(primaryBar);
 
-  // 副アクション: AIで開く / DRAFT保存（既存 openOrFocusAiTab / createOrOpenDraftDoc を流用）
+  // 副アクション: フェーズ単体の手動操作も残す。
   const aiTarget = selected.prompts?.[0]?.for || selected.defaultFor;
   const sub = el('div', { class: 'current-phase-subactions' });
+  sub.appendChild(_cardActionBtn('プロンプトをコピー', '#i-copy', 'current-phase-secondary', () => copyPhasePrompt(selected)));
   sub.appendChild(_cardActionBtn('AIで開く', '#i-external', 'current-phase-secondary', () => openOrFocusAiTab(aiTarget)));
   sub.appendChild(_cardActionBtn('DRAFT保存', '#i-edit', 'current-phase-secondary', () => createOrOpenDraftDoc()));
   card.appendChild(sub);
+
+  const quickAccess = el('div', { class: 'cpc-ai-quick' });
+  quickAccess.appendChild(el('span', { class: 'cpc-ai-quick-label', text: 'AI QUICK ACCESS' }));
+  const quickButtons = el('div', { class: 'cpc-ai-quick-buttons' });
+  for (const [id, label, mark] of [
+    ['gemini', 'Gemini', '✦'],
+    ['chatgpt', 'ChatGPT', '◎'],
+    ['claude', 'Claude', '✺'],
+    ['perplexity', 'Perplexity', '⌁'],
+    ['genspark', 'Genspark', '↗'],
+  ]) {
+    const button = el('button', {
+      class: `cpc-ai-quick-btn is-${id}`,
+      type: 'button',
+      attrs: { 'aria-label': `${label} を開く` },
+    },
+      el('span', { class: 'cpc-ai-quick-mark', text: mark }),
+      el('span', { class: 'cpc-ai-quick-name', text: label })
+    );
+    button.addEventListener('click', () => openOrFocusAiTab(id));
+    quickButtons.appendChild(button);
+  }
+  quickAccess.appendChild(quickButtons);
+  if (quickMount) {
+    clearChildren(quickMount);
+    quickMount.appendChild(quickAccess);
+  } else {
+    card.appendChild(quickAccess);
+  }
 
   // カード下ミニナビ
   card.appendChild(_cardMiniNav(selected, phases));
@@ -4560,8 +5007,56 @@ function showToast(text, isError = false, duration = 2200) {
 // 永続化
 // =====================================================
 
+let workspaceSaveWarningShown = false;
+
 async function persistSettings() {
+  // 保存領域が誰のものか確定していない間は、sync への書き込みごと見送る。
+  // 先に書いてしまうと、切替先の案件の領域へこちらの事業情報が上書きされる。
+  const busy = await window.SK_STATE?.project?.workspaceBusyReason?.();
+  if (busy === 'switching') return; // 切替側が退避を済ませているので、黙って見送ってよい
+  if (busy === 'unsettled') {
+    // 切替が途中で終わっている／別ウィンドウが切替中。ここで書くと別案件を汚す。
+    if (!workspaceSaveWarningShown) {
+      workspaceSaveWarningShown = true;
+      showToast('この案件の変更はまだ保存されていません。編集を止めてからサイドパネルを開き直してください（開き直すと直前の変更は失われます）。', true, 10000);
+    }
+    return;
+  }
   await chrome.storage.sync.set(state.settings);
+  const saved = await window.SK_STATE?.project?.saveWorkspace?.();
+  // 判定と書き込みの間に切替が始まった場合の取りこぼし。同じ文言で知らせる。
+  if (saved && saved.ok === false && !workspaceSaveWarningShown) {
+    workspaceSaveWarningShown = true;
+    showToast('この案件の変更はまだ保存されていません。編集を止めてからサイドパネルを開き直してください（開き直すと直前の変更は失われます）。', true, 10000);
+  }
+}
+
+async function hydrateBusinessInfoFromMasterIfMissing() {
+  if (String(state.settings.industryLabel || '').trim() && String(state.settings.storeName || '').trim()) return false;
+  try {
+    const [docsClient, masterDocManager] = await Promise.all([
+      import(chrome.runtime.getURL('phase0/docs-client.js')),
+      import(chrome.runtime.getURL('phase0/master-doc-manager.js')),
+    ]);
+    const result = await masterDocManager.getStoredMasterDocInfo({
+      docsClient,
+      storageArea: chrome.storage.sync,
+      includeBusinessInfo: true,
+    });
+    const industryLabel = String(result?.businessInfo?.industryLabel || '').trim();
+    const storeName = String(result?.businessInfo?.storeName || '').trim();
+    if (!industryLabel && !storeName) return false;
+    if (industryLabel) state.settings.industryLabel = industryLabel;
+    if (storeName) state.settings.storeName = storeName;
+    await chrome.storage.sync.set({
+      ...(industryLabel ? { industryLabel } : {}),
+      ...(storeName ? { storeName } : {}),
+    });
+    await window.SK_STATE?.project?.saveWorkspace?.();
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 function getMetaSyncPayload() {
@@ -4887,6 +5382,7 @@ window.SK_CORE = {
   clearCurrentLocation,
   showSavingOverlay,
   hideSavingOverlay,
+  openMissionFullscreen,
 
   // イベント
   on,
@@ -4968,6 +5464,28 @@ window.SK_CORE = {
     } catch (_) {
       /* branding 解決失敗時はフォールバック表記のまま */
     }
+	    // 保存領域とアクティブ案件の整合を、画面へ何かを読み込む前に確定させる。
+	    // loadSettings() を先に走らせると、中断された切替の復旧が storage を書き戻す前に
+	    // 別案件の値を state.settings へ取り込んでしまい、次の persistSettings() で
+	    // その値が現在の案件へ保存される（案件データの取り違え）。
+	    if (window.SK_STATE) {
+	      if (typeof window.SK_STATE.init === 'function') {
+	        await window.SK_STATE.init();
+	      }
+	      // アクティブ案件が無ければデフォルト案件を自動作成（作成も storage を書き換える）。
+	      // 作成に失敗しても起動は続ける。ここで throw すると renderStableShell / bindTabs へ
+	      // 到達せず、タブもボタンも描画されない画面になってしまう。
+	      if (window.SK_STATE.project) {
+	        try {
+	          const currentActive = await window.SK_STATE.project.getActiveId();
+	          if (!currentActive) {
+	            await window.SK_STATE.project.create('新規プロジェクト');
+	          }
+	        } catch (error) {
+	          console.warn('[STRATEGY-KIT] initial project create failed:', error);
+	        }
+	      }
+	    }
 	    await loadSettings();
 	    await loadModeLocalState();
 	    try {
@@ -4983,17 +5501,10 @@ window.SK_CORE = {
 
 	    // SK_STATE から補足状態を復元（chrome.storage.sync の設定を上書きしない）
     if (window.SK_STATE) {
-      // v0.12: activeProjectId を同期キャッシュへロードしてからアクセスする
-      if (typeof window.SK_STATE.init === 'function') {
-        await window.SK_STATE.init();
-      }
-      // v0.12: アクティブ案件が無ければデフォルト案件を自動作成
-      if (window.SK_STATE.project) {
-        const currentActive = await window.SK_STATE.project.getActiveId();
-        if (!currentActive) {
-          await window.SK_STATE.project.create('新規プロジェクト');
-        }
-      }
+      // init と既定案件の作成は loadSettings より前に済ませている（起動順序を参照）
+      state.modeLocal.automationExecutionMode = normalizeAutomationExecutionMode(
+        await window.SK_STATE.load(AUTOMATION_EXECUTION_MODE_PATH, 'semi')
+      );
       await new Promise(function (resolve) {
         window.SK_STATE.loadAll(function (saved) {
           // 業種・店舗・テーマ（sync 未設定なら local から補完）
@@ -5013,6 +5524,7 @@ window.SK_CORE = {
           resolve();
         });
       });
+      await hydrateBusinessInfoFromMasterIfMissing();
     }
 
     // v0.12: 案件セレクタの初期化（topbar の project-switcher）
@@ -5046,8 +5558,26 @@ window.SK_CORE = {
         select.addEventListener('change', async function () {
           const id = select.value;
           if (!id) return;
-          await window.SK_STATE.project.activate(id);
-          window.location.reload();
+          // 実行中の切替は、reload で実行中のチェーンを壊すので受け付けない。
+          if (isAutomationRunningNow()) {
+            select.value = window.SK_STATE._activeProjectId || '';
+            showToast('実行中は案件を切り替えられません。中断するか、完了してから切り替えてください。', true, 5000);
+            return;
+          }
+          // 切替中の再操作を防ぐ。並走すると案件のデータが混ざるため、
+          // 失敗したときは選択を戻して、何が起きたかを画面に出す。
+          select.disabled = true;
+          if (newBtn) newBtn.disabled = true;
+          try {
+            await window.SK_STATE.project.activate(id);
+            window.location.reload();
+          } catch (error) {
+            select.disabled = false;
+            if (newBtn) newBtn.disabled = false;
+            select.value = window.SK_STATE._activeProjectId || '';
+            showToast('案件を切り替えられませんでした。もう一度お試しください。', true, 5000);
+            console.warn('[STRATEGY-KIT] project activate failed:', error);
+          }
         });
       }
       // v0.12.1: window.prompt は拡張サイドパネルで動作が不安定なため、インライン入力フォームに差し替え
@@ -5117,6 +5647,10 @@ window.SK_CORE = {
     sidepanelInitialized = true;
     renderStableShell('init-ready');
     document.body.classList.remove('sk-booting');
+    // 全画面からの操作でサイドパネルを今開いた場合、起動前に保存されたコマンドも拾う。
+    chrome.storage.local.get([MISSION_COMMAND_STORAGE_KEY]).then((values) => {
+      processMissionCommand(values?.[MISSION_COMMAND_STORAGE_KEY]);
+    }).catch(() => {});
     await refreshSetupChecklist();
     renderCurrentLocationBar();
     syncEmptyStates();
@@ -5147,20 +5681,15 @@ window.SK_CORE = {
         state.modeLocal.hearingSummaryDraft = state.settings[HEARING_SUMMARY_KEY];
         scheduleStableRender('storage-hearing-summary');
       }
-      // 段階3: 全画面ページからの一時停止/停止コマンドを受けて既存キャンセルへ委譲する。
-      // automation.js は不変。ボタン実体が無い/未起動なら何も起きない（正直に無反応）。
+      // 全画面コマンドセンターからの操作を既存UI/自動化ロジックへ委譲する。
       if (areaName === 'local' && changes[MISSION_COMMAND_STORAGE_KEY]) {
         const command = changes[MISSION_COMMAND_STORAGE_KEY].newValue;
-        if (command && command.ts && command.ts !== lastMissionCommandTs) {
-          lastMissionCommandTs = command.ts;
-          if (command.action === 'cancel') {
-            switchTab('automation');
-            requestAnimationFrame(() => document.getElementById('sk-auto-cancel')?.click());
-          } else if (command.action === 'switchProject' && command.projectId && window.SK_STATE?.project) {
-            // 全画面ホームからの案件切替: サイドパネル既存の切替経路（activate → reload）へ委譲する。
-            // reload 後の renderMissionControl が新案件の missionSnapshot を publish し、ホームへ反映される。
-            window.SK_STATE.project.activate(command.projectId).then(() => window.location.reload());
-          }
+        processMissionCommand(command);
+      }
+      if (areaName === 'local') {
+        const modeStorageKey = automationExecutionModeStorageKey(window.SK_STATE?._activeProjectId || '');
+        if (changes[modeStorageKey]) {
+          applyAutomationExecutionModeFromStorage(changes[modeStorageKey].newValue);
         }
       }
       if (areaName !== 'sync') return;
