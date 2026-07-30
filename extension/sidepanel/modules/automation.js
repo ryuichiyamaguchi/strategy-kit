@@ -1513,6 +1513,59 @@
       return await import(url);
     }
 
+    // 壁打ちプロンプトを全画面コマンドセンターの壁打ち欄へ引き継ぐ。
+    // 成功したら true（モーダルは閉じ、以降のやりとりは全画面の中で完結する）。
+    // 失敗したら false を返し、呼び出し側は従来どおりコピー導線へ落とす
+    // （全画面ウィンドウを作れない環境で受講者を詰まらせない）。
+    async function handOffSparringToFullscreen_(basePrompt, items) {
+      try {
+        const url = chrome.runtime.getURL('lib/sparring-session.js');
+        const mod = await import(url);
+        const projectId = (window.SK_STATE && window.SK_STATE._activeProjectId) || '';
+        const key = mod.sparringStorageKey(projectId);
+        // 既存のレコードは読むだけで、まだ書かない。全画面を開けないまま書き換えると、
+        // コピー導線へ落ちたときには会話が壊れた後、という状態になる。
+        let existing = null;
+        try {
+          const stored = await chrome.storage.local.get([key]);
+          existing = stored && stored[key] ? mod.normalizeSparringSession(stored[key]) : null;
+        } catch (_) {}
+        // 引き継いでもコピーはしておく。AI 連携が未設定の人・外部AIで進めたい人が、
+        // 従来どおり貼り付けて始められる状態を失わない。
+        // 必ず全画面を開く前に行う: 別タブを開くとサイドパネルはフォーカスを失い、
+        // navigator.clipboard.writeText が必ず失敗する（copyPrompt を全画面側で
+        // 実行しているのと同じ理由）。引き継ぎに失敗しても、下のコピー導線が
+        // もう一度コピーするだけなので害はない。
+        let copied = true;
+        try {
+          await navigator.clipboard.writeText(basePrompt);
+        } catch (_) {
+          copied = false;
+        }
+        // openMissionFullscreen は開いたタブを返し、開けなかったときだけ null を返す。
+        const opened = await window.SK_CORE.openMissionFullscreen();
+        if (!opened) return false;
+
+        // 進行中の会話は消さない（判定は mergeHandoffSession が単一ソース）。
+        const hadTurns = !!(existing && existing.turns && existing.turns.length);
+        const session = mod.mergeHandoffSession(existing, { basePrompt: basePrompt, items: items });
+        await chrome.storage.local.set({ [key]: session });
+        window.SK_CORE.showToast(
+          hadTurns
+            ? '全画面の「ヒアリング壁打ち」に引き継ぎました。進行中の会話はそのまま続けられます'
+            : copied
+              ? '全画面の「ヒアリング壁打ち」でAIとやりとりできます（プロンプトのコピーも済んでいます）'
+              : '全画面の「ヒアリング壁打ち」でAIとやりとりできます',
+          false,
+          6000,
+        );
+        return true;
+      } catch (e) {
+        console.warn('[SK hearing] sparring handoff failed:', e);
+        return false;
+      }
+    }
+
     function showHearingGateModal(plan, handlers) {
       const el = window.SK_CORE.el;
       const clear = window.SK_CORE.clearChildren;
@@ -1968,6 +2021,11 @@
                 context: formInputs.context,
                 summaryHeading: wbSup && wbSup.summaryHeading,
               }, items);
+              // 全画面の壁打ち欄へ引き継ぎ、往復をその画面の中で完結させる。
+              // 引き継げなかったときだけ従来のコピー導線へ落とす。
+              if (await handOffSparringToFullscreen_(guided, items)) {
+                return { action: 'wallbounce', copied: true, prompt: guided, handoff: true };
+              }
               // fix1: コピー成否を返し、失敗時は呼び出し側がモーダルを閉じず本文を残す。
               return await tryCopyPrompt(guided);
             },

@@ -20,6 +20,8 @@ import {
 } from '../phase0/master-doc-manager.js';
 import { patchActiveProjectWorkspace } from '../phase0/project-workspace.js';
 
+const LATEST_RELEASE_URL = 'https://github.com/ryuichiyamaguchi/strategy-kit/releases/latest';
+
 async function loadJson(path) {
   const res = await fetch(chrome.runtime.getURL(path));
   return res.json();
@@ -90,9 +92,17 @@ async function initVersionLabel() {
     if (!manifestVersion) return;
     const aboutEl = document.getElementById('about-version');
     if (aboutEl) aboutEl.textContent = 'v' + manifestVersion;
+    const updateEl = document.getElementById('update-version-readout');
+    if (updateEl) updateEl.textContent = '現在のバージョン: v' + manifestVersion;
   } catch (_) {
     /* manifest 取得失敗時は表示しない */
   }
+}
+
+function bindUpdateCard() {
+  document.getElementById('open-latest-release')?.addEventListener('click', () => {
+    chrome.tabs.create({ url: LATEST_RELEASE_URL });
+  });
 }
 
 // 見出し・タイトル・概要文を product.json の branding に間接化する。
@@ -541,6 +551,7 @@ function bindGeminiCard() {
 
 async function init() {
   bindBackButtons();
+  bindUpdateCard();
   await initBranding();
   await initVersionLabel();
   await loadBusinessSettings();

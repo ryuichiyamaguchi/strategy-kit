@@ -15,6 +15,11 @@ import {
   needsLegacyModelRemap,
   restoreSelectableModel,
 } from '../lib/model-policy.js';
+import {
+  handleSparringCommandResult,
+  initSparring,
+  refreshSparring,
+} from './mission-sparring.js';
 
 const TASK_KEY = 'sk_task_monitor_v1';
 const SNAPSHOT_KEY = 'sk-state.ui.missionSnapshot';
@@ -209,12 +214,14 @@ function render() {
   renderDetails(model.details);
   renderActivity(model.activity);
   renderNextMove(model);
+  renderFlightPlan(model);
   renderPhaseGuide(model);
   renderModeBanner(model);
   renderProjectSwitch(model);
 
   updateControls(model);
   loadAutomationDraftForProject(model.activeProjectId);
+  refreshSparring();
 }
 
 // 「次の一手」= 状態別の推奨アクション＋理由（サイドパネルから移管した詳細版）。
@@ -223,6 +230,29 @@ function renderNextMove(model) {
   const reason = $('mission-nextmove-reason');
   if (reco) reco.textContent = model.nextMove?.recommendation || '—';
   if (reason) reason.textContent = model.nextMove?.reason || '';
+}
+
+// 初見の利用者が「どこから触るか」を画面内で判断できるようにする。
+// 詳細な状態説明は既存の nextMove に任せ、ここでは次に触る場所だけを短く示す。
+function renderFlightPlan(model) {
+  const plan = $('mission-flight-plan');
+  const recommendation = $('mission-flight-recommendation');
+  if (!plan || !recommendation) return;
+
+  let state = 'ready';
+  let message = `「${model.nextMove?.recommendation || '現在フェーズを確認'}」から進めます。`;
+  if (model.statusKey === 'setup') {
+    state = 'setup';
+    message = '先に設定を開き、Google連携と事業情報を整えます。';
+  } else if (model.isRunning) {
+    state = 'running';
+    message = 'いま処理中です。完了を待つか、実行デスクで中断して保存できます。';
+  } else if (model.status === 'completed') {
+    state = 'completed';
+    message = '戦略書が完成しています。「マスターを開く」で内容を最終確認します。';
+  }
+  plan.dataset.state = state;
+  recommendation.textContent = message;
 }
 
 // 現在の状態に合わせて、全画面で次に操作できる内容を案内する。
@@ -561,9 +591,15 @@ async function sendMissionCommand(action, payload = {}) {
   if (controlFeedbackTimer) clearTimeout(controlFeedbackTimer);
   try {
     // 表示中の案件を明示する。サイドパネルが別案件に切り替わっていたら拒否させる。
-    // switchProject だけは payload.projectId が「切替先」を意味するので、そちらを優先する
-    // （スプレッドの順序に頼らず、ここで明示的に決める）。
-    const commandProjectId = action === 'switchProject'
+    // ただし次の操作は payload.projectId が案件を意味するので、そちらを優先する
+    // （スプレッドの順序に頼らず、ここで明示的に決める）:
+    //   - switchProject … payload.projectId は「切替先」
+    //   - confirmHearingSummary … payload.projectId は「その要約を作った案件」。
+    //     表示中の案件で上書きすると、案件を切り替えた直後の確定が、
+    //     前の案件の要約を新しい案件の要約として保存してしまう。
+    const usesPayloadProjectId =
+      action === 'switchProject' || action === 'confirmHearingSummary';
+    const commandProjectId = usesPayloadProjectId
       ? String(payload.projectId || '')
       : (snapshot?.activeProjectId || '');
     await chrome.storage.local.set({
@@ -582,6 +618,28 @@ async function sendMissionCommand(action, payload = {}) {
 }
 
 function bindControls() {
+  const helpDialog = $('mission-help-dialog');
+  const openHelp = () => {
+    if (!helpDialog) return;
+    if (typeof helpDialog.showModal === 'function') {
+      if (!helpDialog.open) helpDialog.showModal();
+    } else {
+      helpDialog.setAttribute('open', '');
+    }
+  };
+  $('mission-help-open')?.addEventListener('click', openHelp);
+  $('mission-flight-help')?.addEventListener('click', openHelp);
+  helpDialog?.addEventListener('click', (event) => {
+    if (event.target !== helpDialog) return;
+    if (typeof helpDialog.close === 'function') helpDialog.close();
+    else helpDialog.removeAttribute('open');
+  });
+  $('mission-jump-execution')?.addEventListener('click', () => {
+    const execution = document.querySelector('.mission-execution-card');
+    execution?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+    $('mission-mode-select')?.focus?.({ preventScroll: true });
+  });
+
   $('mission-run-form')?.addEventListener('submit', (event) => event.preventDefault());
   $('mission-run')?.addEventListener('click', async () => {
     if (currentModel?.statusKey === 'setup') {
@@ -736,6 +794,9 @@ function applyChange(key, value) {
       clearTimeout(controlFeedbackTimer);
       controlFeedbackTimer = null;
     }
+    // 壁打ち（要約の確定）の結果は、操作した壁打ち欄の中で見せる。
+    // 全画面下部の実行ノートに流すと、離れた場所に結果が出て見落とされる。
+    if (handleSparringCommandResult(value)) return;
     // プロンプトのコピーは、フォーカスを持っているこの画面で実行する。
     // 成否をそのまま表示するので、コピーできていないのに成功と伝えることがない。
     if (value.action === 'copyPrompt' && value.ok && value.promptText) {
@@ -769,6 +830,16 @@ function applyChange(key, value) {
 async function init() {
   bindControls();
   bindProjectSwitch();
+  initSparring({
+    getSnapshot: () => snapshot,
+    sendMissionCommand,
+    // 壁打ちの汎用プロンプトに差し込む「現状メモ / 追加コンテキスト」は、
+    // この画面の実行デスクに入力済みの値を単一ソースとして使う。
+    getFormInputs: () => ({
+      memo: $('mission-automation-memo')?.value || '',
+      context: $('mission-automation-context')?.value || '',
+    }),
+  });
   if (!globalThis.chrome?.storage?.local) {
     render();
     return;

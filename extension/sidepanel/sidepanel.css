@@ -934,6 +934,13 @@ p, button, input, h1, h2, h3, h4, .prompt-title,
 }
 
 .draft-decision-modal-root {
+  /* 壁打ちモーダルのシートは白背景で固定している（中の文言が濃色で直書きされているため）。
+     ところが最終レイヤーの実効テーマ層が :root の --ink / --ink-soft を
+     ダーク用の明るい色（#e9f4f7 / #a4bac5）へ差し替えるので、そのままだと
+     白地に白文字（コントラスト比 1.12）になって本文もタイトルも読めない。
+     このモーダルの中だけ、明るい面に載せる前提の文字色へ戻す。 */
+  --ink: #1a1a14;
+  --ink-soft: #525249;
   align-items: flex-start;
   background: rgba(15, 23, 42, 0.42);
   display: flex;
@@ -8624,5 +8631,220 @@ body {
 
   .slim-dashboard-open span + span {
     display: none;
+  }
+}
+
+/* =========================================================
+   Executive contrast firewall
+   旧ライトテーマの部品がダークテーマ変数を継承しても、前景と背景が
+   同時に切り替わるようにする。白地に白文字／Mint・Amber地に白文字を残さない。
+   ========================================================= */
+#tab-research .section-title,
+#research-steps-list .prompt-label,
+#tab-diagram .slides-hero-title,
+#tab-diagram .slides-board-title {
+  color: var(--executive-text);
+}
+
+/* Mint / Amber は明るい面なので、白文字ではなく濃紺を使う。 */
+#research-steps-list .research-step-no,
+#tab-diagram .slides-prompt-no,
+#tab-diagram .slides-prompt-row.is-warn .slides-prompt-no {
+  color: #041419;
+}
+
+#tab-diagram .slides-prompt-row.is-warn .slides-prompt-note {
+  color: #f4bf69;
+}
+
+/* 図解モジュールには旧ライトテーマの inline style が残る。
+   構造や生成処理は変えず、全自動モジュールと同じく表示だけを局所正規化する。 */
+#mod-diagram-slot {
+  border-color: var(--executive-line);
+  color: var(--executive-text);
+  background: linear-gradient(145deg, rgba(11, 27, 38, 0.98), rgba(6, 17, 26, 0.98));
+}
+
+#mod-diagram-slot [style*="background:#f8fafc"],
+#mod-diagram-slot [style*="background:#f1f5f9"],
+#mod-diagram-slot [style*="background:#fff"],
+#mod-diagram-slot [style*="background: #fff"] {
+  border-color: var(--executive-line) !important;
+  color: #b5c7cf !important;
+  background: #071722 !important;
+}
+
+#mod-diagram-slot [style*="background:#ecfdf5"],
+#mod-diagram-slot [style*="background:#f0fdfa"],
+#mod-diagram-slot [style*="background:#ccfbf1"],
+#mod-diagram-slot [style*="background:#eff6ff"] {
+  border-color: rgba(28, 225, 230, 0.34) !important;
+  color: #b8eeec !important;
+  background: rgba(17, 64, 72, 0.3) !important;
+}
+
+#mod-diagram-slot [style*="background:#fef2f2"] {
+  border-color: rgba(219, 92, 85, 0.48) !important;
+  color: #ffb6af !important;
+  background: rgba(89, 27, 31, 0.34) !important;
+}
+
+#mod-diagram-slot [style*="background:#fffdf6"],
+#mod-diagram-slot [style*="background:#fef3c7"],
+#mod-diagram-slot [style*="background:#fff7ed"] {
+  border-color: rgba(241, 168, 74, 0.46) !important;
+  color: #f6d8ab !important;
+  background: rgba(87, 59, 23, 0.34) !important;
+}
+
+#mod-diagram-slot [style*="color:#0f172a"],
+#mod-diagram-slot [style*="color:#475569"],
+#mod-diagram-slot [style*="color:#64748b"] {
+  color: #b5c7cf !important;
+}
+
+#mod-diagram-slot [style*="color:#0f766e"],
+#mod-diagram-slot [style*="color:#166534"] {
+  color: var(--executive-cyan-soft) !important;
+}
+
+#mod-diagram-slot [style*="color:#b91c1c"],
+#mod-diagram-slot [style*="color:#7f1d1d"],
+#mod-diagram-slot [style*="color:#991b1b"] {
+  color: #ffb6af !important;
+}
+
+#mod-diagram-slot [style*="color:#78350f"],
+#mod-diagram-slot [style*="color:#7c2d12"],
+#mod-diagram-slot [style*="color:#9a3412"] {
+  color: #f6d8ab !important;
+}
+
+#mod-diagram-slot input:not([type="radio"]):not([type="checkbox"]),
+#mod-diagram-slot select,
+#mod-diagram-slot textarea,
+.sk-image-prompt-modal input,
+.sk-image-prompt-modal select,
+.sk-image-prompt-modal textarea {
+  border-color: var(--executive-line) !important;
+  color: #e2ecef !important;
+  background: #05111a !important;
+}
+
+#mod-diagram-slot .muted-note {
+  color: #9ab0ba;
+}
+
+.sk-image-prompt-overlay {
+  background: rgba(1, 5, 10, 0.8) !important;
+  backdrop-filter: blur(4px);
+}
+
+.sk-image-prompt-modal {
+  border: 1px solid var(--executive-line) !important;
+  color: var(--executive-text) !important;
+  background: #071722 !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.62) !important;
+}
+
+.sk-image-prompt-modal [style*="color:#0f766e"] {
+  color: var(--executive-cyan-soft) !important;
+}
+
+.sk-image-prompt-modal [style*="color:#475569"] {
+  color: #a9bec7 !important;
+}
+
+/* 運用原則は旧ライトテーマの marigold 面とダークテーマの白文字が衝突していた。
+   面・見出し・本文・操作を同じダーク用パレットへ揃え、白地に白文字を防ぐ。 */
+#safety.safety-card {
+  border-color: rgba(241, 168, 74, 0.38);
+  border-left-color: var(--signal-amber);
+  color: #f4e3c5;
+  background:
+    linear-gradient(145deg, rgba(55, 38, 16, 0.92), rgba(18, 22, 25, 0.98));
+  box-shadow: inset 0 1px 0 rgba(255, 223, 166, 0.08);
+}
+
+#safety.safety-card .card-title {
+  color: #ffd99a;
+}
+
+#safety.safety-card .principles {
+  color: #f1e2c7;
+}
+
+#safety.safety-card .principles li::marker {
+  color: var(--signal-amber);
+}
+
+#safety.safety-card .text-btn {
+  color: #ffd08a;
+}
+
+#safety.safety-card .text-btn:hover {
+  color: #fff3da;
+}
+
+/* 現在フェーズカードに、案件ごとの入口モードを常設する。
+   設定値ではなく「今回どこから始めるか」を見せ、1操作で再選択画面へ移動する。 */
+.cpc-entry-mode {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0.875rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid rgba(28, 225, 230, 0.24);
+  border-radius: 0.625rem;
+  background: rgba(28, 225, 230, 0.055);
+}
+
+.cpc-entry-mode-label {
+  color: #85a1ad;
+  font: 700 0.6875rem/1.35 var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.cpc-entry-mode-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--executive-text);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cpc-entry-mode-change {
+  min-height: 2rem;
+  padding: 0.35rem 0.625rem;
+  border: 1px solid rgba(28, 225, 230, 0.42);
+  border-radius: 999px;
+  color: var(--executive-cyan-soft);
+  background: rgba(28, 225, 230, 0.08);
+  font-size: 0.75rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.cpc-entry-mode-change:hover {
+  border-color: var(--executive-cyan);
+  color: #ffffff;
+  background: rgba(28, 225, 230, 0.16);
+}
+
+.cpc-entry-mode-change:focus-visible {
+  outline: 2px solid var(--executive-cyan);
+  outline-offset: 2px;
+}
+
+@media (max-width: 430px) {
+  .cpc-entry-mode {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .cpc-entry-mode-label {
+    grid-column: 1 / -1;
   }
 }

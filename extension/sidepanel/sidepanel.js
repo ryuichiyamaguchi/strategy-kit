@@ -963,6 +963,23 @@ function toggleModeSelector() {
   renderModeSelector();
 }
 
+function openEngagementModeSelector() {
+  switchTab('phases');
+  document.getElementById('tab-phases')?.classList.add('show-engagement-mode');
+  state.modeLocal.modeSelectorExpanded = true;
+  renderModeSelector();
+  const modeCard = document.getElementById('engagement-mode');
+  if (!modeCard) return;
+  modeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const currentMode = state.settings[ENGAGEMENT_MODE_KEY];
+  const preferredButton = currentMode
+    ? modeCard.querySelector(`button[data-mode="${currentMode}"]`)
+    : modeCard.querySelector('button[data-mode]');
+  if (preferredButton) {
+    setTimeout(() => preferredButton.focus({ preventScroll: true }), 250);
+  }
+}
+
 function getRawPhases() {
   return state.prompts?.phases || [];
 }
@@ -2281,6 +2298,20 @@ function publishMissionSnapshot(phases, filledSet, partialSet, hasBusiness, proj
       ? [...projectSelect.options].filter((opt) => opt.value).map((opt) => ({ id: opt.value, label: opt.textContent || '' }))
       : [];
     const activeProjectId = projectSelect?.value || '';
+    // 全画面の壁打ち欄が「出す/畳む/確定済み表示」を判断するための入口モードと要約状態。
+    // 判定は既存の getEngagementMode / isHearingSummaryConsistentSync をそのまま使う（二重実装しない）。
+    const hearingSummary = String(state.settings[HEARING_SUMMARY_KEY] || '').trim();
+    const hearing = {
+      mode: getEngagementMode(),
+      hasSummary: !!hearingSummary,
+      consistent: !!hearingSummary && isHearingSummaryConsistentSync(),
+      summaryLength: hearingSummary.length,
+    };
+    // 壁打ちの汎用プロンプトに差し込む事業設定（全画面は state.settings を読めない）。
+    const business = {
+      industryLabel: String(state.settings.industryLabel || '').trim(),
+      storeName: String(state.settings.storeName || '').trim(),
+    };
     const snapshot = {
       phases: phases.map((phase) => ({ no: phase.no, title: phase.title, frame: phase.frame || '' })),
       filledNos: [...filledSet],
@@ -2292,6 +2323,8 @@ function publishMissionSnapshot(phases, filledSet, partialSet, hasBusiness, proj
       executionMode,
       projects,
       activeProjectId,
+      hearing,
+      business,
       updatedAt: Date.now(),
     };
     const signature = JSON.stringify({ ...snapshot, updatedAt: 0 });
@@ -2364,6 +2397,8 @@ const MISSION_PROJECT_SCOPED_ACTIONS = new Set([
   'openMaster',
   'copyPrompt',
   'openPhase',
+  // 別案件のヒアリング要約を上書きさせない（要約は §0 シードと §1 以降の前提になる）。
+  'confirmHearingSummary',
 ]);
 // サイドパネルが閉じている間に書かれたコマンドの有効期限。これを過ぎたものは破棄する。
 const MISSION_COMMAND_MAX_AGE_MS = 60 * 1000;
@@ -2496,6 +2531,25 @@ async function processMissionCommand(command) {
       // サイドパネルは非フォーカスなので navigator.clipboard.writeText が必ず失敗する。
       const promptText = await enrichWithMasterSummaries(rawPrompt);
       await publishMissionCommandResult(command, true, '', { promptText, phaseNo: String(phase.no) });
+      return;
+    }
+
+    // 全画面の壁打ち欄で作った要約を確定する。保存本体は既存の persistHearingSummary に
+    // 委ねる（6000字検証・案件メタ生成・lastPhase 更新・再描画を二重実装しないため）。
+    if (command.action === 'confirmHearingSummary') {
+      const text = String(command.text || '').trim();
+      if (!text) {
+        await publishMissionCommandResult(command, false, '確定する要約が空でした。');
+        return;
+      }
+      const saved = await persistHearingSummary(text);
+      await publishMissionCommandResult(
+        command,
+        saved,
+        saved
+          ? 'ヒアリング要約を確定しました。§0 と §1 以降のプロンプトにこの要約が入ります。'
+          : (state.modeLocal.hearingStatusMessage || '要約を保存できませんでした。'),
+      );
       return;
     }
 
@@ -2677,14 +2731,10 @@ function bindMissionControl() {
 
   // ドロワーの「実行モードを管理」→ 半自動／全自動の共通設定へ。
   // ドロワーの「入口モードを変える」→ 戦略タブの入口モードカードを開く。
-  // 選択後は needs-mode が外れてカードが隠れるため、ここが唯一の再入導線になる。
+  // 現在フェーズカードの常設ボタンと同じ関数を使い、導線ごとの挙動差を作らない。
   document.getElementById('menu-engagement-mode')?.addEventListener('click', function () {
     setMissionMenuOpen(false);
-    switchTab('phases');
-    document.getElementById('tab-phases')?.classList.add('show-engagement-mode');
-    state.modeLocal.modeSelectorExpanded = true;
-    renderModeSelector();
-    document.getElementById('engagement-mode')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    openEngagementModeSelector();
   });
 
   document.getElementById('menu-automation')?.addEventListener('click', function () {
@@ -4281,6 +4331,34 @@ function renderCurrentPhaseCard() {
     attrs: { style: `width:${progressPercent}%` },
   }));
   card.append(projectHead, projectRail);
+
+  // 入口モードは §0 と AI に渡す前提を決める重要設定なので、メニューの奥へ隠さない。
+  // 案件データや Google Docs を消さずに何度でも選び直せる既存 handleModeChange を開く。
+  const storedEngagementMode = state.settings[ENGAGEMENT_MODE_KEY];
+  const entryModeControl = el('div', {
+    class: 'cpc-entry-mode',
+    attrs: { 'data-role': 'entry-mode-control' },
+  });
+  entryModeControl.append(
+    el('span', { class: 'cpc-entry-mode-label', text: '今回の入口' }),
+    el('strong', {
+      class: 'cpc-entry-mode-value',
+      text: storedEngagementMode ? getModeReadout(storedEngagementMode) : '未選択',
+    }),
+    el('button', {
+      type: 'button',
+      class: 'cpc-entry-mode-change',
+      text: storedEngagementMode ? '選び直す' : '選ぶ',
+      attrs: {
+        'data-action': 'change-entry-mode',
+        'aria-label': storedEngagementMode
+          ? `入口モード「${getModeReadout(storedEngagementMode)}」を選び直す`
+          : '入口モードを選ぶ',
+      },
+      on: { click: openEngagementModeSelector },
+    }),
+  );
+  card.appendChild(entryModeControl);
 
   // 完了: 完了カード
   if (status === 'completed') {

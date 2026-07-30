@@ -30,6 +30,7 @@
         <a href="#oauth-card">◎ <span>Google連携</span></a>
         <a href="#display-settings-card">☰ <span>表示設定</span></a>
         <a href="#master-doc-card">◇ <span>データ管理</span></a>
+        <a href="#update-settings-card">↻ <span>最新版・更新</span></a>
         <a href="#about-settings-card">？ <span>ヘルプ・情報</span></a>
       </aside>
 
@@ -150,6 +151,22 @@
           <strong>AIの出力を直接マスタードキュメントに書き込まないでください。</strong>必ず別ファイルに残し、人間が選別して転記する運用を守ってください。
         </p>
         <p id="about-version" class="muted"></p>
+      </section>
+
+      <section class="card" id="update-settings-card">
+        <h2>最新版・更新</h2>
+        <p class="muted">
+          GitHubで配布している最新版を確認できます。ZIP版は、ダウンロード後に解凍フォルダを差し替え、
+          <code>chrome://extensions/</code> のSTRATEGY-KITカードで「再読み込み」を押してください。
+        </p>
+        <div class="row inline">
+          <button id="open-latest-release" class="btn" type="button">最新版を確認・ダウンロード</button>
+          <span id="update-version-readout" class="status" role="status" aria-live="polite"></span>
+        </div>
+        <p class="muted update-limit-note">
+          Windows / macOS のChromeでは、GitHub版を拡張機能から無操作で上書き更新することはできません。
+          Web Store版は、新しい版の審査・公開後にChromeが順次自動更新します。
+        </p>
       </section>
 
       <div class="actions">

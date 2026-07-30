@@ -2265,10 +2265,12 @@
     const ig = types.imageGeneration || { stylePresets: {}, promptTemplate: '' };
 
     const overlay = el('div', {
+      class: 'sk-image-prompt-overlay',
       style: 'position:fixed;inset:0;background:rgba(15,23,42,.6);display:grid;place-items:center;z-index:10000;padding:14px',
     });
 
     const modal = el('div', {
+      class: 'sk-image-prompt-modal',
       style: 'background:#fff;border-radius:10px;padding:14px 16px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,.3)',
     });
 

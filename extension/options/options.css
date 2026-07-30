@@ -421,8 +421,15 @@ textarea {
   .container > #display-settings-card { grid-row: 7; }
   .container > #engagement-mode-readout-card { grid-row: 8; }
   .container > #master-doc-card { grid-row: 9; }
-  .container > #about-settings-card { grid-row: 10; }
-  .container > .actions { grid-row: 11; }
+  .container > #update-settings-card { grid-row: 10; }
+  .container > #about-settings-card { grid-row: 11; }
+  .container > .actions { grid-row: 12; }
+}
+
+.update-limit-note {
+  margin-bottom: 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
 }
 
 @media (max-width: 859px) {

@@ -21,6 +21,9 @@
           <span class="live-dot" aria-hidden="true"></span>
           <span id="mission-status-text">待機中</span>
         </span>
+        <button id="mission-help-open" class="mission-help-open" type="button" aria-haspopup="dialog">
+          使い方
+        </button>
         <button id="mission-back-panel" class="mission-back-panel" type="button">サイドパネルに戻る</button>
       </header>
 
@@ -106,23 +109,53 @@
             </div>
           </header>
 
-          <div class="mission-metrics" aria-label="主要指標">
-            <article>
-              <span>総合進捗率</span>
-              <strong id="mission-metric-percent">0%</strong>
-            </article>
-            <article>
-              <span>完了フェーズ</span>
-              <strong id="mission-metric-phase">0 / 10</strong>
-            </article>
-            <article>
-              <span>生成アウトプット</span>
-              <strong id="mission-metric-output">0</strong>
-            </article>
-            <article>
-              <span>AI稼働状況</span>
-              <strong id="mission-metric-health">待機中</strong>
-            </article>
+          <div class="mission-overview-grid">
+            <section id="mission-flight-plan" class="mission-card mission-flight-plan" aria-labelledby="mission-flight-plan-title">
+              <div class="mission-flight-plan-head">
+                <div>
+                  <span class="mission-deck-eyebrow">START HERE</span>
+                  <h2 id="mission-flight-plan-title">この画面は、3ステップで使います</h2>
+                </div>
+                <button id="mission-flight-help" type="button" aria-haspopup="dialog">詳しい使い方</button>
+              </div>
+              <ol class="mission-flight-steps">
+                <li>
+                  <span class="mission-flight-step-no" aria-hidden="true">1</span>
+                  <span><strong>案件を選ぶ</strong><small>左の欄で切替・新規作成</small></span>
+                </li>
+                <li>
+                  <span class="mission-flight-step-no" aria-hidden="true">2</span>
+                  <span><strong>現在地を確認</strong><small>現在フェーズと戦略ルート</small></span>
+                </li>
+                <li>
+                  <span class="mission-flight-step-no" aria-hidden="true">3</span>
+                  <span><strong>進め方を選ぶ</strong><small>実行デスクで半自動・全自動</small></span>
+                </li>
+              </ol>
+              <div class="mission-flight-next">
+                <p><strong>迷ったら：</strong><span id="mission-flight-recommendation">左の案件を確認して、現在フェーズから始めます。</span></p>
+                <button id="mission-jump-execution" type="button">実行デスクへ</button>
+              </div>
+            </section>
+
+            <div class="mission-metrics" aria-label="主要指標">
+              <article>
+                <span>総合進捗率</span>
+                <strong id="mission-metric-percent">0%</strong>
+              </article>
+              <article>
+                <span>完了フェーズ</span>
+                <strong id="mission-metric-phase">0 / 10</strong>
+              </article>
+              <article>
+                <span>生成アウトプット</span>
+                <strong id="mission-metric-output">0</strong>
+              </article>
+              <article>
+                <span>AI稼働状況</span>
+                <strong id="mission-metric-health">待機中</strong>
+              </article>
+            </div>
           </div>
 
           <div class="mission-card mission-route-card">
@@ -135,6 +168,100 @@
             </div>
             <ol id="mission-route" class="mission-route" aria-label="10フェーズの航路"></ol>
           </div>
+
+          <!-- ヒアリング壁打ち: §0/§1 以降の前提を作る最上流の工程。全幅で置く
+               （グリッドの中に入れると会話が読める幅を確保できない）。 -->
+          <section id="mission-sparring" class="mission-card mission-sparring-card" aria-labelledby="mission-sparring-title" hidden>
+            <div class="mission-section-heading">
+              <div>
+                <span class="mission-deck-eyebrow">HEARING</span>
+                <h2 id="mission-sparring-title" class="mission-command-title">ヒアリング壁打ち</h2>
+              </div>
+              <span id="mission-sparring-usage" class="mission-section-badge" role="status" aria-live="polite">まだAIを呼んでいません</span>
+            </div>
+
+            <!-- 確定済みの知らせは畳んだ状態でも見えるように、開閉する本体の外へ置く。 -->
+            <p id="mission-sparring-confirmed" class="mission-sparring-confirmed" hidden></p>
+
+            <button
+              id="mission-sparring-toggle"
+              class="mission-sparring-toggle"
+              type="button"
+              aria-expanded="true"
+              aria-controls="mission-sparring-body"
+            >▼ 壁打ちを閉じる</button>
+
+            <div id="mission-sparring-body" class="mission-sparring-body">
+              <label class="mission-field mission-field-wide">
+                <span>やりとりの方法</span>
+                <select id="mission-sparring-mode">
+                  <option value="ai">この画面でAIと直接やりとりする（無料枠を使います）</option>
+                  <option value="manual">プロンプトをコピーして外部AIで（無料枠を使いません）</option>
+                </select>
+              </label>
+              <p id="mission-sparring-mode-note" class="mission-sparring-note"></p>
+
+              <div id="mission-sparring-start" class="mission-sparring-start" hidden>
+                <button id="mission-sparring-start-btn" class="mission-btn mission-btn-run" type="button">
+                  壁打ちを始める
+                </button>
+                <p class="mission-sparring-note">
+                  この案件に合わせた質問項目づくりから始めたいときは、下の「全自動を開始」を押すとヒアリング準備が開きます。
+                </p>
+              </div>
+
+              <ol id="mission-sparring-log" class="mission-sparring-log" aria-label="壁打ちの会話"></ol>
+              <p id="mission-sparring-empty" class="mission-sparring-empty" hidden>
+                まだ会話はありません。下の欄に書いて送ると、AIが1問ずつ聞いてくれます。
+              </p>
+
+              <div id="mission-sparring-manual" class="mission-sparring-manual" hidden>
+                <label class="mission-field mission-field-wide">
+                  <span>AIに貼り付けるプロンプト</span>
+                  <textarea id="mission-sparring-outbox" rows="4" readonly></textarea>
+                </label>
+                <button id="mission-sparring-copy" class="mission-sparring-secondary" type="button">
+                  プロンプトをコピー
+                </button>
+              </div>
+
+              <label class="mission-field mission-field-wide">
+                <span id="mission-sparring-input-label">あなたの回答</span>
+                <textarea
+                  id="mission-sparring-input"
+                  rows="3"
+                  placeholder="AIの質問に、分かる範囲で答えてください（数字は分かるだけで大丈夫です）"
+                ></textarea>
+              </label>
+
+              <div class="mission-sparring-actions">
+                <button id="mission-sparring-send" class="mission-btn mission-btn-run" type="button">送信</button>
+                <button id="mission-sparring-summarize" class="mission-sparring-secondary" type="button">
+                  ヒアリング要約を作る
+                </button>
+                <button id="mission-sparring-discard" class="mission-sparring-secondary" type="button">
+                  会話を破棄
+                </button>
+              </div>
+
+              <div id="mission-sparring-confirm" class="mission-sparring-confirm" hidden>
+                <label class="mission-field mission-field-wide">
+                  <span>ヒアリング要約（8セクション）</span>
+                  <textarea
+                    id="mission-sparring-summary"
+                    rows="8"
+                    placeholder="外部AIで出た8セクションの要約を、そのまま貼り付けてください。"
+                  ></textarea>
+                </label>
+                <p id="mission-sparring-counter" class="mission-sparring-note"></p>
+                <button id="mission-sparring-confirm-btn" class="mission-btn mission-btn-run" type="button">
+                  この要約で確定
+                </button>
+              </div>
+
+              <p id="mission-sparring-status" class="mission-sparring-status" role="status" aria-live="polite"></p>
+            </div>
+          </section>
 
           <div class="mission-workspace-grid">
             <div class="mission-card mission-execution-card mission-command-deck">
@@ -251,6 +378,53 @@
         <strong>STRATEGY-KIT <em>Helper</em></strong>
       </footer>
     </div>
+
+    <dialog id="mission-help-dialog" class="mission-help-dialog" aria-labelledby="mission-help-title">
+      <div class="mission-help-dialog-head">
+        <div>
+          <span class="mission-deck-eyebrow">QUICK MANUAL</span>
+          <h2 id="mission-help-title">STRATEGY-KITの使い方</h2>
+        </div>
+        <form method="dialog">
+          <button id="mission-help-close" class="mission-help-close" type="submit" aria-label="使い方を閉じる">×</button>
+        </form>
+      </div>
+
+      <section class="mission-help-section">
+        <h3>最初は、この順番だけで大丈夫です</h3>
+        <ol class="mission-help-sequence">
+          <li><strong>案件を決める</strong><span>左の「対象プロジェクト」で既存案件を選ぶか、「＋ 新規プロジェクト」で作ります。</span></li>
+          <li><strong>現在フェーズを確認する</strong><span>左の「現在のフェーズ」と中央の「戦略ルート」は同じ現在地を示します。ルートの § 番号から別フェーズも開けます。</span></li>
+          <li><strong>半自動か全自動で進める</strong><span>下の「実行デスク」で実行方法を選びます。迷う場合は、内容を確認しながら進められる半自動から始めてください。</span></li>
+        </ol>
+      </section>
+
+      <section class="mission-help-section mission-help-modes">
+        <article>
+          <span>半自動</span>
+          <h3>回答を確認しながら進める</h3>
+          <p>「このフェーズを操作」でサイドパネルを開き、プロンプトをコピー → AIで回答を作る → 内容を確認して保存、の順です。</p>
+        </article>
+        <article>
+          <span>全自動</span>
+          <h3>まとめてGoogle Docsへ保存する</h3>
+          <p>実行方法を「全自動」にし、現状メモと必要な条件を確認して「全自動を開始」を押します。途中で中断して保存できます。</p>
+        </article>
+      </section>
+
+      <section class="mission-help-section">
+        <h3>ボタンを押すと、どこが開く？</h3>
+        <dl class="mission-help-map">
+          <div><dt>このフェーズを操作</dt><dd>サイドパネルの同じフェーズ</dd></div>
+          <div><dt>AIで開く</dt><dd>現在選んでいるAIのタブ</dd></div>
+          <div><dt>マスターを開く</dt><dd>作成中のGoogle Docs戦略書</dd></div>
+          <div><dt>設定</dt><dd>Google連携・APIキーなどの設定画面</dd></div>
+          <div><dt>サイドパネルに戻る</dt><dd>フェーズごとの確認・保存を行う補助画面</dd></div>
+        </dl>
+      </section>
+
+      <p class="mission-help-note">新しい案件で材料が足りないときは、戦略ルートの下にある「ヒアリング壁打ち」から始められます。資料が揃っている場合は飛ばして構いません。</p>
+    </dialog>
 
     <script type="module" src="./mission.js"></script>
   </body>
