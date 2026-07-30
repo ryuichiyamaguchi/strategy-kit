@@ -2291,7 +2291,8 @@ function renderMissionControl() {
     phases.find((phase) => partialSet.has(String(phase.no)) && !filledSet.has(String(phase.no))) ||
     phases.find((phase) => !filledSet.has(String(phase.no))) ||
     phases[phases.length - 1];
-  const percent = completed >= total ? 100 : Math.round(((completed + partial * 0.5) / total) * 100);
+  // 全体進捗は完了保存済みフェーズだけを数える。下書きはmetaで別表示する。
+  const percent = completed >= total ? 100 : Math.round((completed / total) * 100);
   const task = getLiveMissionTask();
   const status = completed >= total ? 'completed' : task?.status || 'ready';
   const industry = getIndustryDisplayLabel();
@@ -4305,7 +4306,8 @@ function getSlimProgressModel() {
   const total = phases.length || DEFAULT_PHASE_TOTAL;
   const completed = phases.filter((p) => filledSet.has(String(p.no))).length;
   const partial = phases.filter((p) => partialSet.has(String(p.no)) && !filledSet.has(String(p.no))).length;
-  const percent = completed >= total ? 100 : Math.round(((completed + partial * 0.5) / total) * 100);
+  // 薄バーも全画面と同じ「完了保存済みフェーズ / 全フェーズ」に統一する。
+  const percent = completed >= total ? 100 : Math.round((completed / total) * 100);
   const currentPhase =
     phases.find((p) => partialSet.has(String(p.no)) && !filledSet.has(String(p.no))) ||
     phases.find((p) => !filledSet.has(String(p.no))) ||

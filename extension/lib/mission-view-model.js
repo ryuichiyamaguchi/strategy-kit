@@ -196,8 +196,11 @@ export function deriveMissionModel(input, now = Date.now()) {
     phases.find((phase) => !filledSet.has(String(phase.no))) ||
     phases[phases.length - 1] ||
     { no: '0', title: '', frame: '' };
+  // 「戦略完成の進捗」は、Google Docsへ完了保存されたフェーズだけを数える。
+  // 下書き中を0.5フェーズとして加点すると、§0に着手しただけでも完成率が進み、
+  // フェーズ数が一時的に絞られた表示では50%と誤解される。下書き数はmetaTextで別表示する。
   const percent =
-    total === 0 ? 0 : completed >= total ? 100 : Math.round(((completed + partial * 0.5) / total) * 100);
+    total === 0 ? 0 : completed >= total ? 100 : Math.round((completed / total) * 100);
   const status = total > 0 && completed >= total ? 'completed' : (task && task.status) || 'ready';
   const isRunning = status === 'running' || status === 'retrying';
   const executionMode = task
