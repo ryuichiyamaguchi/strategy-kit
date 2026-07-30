@@ -79,16 +79,25 @@ export function buildSectionState(doc, sectionDefs = [], {
 } = {}) {
   const markers = collectSectionMarkers(doc);
   const markerEntries = buildMarkerEntries(doc, markers);
+  const legacyEntries = collectLegacySectionEntries(doc);
   const markerMap = new Map();
   for (const entry of markerEntries) {
     const markerKey = entry['key'];
     if (!markerMap.has(markerKey)) markerMap.set(markerKey, []);
     markerMap.get(markerKey).push(entry);
   }
+  const legacyMap = new Map();
+  for (const entry of legacyEntries) {
+    const legacyKey = entry['key'];
+    if (!legacyMap.has(legacyKey)) legacyMap.set(legacyKey, []);
+    legacyMap.get(legacyKey).push(entry);
+  }
 
-  const definitions = normalizeSectionDefs(sectionDefs, markers);
+  const definitions = normalizeSectionDefs(sectionDefs, markers, legacyEntries);
   const sections = definitions.map((def) => {
-    const entries = markerMap.get(def['key']) || [];
+    // 新形式 marker を正とし、その章だけ marker が無い場合に旧 §N 見出しへ戻る。
+    // これにより、旧マスターへ新しい章を1つ追記した後も、残りの旧章が進捗から消えない。
+    const entries = markerMap.get(def['key']) || legacyMap.get(def['key']) || [];
     if (!entries.length) {
       return {
         key: def['key'],
@@ -128,7 +137,7 @@ export function buildSectionState(doc, sectionDefs = [], {
   };
 }
 
-function normalizeSectionDefs(sectionDefs, markers) {
+function normalizeSectionDefs(sectionDefs, markers, legacyEntries = []) {
   const defs = (sectionDefs || [])
     .map((def) => {
       const rawKey = def?.['key'] ?? def?.sectionKey ?? def?.no;
@@ -144,11 +153,16 @@ function normalizeSectionDefs(sectionDefs, markers) {
 
   if (defs.length) return defs;
 
-  return markers.map((marker) => ({
-    key: marker['key'],
-    no: marker.no,
-    title: '',
-  }));
+  const byKey = new Map();
+  for (const item of markers.concat(legacyEntries)) {
+    if (!item?.['key'] || byKey.has(item['key'])) continue;
+    byKey.set(item['key'], {
+      key: item['key'],
+      no: item.no,
+      title: item.title || '',
+    });
+  }
+  return Array.from(byKey.values());
 }
 
 function buildMarkerEntries(doc, markers) {
@@ -168,6 +182,58 @@ function buildMarkerEntries(doc, markers) {
   });
 }
 
+// v0.12 より前のマスタードキュメントは [[SK-SECTION:...]] を持たず、
+// 「§0. 事業理解」のような見出しだけで章を分けていた。本文を変更せず読み取る。
+export function collectLegacySectionEntries(doc) {
+  const headings = [];
+  for (const block of doc?.body?.content || []) {
+    if (!block?.paragraph || typeof block.startIndex !== 'number') continue;
+    const text = getParagraphText(block);
+    let offset = 0;
+    for (const line of text.split(/(?<=\n)/)) {
+      const trimmed = line.trim();
+      const match = trimmed.match(/^(?:[#＃]+\s*)?§\s*(-?\d+(?:-\d+)?)\s*[.．]\s*([^\n]*)/);
+      if (match) {
+        const sectionKey = normalizeSectionKey(match[1]);
+        if (sectionKey) {
+          headings.push({
+            key: sectionKey,
+            no: sectionNoFromKey(sectionKey),
+            title: String(match[2] || '').trim(),
+            startIndex: block.startIndex + offset,
+            bodyStartIndex: block.startIndex + offset + line.length,
+          });
+        }
+      }
+      offset += line.length;
+    }
+  }
+
+  const endIndex = computeEndIndex(doc);
+  return headings.map((heading, index) => {
+    const next = headings[index + 1];
+    return {
+      ...heading,
+      source: 'legacy',
+      range: {
+        startIndex: heading.bodyStartIndex,
+        endIndex: next ? next.startIndex : endIndex,
+      },
+      text: getTextInRange(
+        doc,
+        heading.bodyStartIndex,
+        next ? next.startIndex : endIndex,
+      ),
+    };
+  });
+}
+
+function getParagraphText(block) {
+  return (block?.paragraph?.elements || [])
+    .map((elem) => elem?.textRun?.content || '')
+    .join('');
+}
+
 function classifySectionEntry(entry, def, { doneCharCount }) {
   const marker = findStatusMarkerForKey(entry.text, entry['key']);
   const normalizedText = normalizeSectionBodyText(entry.text, entry['key']);
@@ -179,7 +245,7 @@ function classifySectionEntry(entry, def, { doneCharCount }) {
       no: def.no,
       title: def.title,
       status: marker.status,
-      source: 'marker',
+      source: entry.source === 'legacy' ? 'legacy-status' : 'marker',
       charCount,
       updatedAt: marker.updatedAt,
       ai: marker.ai,
@@ -192,7 +258,7 @@ function classifySectionEntry(entry, def, { doneCharCount }) {
     no: def.no,
     title: def.title,
     status: inferStatusFromContent(normalizedText, doneCharCount),
-    source: 'content',
+    source: entry.source === 'legacy' ? 'legacy-content' : 'content',
     charCount,
     updatedAt: '',
     ai: '',

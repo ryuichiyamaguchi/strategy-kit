@@ -1572,6 +1572,18 @@ function buildModeBHearingSummaryPanel() {
     class: 'mode-b-summary-panel',
     style: 'display:grid;gap:8px;margin-top:10px',
   });
+  panel.append(
+    el('div', {
+      class: 'hearing-import-heading',
+      text: 'ヒアリング済み情報の進め方',
+    }),
+    el('ol', { class: 'hearing-import-steps' },
+      el('li', { text: '文字起こし・議事録・メモをそのまま貼る' }),
+      el('li', { text: 'Geminiで要約する、または外部AIで作った要約を貼る' }),
+      el('li', { text: '要約を確認して「この要約で確定」を押す' }),
+      el('li', { text: '半自動／全自動を選び、実行設定を入力して開始する' }),
+    ),
+  );
   const statusText = getHearingStatusMessage(rawText, summaryDraft);
   panel.appendChild(el('div', {
     attrs: { 'data-role': 'hearing-status' },
@@ -1585,7 +1597,7 @@ function buildModeBHearingSummaryPanel() {
     }));
   }
   panel.appendChild(el('label', { style: 'display:grid;gap:4px;font-size:12px;font-weight:700' },
-    document.createTextNode('録音文字起こし・議事録・ヒアリングメモ'),
+    document.createTextNode('1. 文字起こし・議事録・ヒアリングメモを貼る'),
     el('textarea', {
       value: rawText,
       placeholder: 'Whisper 等の文字起こしをそのまま貼れます。10,000〜50,000 字級でも、この欄では要点化せず貼ってください。',
@@ -1601,7 +1613,7 @@ function buildModeBHearingSummaryPanel() {
     })
   ));
   panel.appendChild(el('label', { style: 'display:grid;gap:4px;font-size:12px;font-weight:700' },
-    document.createTextNode('AI 要約結果（確認して編集できます）'),
+    document.createTextNode('2. AI要約を確認・編集する'),
     el('textarea', {
       value: summaryDraft,
       placeholder: 'Geminiまたは外部AIの要約をここに貼り、確認してから確定します。',
@@ -1634,7 +1646,7 @@ function buildModeBHearingSummaryPanel() {
   actions.appendChild(el('button', {
     class: 'btn btn-primary btn-sm',
     type: 'button',
-    text: isProcessing ? '要約処理中…' : 'Geminiで要約',
+    text: isProcessing ? '要約処理中…' : '2-A. Geminiで要約',
     disabled: !canUseGemini,
     attrs: { 'data-role': 'hearing-gemini' },
     on: { click: () => summarizeHearingRawText(state.modeLocal[HEARING_RAWTEXT_LOCAL_KEY]) },
@@ -1642,7 +1654,7 @@ function buildModeBHearingSummaryPanel() {
   actions.appendChild(el('button', {
     class: 'btn btn-ghost btn-sm',
     type: 'button',
-    text: '要約promptをコピー',
+    text: '2-B. 外部AI用プロンプトをコピー',
     disabled: !canCopyPrompt,
     attrs: { 'data-role': 'hearing-copy' },
     on: { click: () => copyHearingSummaryPrompt(state.modeLocal[HEARING_RAWTEXT_LOCAL_KEY]) },
@@ -1650,7 +1662,7 @@ function buildModeBHearingSummaryPanel() {
   actions.appendChild(el('button', {
     class: 'btn btn-primary btn-sm',
     type: 'button',
-    text: 'この要約で確定',
+    text: '3. この要約で確定',
     disabled: !canConfirm,
     attrs: { 'data-role': 'hearing-confirm' },
     on: { click: () => persistHearingSummary(getHearingSummaryDraft()) },
@@ -1783,6 +1795,82 @@ async function discardHearingSummaryForRebuild() {
   showToast('ヒアリング要約を破棄しました');
 }
 
+function openExecutionSetup(mode) {
+  setAutomationExecutionMode(mode, { openWorkspace: true });
+  requestAnimationFrame(() => {
+    const workspace = document.getElementById('mod-automation-slot')
+      || document.getElementById('tab-automation');
+    workspace?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    workspace?.querySelector('textarea, select, button')?.focus({ preventScroll: true });
+  });
+}
+
+// 入口モードは「§0 の前提」、半自動/全自動は「実行方法」で別の設定。
+// これまで両者の接続がなく、入口確定後に次の操作が消えていたため、
+// ここで次の1操作を明示し、実行設定へ直接つなぐ。
+function buildExecutionNextStep(mode) {
+  const hearingReady = mode !== 'B' || isHearingSummaryConsistentSync();
+  const guide = el('section', {
+    class: 'entry-next-step',
+    dataset: { state: hearingReady ? 'ready' : 'hearing-required' },
+    attrs: { 'aria-label': '入口確定後の次の操作' },
+  });
+
+  guide.append(
+    el('span', {
+      class: 'entry-next-step-kicker',
+      text: hearingReady ? '入口を確定しました' : '入口を確定しました · 次にヒアリング要約',
+    }),
+    el('strong', {
+      class: 'entry-next-step-title',
+      text: hearingReady
+        ? '次は、半自動か全自動を選んで実行設定を入力します'
+        : '文字起こし・議事録を貼り、要約を確定してください',
+    }),
+    el('p', {
+      class: 'entry-next-step-copy',
+      text: hearingReady
+        ? '半自動は回答を確認しながら1段ずつ、全自動はGeminiでまとめて進めます。どちらも次の画面で現状メモを確認してから開始します。'
+        : '「ヒアリング済み」は新しく壁打ちをする入口ではありません。すでにある録音文字起こし・議事録・メモを、下の1か所で要約・確定します。',
+    }),
+  );
+
+  const actions = el('div', { class: 'entry-next-step-actions' });
+  if (!hearingReady) {
+    actions.appendChild(el('button', {
+      class: 'btn btn-primary',
+      type: 'button',
+      text: 'ヒアリング要約を入力する',
+      on: {
+        click: () => {
+          state.modeLocal.modeSelectorExpanded = true;
+          renderModeSelector();
+          requestAnimationFrame(() => {
+            document.querySelector('.mode-b-summary-panel textarea')?.focus({ preventScroll: true });
+          });
+        },
+      },
+    }));
+  } else {
+    actions.append(
+      el('button', {
+        class: 'btn btn-primary',
+        type: 'button',
+        text: '半自動の設定へ',
+        on: { click: () => openExecutionSetup('semi') },
+      }),
+      el('button', {
+        class: 'btn btn-ghost',
+        type: 'button',
+        text: '全自動の設定へ',
+        on: { click: () => openExecutionSetup('full') },
+      }),
+    );
+  }
+  guide.appendChild(actions);
+  return guide;
+}
+
 function renderModeSelector() {
   const mount = document.getElementById('engagement-mode');
   if (!mount) return;
@@ -1821,6 +1909,7 @@ function renderModeSelector() {
   mount.appendChild(toggle);
 
   if (!expanded) {
+    if (storedMode) mount.appendChild(buildExecutionNextStep(mode));
     return;
   }
 
@@ -1890,30 +1979,33 @@ function renderModeSelector() {
   if (mode === 'C' && expanded) {
     optionsWrap.appendChild(buildModeCHearingSummaryPanel());
   }
+  if (storedMode) {
+    optionsWrap.appendChild(buildExecutionNextStep(mode));
+  }
   mount.appendChild(optionsWrap);
 }
 
 async function handleModeChange(mode) {
-  if (!['A', 'B', 'C'].includes(mode)) return;
+  if (!['A', 'B', 'C'].includes(mode)) return false;
   // 実行中に入口モードを変えると、生成の途中で §0 と AI に渡す前提文が入れ替わる。
   // 表示は許すが、変更は実行が終わってからにしてもらう。
   if (isAutomationRunningNow()) {
     showToast('実行中は入口モードを変更できません。中断するか、完了してから変更してください。', true, 5000);
     renderModeSelector();
-    return;
+    return false;
   }
   const current = state.settings[ENGAGEMENT_MODE_KEY];
   if (current === mode) {
-    state.modeLocal.modeSelectorExpanded = false;
+    state.modeLocal.modeSelectorExpanded = mode === 'B' && !isHearingSummaryConsistentSync();
     renderModeSelector();
-    return;
+    return true;
   }
   const hasProgress = !!((state.progressFilledNos || []).length || (state.progressPartialNos || []).length);
   if (hasProgress) {
     const ok = confirm('入口モードを変更します。これまでの入力や Google Docs は削除しませんが、表示される Phase 0 と AI に渡す前提文が変わります。変更しますか？');
     if (!ok) {
       renderModeSelector();
-      return;
+      return false;
     }
   }
   const previousPhase = findModeAdjustedPhaseById(state.settings.lastPhase);
@@ -1927,7 +2019,9 @@ async function handleModeChange(mode) {
     sk_engagement_mode: mode,
     lastPhase: state.settings.lastPhase,
   });
-  state.modeLocal.modeSelectorExpanded = false;
+  // ヒアリング済み案件は、入口選択の直後に文字起こし入力欄まで続けて見せる。
+  // 要約済みなら折りたたみ、次の「半自動/全自動」選択へ進める。
+  state.modeLocal.modeSelectorExpanded = mode === 'B' && !isHearingSummaryConsistentSync();
   ensureVisibleLastPhase();
   renderModeSelector();
   renderPhaseList();
@@ -1935,6 +2029,7 @@ async function handleModeChange(mode) {
   renderContextBar();
   renderNextAction();
   emit('phase-changed', findModeAdjustedPhaseById(state.settings.lastPhase));
+  return true;
 }
 
 async function createOrOpenDraftDoc() {
@@ -2397,6 +2492,8 @@ const MISSION_PROJECT_SCOPED_ACTIONS = new Set([
   'openMaster',
   'copyPrompt',
   'openPhase',
+  // 全画面から「ヒアリング済み情報」の貼付欄を開く操作も、別案件へ切り替えさせない。
+  'openHearingImport',
   // 別案件のヒアリング要約を上書きさせない（要約は §0 シードと §1 以降の前提になる）。
   'confirmHearingSummary',
 ]);
@@ -2534,6 +2631,43 @@ async function processMissionCommand(command) {
       return;
     }
 
+    if (command.action === 'openHearingImport') {
+      if (isAutomationRunningNow()) {
+        await publishMissionCommandResult(
+          command,
+          false,
+          '実行中は入口モードを変更できません。中断するか、完了してからヒアリング済み情報を取り込んでください。',
+        );
+        return;
+      }
+      if (state.settings[ENGAGEMENT_MODE_KEY] !== 'B') {
+        const changed = await handleModeChange('B');
+        if (!changed) {
+          await publishMissionCommandResult(
+            command,
+            false,
+            '入口モードの変更を完了できませんでした。サイドパネルで「ヒアリング済み」を選び直してください。',
+          );
+          return;
+        }
+      }
+      switchTab('phases');
+      document.getElementById('tab-phases')?.classList.add('show-engagement-mode');
+      state.modeLocal.modeSelectorExpanded = true;
+      renderModeSelector();
+      requestAnimationFrame(() => {
+        const field = document.querySelector('.mode-b-summary-panel [data-role="hearing-raw"]');
+        field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        field?.focus({ preventScroll: true });
+      });
+      await publishMissionCommandResult(
+        command,
+        true,
+        'ヒアリング済み情報の貼り付け欄を開きました。文字起こし・議事録・メモを「1」の欄へ貼ってください。',
+      );
+      return;
+    }
+
     // 全画面の壁打ち欄で作った要約を確定する。保存本体は既存の persistHearingSummary に
     // 委ねる（6000字検証・案件メタ生成・lastPhase 更新・再描画を二重実装しないため）。
     if (command.action === 'confirmHearingSummary') {
@@ -2659,8 +2793,8 @@ function setMissionMenuOpen(open) {
   if (!menu) return;
   const next = open === undefined ? menu.classList.contains('hidden') : !!open;
   menu.classList.toggle('hidden', !next);
-  // ••• (旧ヘッダ) と薄バーの ☰ / ••• の aria-expanded を同期する。
-  for (const id of ['mission-settings', 'slim-menu', 'slim-more']) {
+  // 旧ヘッダ（非表示）と、常設する唯一の ☰ の aria-expanded を同期する。
+  for (const id of ['mission-settings', 'slim-menu']) {
     document.getElementById(id)?.setAttribute('aria-expanded', String(next));
   }
 }
@@ -2674,7 +2808,7 @@ function bindMissionControl() {
   document.addEventListener('click', function (event) {
     const menu = document.getElementById('mission-menu');
     if (!menu || menu.classList.contains('hidden')) return;
-    if (menu.contains(event.target) || event.target.closest('#mission-settings, #slim-menu, #slim-more')) return;
+    if (menu.contains(event.target) || event.target.closest('#mission-settings, #slim-menu')) return;
     setMissionMenuOpen(false);
   });
   document.addEventListener('keydown', function (event) {
@@ -2717,12 +2851,8 @@ function bindMissionControl() {
   // 全自動管理ビュー内の「全画面で操作する」ボタン。
   document.getElementById('mission-fullscreen-open')?.addEventListener('click', openMissionFullscreen);
 
-  // 薄型パネル v2: 薄バーの ☰ / ••• → ドロワー(メニュー)トグル、中央タップ → 全画面ホーム
+  // 薄型パネル v2: 薄バーの ☰ → ドロワー、中央タップ → 全画面ホーム
   document.getElementById('slim-menu')?.addEventListener('click', function (event) {
-    event.stopPropagation();
-    setMissionMenuOpen();
-  });
-  document.getElementById('slim-more')?.addEventListener('click', function (event) {
     event.stopPropagation();
     setMissionMenuOpen();
   });

@@ -295,7 +295,13 @@ async function refreshMasterStatus() {
   });
   if (result.exists) {
     input.value = result.docUrl || '';
-    setStatus(status, result.title || '保存済み', 'ok');
+    const format = result.masterInfo?.format || '';
+    const label = format === 'legacy-headings'
+      ? `${result.title || '保存済み'} · 旧版互換で読込済み`
+      : format === 'unstructured'
+        ? `${result.title || '保存済み'} · §見出し未検出`
+        : result.title || '保存済み';
+    setStatus(status, label, format === 'unstructured' ? 'warn' : 'ok');
     return result;
   }
   setStatus(status, result.error ? '保存済みURLを確認してください' : '未設定', result.error ? 'warn' : '');
@@ -318,12 +324,17 @@ function bindMasterDocCard() {
         syncStorage: chrome.storage.sync,
       });
       const businessApplied = await applyImportedBusinessInfo(result.businessInfo);
+      const formatNote = result.format === 'legacy-headings'
+        ? ' · 旧版マスターを互換読込しました'
+        : result.format === 'unstructured'
+          ? ' · §0〜§9の見出しは未検出です'
+          : '';
       setStatus(
         status,
-        businessApplied
+        (businessApplied
           ? `${result.title || '保存しました'} · 事業情報も反映しました`
-          : result.title || '保存しました',
-        'ok',
+          : result.title || '保存しました') + formatNote,
+        result.format === 'unstructured' ? 'warn' : 'ok',
       );
     } catch (error) {
       setStatus(status, getErrorMessage(error), 'ng');

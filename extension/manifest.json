@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "STRATEGY-KIT Helper",
-  "version": "0.12.30",
+  "version": "0.12.31",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArhjpMOgnUQQx4GxKNVm4CV+fwtSjCy0oyMZOocCNIVZsdf81Vncj26K2wuDJzxf5X4Ee2TldrC7I8P20f2oUmEztE9cPYCWNUS2rmuaSFIb96asNiuDqmJLFwRgYHgX+lQEOqCz3l+lAgpwBPpYscfB7XKi5l45CpNMfpd+km2qw+FITYasn0NMYIPymx1Btod+OLJdRMxLW2ijfa13F6OKmnQerJrzvtDsHFF9HmSZ0BamNyVObaiPROQnpeb9NvUkV+wuu+OGnOJ24Myn8aYTrVaN2mtdJWZV81rq69SpJbtyLmKx5kwVabP5wKVZdvmpSOIRuqomOuLzAYoLn7QIDAQAB",
   "oauth2": {
     "client_id": "975964313152-9oo5d5f2onr7ds3ei4qntg4qs3k2fltt.apps.googleusercontent.com",

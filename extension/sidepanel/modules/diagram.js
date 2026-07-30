@@ -633,6 +633,7 @@
     const sourceText = typeof sourceInfo === 'string' ? sourceInfo : (sourceInfo && sourceInfo.text) || '';
     const styleDesc = (ig.stylePresets && ig.stylePresets.presentation) || 'プレゼン資料向け。要点を大きく、視線誘導がはっきりした構成';
     const hint = diagram.imagePromptHint || diagram.label || '戦略図解';
+    const blueprint = diagram.imagePromptBlueprint || '';
     let prompt = ig.promptTemplate || [
       '以下の戦略内容を、{{HINT}} として1枚の図版に整形してください。',
       '',
@@ -648,6 +649,7 @@
       .replaceAll('{{CONTENT}}', sourceText);
     return [
       prompt,
+      blueprint ? '\n【図版の設計】\n' + blueprint : '',
       '',
       '【追加ルール】',
       '- 1枚のPNG画像として成立する構図にしてください。',
@@ -655,6 +657,79 @@
       '- 図版内に不要な説明文やAIの注釈を入れない。',
       '- 画像生成は1回だけ行います。複数案は出さないでください。',
     ].join('\n');
+  }
+
+  function renderImagePromptResult(resultArea, diagram, prompt) {
+    const el = window.SK_CORE.el;
+    window.SK_CORE.clearChildren(resultArea);
+    restoreInlineNotice(resultArea);
+
+    resultArea.appendChild(el('h3', {
+      style: 'font-size:13px;margin:8px 0 6px;color:#0f766e',
+      text: '画像プロンプト — ' + diagram.label,
+    }));
+    if (resultArea.dataset && resultArea.dataset.renderSourceLabel) {
+      resultArea.appendChild(el('p', {
+        style: 'font-size:11px;color:#7c2d12;margin:0 0 8px;font-weight:700',
+        text: resultArea.dataset.renderSourceLabel,
+      }));
+    }
+    resultArea.appendChild(el('p', {
+      class: 'muted-note',
+      text: 'Mermaidコードを作らず、元データから画像生成AI向けの指示文を直接作りました。内容を編集してからコピーできます。',
+    }));
+
+    const promptArea = el('textarea', {
+      class: 'sk-diagram-image-prompt-output',
+      style: 'width:100%;min-height:280px;box-sizing:border-box;margin:8px 0;padding:10px;border:1px solid #94a3b8;border-radius:7px;background:#fff;color:#172033;font-size:11px;line-height:1.65;font-family:monospace;resize:vertical',
+      value: prompt,
+    });
+    resultArea.appendChild(promptArea);
+
+    function sendPrompt(site, url, label) {
+      chrome.runtime.sendMessage(
+        { type: 'INSERT_PROMPT', text: promptArea.value, site: site },
+        function (resp) {
+          if (chrome.runtime.lastError || !resp || !resp.ok) {
+            copyTextWithManualFallback(promptArea.value, null, null, 'プロンプトをコピーしました');
+            chrome.tabs.create({ url: url });
+            window.SK_CORE.showToast('コピーして' + label + 'を開きました', false, 4000);
+          }
+        }
+      );
+    }
+
+    resultArea.appendChild(el('div', {
+      style: 'display:flex;gap:6px;flex-wrap:wrap;margin-top:6px',
+    },
+      el('button', {
+        class: 'btn',
+        text: 'プロンプトをコピー',
+        on: {
+          click: function () {
+            copyTextWithManualFallback(promptArea.value, null, null, '画像プロンプトをコピーしました');
+          },
+        },
+      }),
+      el('button', {
+        class: 'btn btn-ghost',
+        text: 'ChatGPTに送る',
+        on: {
+          click: function () {
+            sendPrompt('chatgpt', 'https://chatgpt.com/', 'ChatGPT');
+          },
+        },
+      }),
+      el('button', {
+        class: 'btn btn-ghost',
+        text: 'Geminiに送る',
+        on: {
+          click: function () {
+            sendPrompt('gemini', 'https://gemini.google.com/app', 'Gemini');
+          },
+        },
+      })
+    ));
   }
 
   function downloadImageDataUrl(dataUrl, fileName) {
@@ -1633,7 +1708,7 @@
       slot.appendChild(
         el('p', {
           class: 'muted-note',
-          text: 'DRAFTの本文から、そのまま配布できるHTMLカード図解を生成します。Mermaidは上級者向けに最後尾へ残しています。',
+          text: 'DRAFTの本文から、HTMLカード、全体マップ、関係図を作れます。出力モードで編集用コード・画像プロンプト・画像直接生成を切り替えてください。',
         })
       );
 
@@ -1644,10 +1719,10 @@
       });
       guideCard.appendChild(el('div', {
         class: 'sk-diagram-guide-card__title',
-        text: '基本操作: 元データ「ドラフト」 + 生成方法「自動で図にする」',
+        text: '基本操作: 図解タイプ → 出力モード → 元データ → 生成',
       }));
       guideCard.appendChild(el('div', {
-        text: 'DRAFTが取れない時は自動で原本マスターにフォールバックし、画面に理由を明示します。',
+        text: '画像AIへ貼る指示文が欲しい時は「画像プロンプト」を選びます。DRAFTが取れない時は原本マスターへ切り替え、理由を画面に表示します。',
       }));
       slot.appendChild(guideCard);
 
@@ -1675,11 +1750,12 @@
         console.log('[STRATEGY-KIT][diagram] appending option', m);
         methodSelect.appendChild(el('option', { value: m.value, text: m.label }));
       });
+      const methodLabel = el('span', { class: 'form-label', text: '生成方法' });
       slot.appendChild(
         el(
           'label',
           { class: 'form-row' },
-          el('span', { class: 'form-label', text: '生成方法' }),
+          methodLabel,
           methodSelect
         )
       );
@@ -1687,6 +1763,7 @@
       const generationModeSelect = el('select', { id: 'sk-diagram-generation-mode', style: SELECT_FORCE_STYLE });
       [
         { value: 'text', label: 'テキスト系図解（高速・編集可）' },
+        { value: 'image-prompt', label: '画像プロンプト（コピーして画像AIへ）' },
         { value: 'image', label: '画像系図解（きれい・編集不可・課金APIキーが必要）' },
       ].forEach(function (m) {
         generationModeSelect.appendChild(el('option', { value: m.value, text: m.label }));
@@ -1749,19 +1826,29 @@
       }
 
       function updateGenerationModeUi() {
-        generationModeHelp.textContent = generationModeSelect.value === 'image'
-          ? '画像生成は通常のテキスト生成より時間と利用枠を使います。連打せず、1枚ずつ確認してください。'
-          : 'HTMLカード / Mermaid として編集できるテキスト図解を生成します。';
+        const mode = generationModeSelect.value;
+        methodSelect.disabled = mode === 'image-prompt';
+        methodLabel.textContent = mode === 'image-prompt' ? '生成方法（画像プロンプトでは不要）' : '生成方法';
+        if (mode === 'image') {
+          generationModeHelp.textContent = 'Geminiで画像を直接生成します。通常のテキスト生成より時間と利用枠を使うため、1枚ずつ確認してください。';
+        } else if (mode === 'image-prompt') {
+          generationModeHelp.textContent = 'API利用枠を消費せず、元データから画像生成AIへ渡す指示文を作ります。コピー／ChatGPT／Geminiへ送信できます。';
+        } else {
+          generationModeHelp.textContent = 'HTMLカード、または選んだ全体像・関係図のMermaidコードを生成します。';
+        }
+        if (typeof generateBtn !== 'undefined') {
+          generateBtn.textContent = mode === 'image-prompt' ? '画像プロンプトを作る' : '生成';
+        }
       }
 
       sourceSelect.addEventListener('change', updateSourceUi);
       generationModeSelect.addEventListener('change', updateGenerationModeUi);
-      updateGenerationModeUi();
 
       const generateBtn = el('button', { class: 'btn', text: '生成' });
       slot.appendChild(
         el('div', { style: 'display:flex;gap:8px;margin-top:6px' }, generateBtn)
       );
+      updateGenerationModeUi();
 
       const resultArea = el('div', { class: 'hidden', style: 'margin-top:10px' });
       slot.appendChild(resultArea);
@@ -1782,7 +1869,8 @@
           const secs = (diagram.sourceSection || []).map(function (n) { return '§' + normalizeSectionNo(n); }).join('・');
           descEl.textContent = formatLabel(diagram.format)
             + (secs ? '／参照する章: ' + secs : '')
-            + (diagram.group === EXPERT_GROUP_LABEL ? '／Mermaid上級者向け' : '');
+            + (diagram.group === EXPERT_GROUP_LABEL ? '／Mermaid上級者向け' : '')
+            + (diagram.imagePromptHint ? '／画像プロンプト対応' : '');
           sourceHelp.textContent = describeSourceSelection(diagram, sourceSelect.value);
         }
 
@@ -1843,7 +1931,6 @@
             throw new Error(sourceInfo.notice || '元データの取得に失敗しました');
           }
 
-          const prompt = buildDiagramPrompt(diagram, sourceInfo);
           window.SK_CORE.clearChildren(resultArea);
           resultArea.dataset.sourceNotice = sourceInfo.notice || '';
           resultArea.dataset.sourceNoticeTone = sourceInfo.fallbackUsed ? 'warn' : '';
@@ -1854,7 +1941,15 @@
             window.SK_CORE.showToast('DRAFT取得に失敗したため原本マスターへ切り替えました', false, 4500);
           }
 
-          const generationMode = generationModeSelect.value === 'image' ? 'image' : 'text';
+          const generationMode = generationModeSelect.value === 'image'
+            ? 'image'
+            : (generationModeSelect.value === 'image-prompt' ? 'image-prompt' : 'text');
+          if (generationMode === 'image-prompt') {
+            renderImagePromptResult(resultArea, diagram, buildImageDiagramPrompt(diagram, sourceInfo));
+            return;
+          }
+
+          const prompt = buildDiagramPrompt(diagram, sourceInfo);
           if (methodSelect.value === 'gemini') {
             await runGenerationViaGemini(prompt, diagram, resultArea, {
               generationMode: generationMode,
@@ -1872,7 +1967,9 @@
           showInlineNotice(resultArea, '生成中にエラーが発生しました: ' + e.message, 'warn');
         } finally {
           generateBtn.disabled = false;
-          generateBtn.textContent = '生成';
+          generateBtn.textContent = generationModeSelect.value === 'image-prompt'
+            ? '画像プロンプトを作る'
+            : '生成';
         }
       });
     } catch (e) {

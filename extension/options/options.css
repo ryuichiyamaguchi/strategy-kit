@@ -1185,3 +1185,30 @@ textarea {
     gap: 14px 22px;
   }
 }
+
+/* v0.12.31: 最終レイヤーで設定カードと保存欄の行を固定する。
+   旧ルールでは「最新版」と「保存」が同じ行へ重なり、左下の保存ボタンが隠れていた。 */
+.actions {
+  position: relative;
+  z-index: 2;
+  padding: 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: rgba(8, 19, 29, 0.98);
+  box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.2);
+}
+
+@media (min-width: 860px) {
+  .container > #gemini-settings-card { grid-row: 4; }
+  .container > #business-settings-card { grid-row: 5; }
+  .container > #oauth-card { grid-row: 6; }
+  .container > #display-settings-card { grid-row: 7; }
+  .container > #engagement-mode-readout-card { grid-row: 8; }
+  .container > #master-doc-card { grid-row: 9; }
+  .container > #update-settings-card { grid-row: 10; }
+  .container > #about-settings-card { grid-row: 11; }
+  .container > .actions {
+    grid-column: 1 / -1;
+    grid-row: 12;
+  }
+}

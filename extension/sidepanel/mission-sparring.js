@@ -91,10 +91,9 @@ function isConfirmed() {
   return !!hearing.hasSummary && !!hearing.consistent;
 }
 
-// 入口モード B（クライアントワーク・ヒアリング済）の正道は録音の文字起こし要約。
-// カードは出すが、既定では畳んで正道を邪魔しない。
+// 要約が確定済みなら、案件種別にかかわらず「確定済み」を優先して畳む。
 function defaultCollapsed() {
-  return hearingState().mode === 'B' || isConfirmed();
+  return isConfirmed();
 }
 
 function isCollapsed() {
@@ -246,10 +245,20 @@ function render() {
   const card = $('mission-sparring');
   if (!card) return;
   const snapshot = deps?.getSnapshot?.() || {};
-  // 入口モードが取れない（未選択・サイドパネル未起動）ときは出さない。
+  // 壁打ちは案件種別を問わない。A はヒアリング設計、B は既存情報の不足確認、
+  // C は自社事業の情報整理として使い分け、既存資料の取込とは併用できる。
   const mode = hearingState().mode || '';
-  card.hidden = !snapshot.hasBusiness || !mode;
+  card.hidden = !snapshot.hasBusiness;
   if (card.hidden) return;
+
+  const context = $('mission-sparring-context');
+  if (context) {
+    context.textContent = mode === 'B'
+      ? 'ヒアリング済みの文字起こし・議事録は、上の「既存情報を貼り付ける」から取り込みます。この壁打ちは、資料を読んで不足していた数字や判断材料を追加で深掘りするときに使えます。'
+      : mode === 'A'
+        ? 'これから行うヒアリングの質問設計や、聞くべき項目の抜け漏れ確認に使えます。'
+        : '自社事業に限らず、顧客案件・新規事業・支援先についても、分からない点をAIと1問ずつ整理できます。';
+  }
 
   const body = $('mission-sparring-body');
   const toggle = $('mission-sparring-toggle');
@@ -634,6 +643,17 @@ function bind() {
   $('mission-sparring-discard')?.addEventListener('click', () => discardSession());
   $('mission-sparring-confirm-btn')?.addEventListener('click', () => confirmSummary());
   $('mission-sparring-summary')?.addEventListener('input', () => renderConfirmCounter());
+  $('mission-sparring-open-import')?.addEventListener('click', async () => {
+    const sent = await deps?.sendMissionCommand?.('openHearingImport', {
+      projectId: sessionProjectId || activeProjectId(),
+    });
+    setStatus(
+      sent
+        ? 'サイドパネルに「ヒアリング済み情報」の貼り付け欄を開きました。'
+        : '貼り付け欄を開けませんでした。サイドパネルで「今回の入口」→「ヒアリング済み」を選んでください。',
+      sent ? 'success' : 'warn',
+    );
+  });
   $('mission-sparring-copy')?.addEventListener('click', async () => {
     const outbox = $('mission-sparring-outbox');
     try {

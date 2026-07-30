@@ -3,6 +3,10 @@ import {
   extractDraftBusinessInfo,
   parseGoogleDocId,
 } from './draft-manager.js';
+import {
+  collectLegacySectionEntries,
+  collectSectionMarkers,
+} from './section-state.js';
 
 const MASTER_KEY = 'sk_master_doc_v012';
 
@@ -25,12 +29,13 @@ export async function setMasterDocFromUrl(url, {
   const doc = await docsClient.getDocument(documentId);
   const title = doc?.title || 'STRATEGY-KIT Master';
   const businessInfo = extractDraftBusinessInfo(doc);
+  const format = detectMasterDocumentFormat(doc);
   const masterInfo = {
     documentId,
     docUrl: buildGoogleDocUrl(documentId),
     title,
     source: 'manual-url',
-    format: 'v012-full-port',
+    format,
     businessInfo,
     updatedAt: now().toISOString(),
   };
@@ -41,8 +46,18 @@ export async function setMasterDocFromUrl(url, {
     masterDocUrl: masterInfo.docUrl,
     title,
     businessInfo,
+    format,
     masterInfo,
   };
+}
+
+export function detectMasterDocumentFormat(doc) {
+  const content = doc?.body?.content;
+  // fields 制限等で本文が返っていない呼び出しは、従来互換の形式として扱う。
+  if (!Array.isArray(content)) return 'v012-full-port';
+  if (collectSectionMarkers(doc).length) return 'v012-full-port';
+  if (collectLegacySectionEntries(doc).length) return 'legacy-headings';
+  return 'unstructured';
 }
 
 export async function getStoredMasterDocInfo({

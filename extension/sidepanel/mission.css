@@ -2132,6 +2132,57 @@ body {
   gap: 10px;
 }
 
+.mission-sparring-import {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(241, 168, 74, 0.34);
+  border-left: 4px solid var(--signal-amber);
+  border-radius: 8px;
+  color: #f4e8d4;
+  background: linear-gradient(135deg, rgba(241, 168, 74, 0.11), rgba(130, 88, 244, 0.06));
+}
+
+.mission-sparring-import h3 {
+  margin: 2px 0 4px;
+  color: #ffe1ad;
+  font-size: var(--mission-type-control);
+  line-height: 1.45;
+}
+
+.mission-sparring-import p {
+  margin: 0;
+  color: #cbbda7;
+  font-size: var(--mission-type-label);
+  line-height: 1.6;
+}
+
+.mission-sparring-import .mission-sparring-secondary {
+  min-width: 168px;
+  border-color: rgba(241, 168, 74, 0.55);
+  color: #ffe1ad;
+  background: rgba(241, 168, 74, 0.11);
+}
+
+.mission-sparring-import .mission-sparring-secondary:hover:not(:disabled) {
+  border-color: var(--signal-amber);
+  color: #07121c;
+  background: #f1b35f;
+}
+
+.mission-sparring-context {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(28, 225, 230, 0.22);
+  border-radius: 7px;
+  color: #a8c4cd;
+  background: rgba(28, 225, 230, 0.045);
+  font-size: var(--mission-type-label);
+  line-height: 1.6;
+}
+
 .mission-sparring-confirmed {
   margin: 0 0 8px;
   padding: 9px 11px;
@@ -2302,6 +2353,15 @@ body {
 }
 
 @media (max-width: 700px) {
+  .mission-sparring-import {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mission-sparring-import .mission-sparring-secondary {
+    width: 100%;
+    min-width: 0;
+  }
+
   .mission-sparring-actions .mission-btn-run,
   .mission-sparring-actions .mission-sparring-secondary {
     flex: 1 1 100%;
