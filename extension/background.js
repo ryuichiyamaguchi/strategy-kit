@@ -5,6 +5,7 @@
 //   3) 初回起動時に既定設定を storage へ書き込む
 
 import './phase0/phase0-smoke-test.js';
+import { sendTabMessageWithRetry } from './phase0/ai-tab-routing.js';
 
 const DEFAULT_SETTINGS = {
   industry: 'generic',
@@ -172,8 +173,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         // 抑止モード中は AI タブを前面へ引っ張り出さない(裏で駆動)。
-        // 抑止モード外は現行挙動を完全維持する。
-        const suppressFocus = await isMissionFullscreenOpen();
+        // ただし、ボタンクリックから届いた focus:true は利用者の明示操作なので
+        // 必ず前面化する。ここまで抑止すると「タブを開く」が無反応に見える。
+        const suppressFocus =
+          message.focus !== true && await isMissionFullscreenOpen();
         const existingTab = await findLastFocusedTabForSite(message.site);
         if (existingTab?.id) {
           if (!suppressFocus) {
@@ -210,8 +213,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.site) {
         targetTab = await findLastFocusedTabForSite(message.site);
         if (!targetTab?.id) {
-          sendResponse({ ok: false, error: 'site-tab-not-found', site: message.site });
-          return;
+          if (message.openIfMissing === true) {
+            const targetUrl = AI_ORIGINS[message.site];
+            if (!targetUrl) {
+              sendResponse({ ok: false, error: 'unknown-site', site: message.site });
+              return;
+            }
+            targetTab = await chrome.tabs.create({
+              url: targetUrl,
+              active: message.focus === true,
+            });
+          } else {
+            sendResponse({ ok: false, error: 'site-tab-not-found', site: message.site });
+            return;
+          }
         }
       }
 
@@ -228,6 +243,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
 
+      if (message.focus === true) {
+        await chrome.tabs.update(targetTab.id, { active: true }).catch(() => {});
+        if (targetTab.windowId) {
+          await chrome.windows.update(targetTab.windowId, { focused: true }).catch(() => {});
+        }
+      }
+
       if (message.site) {
         const expectedOrigin = AI_ORIGINS[message.site];
         const targetOrigin = getOrigin(targetTab.url);
@@ -238,10 +260,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       }
 
-      const response = await chrome.tabs.sendMessage(targetTab.id, {
-        type: 'STRATEGY_KIT_INSERT',
-        text: message.text,
-        site: message.site || null,
+      const response = await sendTabMessageWithRetry({
+        tabsApi: chrome.tabs,
+        tabId: targetTab.id,
+        message: {
+          type: 'STRATEGY_KIT_INSERT',
+          text: message.text,
+          site: message.site || null,
+        },
       });
       // content script が { ok, error } を返す前提。非オブジェクト応答はフォールバック。
       sendResponse(response && typeof response === 'object' ? response : { ok: !!response });

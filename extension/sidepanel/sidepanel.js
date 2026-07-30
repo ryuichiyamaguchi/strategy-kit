@@ -87,6 +87,7 @@ async function openOrFocusAiTab(site) {
       type: 'OPEN_OR_FOCUS_AI_TAB',
       site,
       url,
+      focus: true,
     });
     if (resp?.ok) return resp;
   } catch (e) {
@@ -5090,7 +5091,13 @@ function renderPrinciples() {
 
 async function insertIntoActiveTab(text, preferredSite) {
   chrome.runtime.sendMessage(
-    { type: 'INSERT_PROMPT', text, site: preferredSite },
+    {
+      type: 'INSERT_PROMPT',
+      text,
+      site: preferredSite,
+      openIfMissing: true,
+      focus: true,
+    },
     async (resp) => {
       if (chrome.runtime.lastError || !resp?.ok) {
         console.error('[STRATEGY-KIT] 挿入エラー:', chrome.runtime.lastError?.message || resp?.error);

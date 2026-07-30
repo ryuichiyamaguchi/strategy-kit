@@ -3754,25 +3754,24 @@
   // ===========================================================
   // 共通: AI挿入用のセレクタ＋ボタン群
   // ===========================================================
-  const AI_URLS_AUTO = {
-    claude: 'https://claude.ai/new',
-    chatgpt: 'https://chatgpt.com/',
-    gemini: 'https://gemini.google.com/app',
-    manus: 'https://manus.im/',
-    genspark: 'https://www.genspark.ai/',
-    perplexity: 'https://www.perplexity.ai/',
-    grok: 'https://grok.com/',
-    notebooklm: 'https://notebooklm.google.com/',
-  };
-
   function buildAiActionRow(getPromptText, recommended) {
     const el = window.SK_CORE.el;
     const allAis = ['claude', 'chatgpt', 'gemini', 'manus', 'genspark', 'perplexity', 'grok', 'notebooklm'];
+    const aiLabels = {
+      claude: 'Claude',
+      chatgpt: 'ChatGPT',
+      gemini: 'Gemini',
+      manus: 'Manus',
+      genspark: 'Genspark',
+      perplexity: 'Perplexity',
+      grok: 'Grok',
+      notebooklm: 'NotebookLM',
+    };
     const aiSelect = el('select', { class: 'ai-selector' });
     allAis.forEach(function (id) {
       const opt = el('option', {
         value: id,
-        text: id + (id === recommended ? '（推奨）' : ''),
+        text: (aiLabels[id] || id) + (id === recommended ? '（推奨）' : ''),
       });
       if (id === recommended) opt.selected = true;
       aiSelect.appendChild(opt);
@@ -3782,23 +3781,34 @@
       class: 'btn btn-ghost',
       text: '挿入',
       on: {
-        click: function () {
-          chrome.runtime.sendMessage(
-            { type: 'INSERT_PROMPT', text: getPromptText(), site: aiSelect.value },
-            function (resp) {
-              if (chrome.runtime.lastError || !resp || !resp.ok) {
-                console.error('[STRATEGY-KIT] 挿入エラー:', chrome.runtime.lastError?.message || resp?.error);
-                navigator.clipboard.writeText(getPromptText());
-                window.SK_CORE.showToast(
-                  'AIタブへの挿入に失敗しました。クリップボードにコピー済みです。タブを開いて貼り付けてください。',
-                  false,
-                  4000
-                );
-              } else {
-                window.SK_CORE.showToast('挿入しました（送信は手動で）');
-              }
+        click: async function () {
+          const text = getPromptText();
+          insertBtn.disabled = true;
+          insertBtn.textContent = '開いて挿入中…';
+          try {
+            await navigator.clipboard.writeText(text).catch(function () {});
+            const resp = await chrome.runtime.sendMessage({
+              type: 'INSERT_PROMPT',
+              text: text,
+              site: aiSelect.value,
+              openIfMissing: true,
+              focus: true,
+            });
+            if (!resp || !resp.ok) {
+              throw new Error(resp?.error || 'insert-failed');
             }
-          );
+            window.SK_CORE.showToast('AIタブを開いて挿入しました（送信は手動で）');
+          } catch (error) {
+            console.error('[STRATEGY-KIT] 挿入エラー:', error?.message || error);
+            window.SK_CORE.showToast(
+              '自動挿入できませんでした。プロンプトはコピー済みです。AIの入力欄へ貼り付けてください。',
+              'warn',
+              5000
+            );
+          } finally {
+            insertBtn.disabled = false;
+            insertBtn.textContent = '挿入';
+          }
         },
       },
     });
@@ -3807,11 +3817,25 @@
       class: 'btn btn-ghost',
       text: 'タブを開く',
       on: {
-        click: function () {
-          if (window.SK_CORE.openOrFocusAiTab) {
-            window.SK_CORE.openOrFocusAiTab(aiSelect.value);
-          } else {
-            chrome.tabs.create({ url: AI_URLS_AUTO[aiSelect.value] || '#' });
+        click: async function () {
+          openBtn.disabled = true;
+          openBtn.textContent = '開いています…';
+          try {
+            const result = await window.SK_CORE.openOrFocusAiTab(aiSelect.value);
+            if (!result?.ok) throw new Error(result?.error || 'open-failed');
+            window.SK_CORE.showToast(
+              (aiLabels[aiSelect.value] || aiSelect.value) + ' のタブを開きました'
+            );
+          } catch (error) {
+            console.error('[STRATEGY-KIT] AIタブを開けません:', error?.message || error);
+            window.SK_CORE.showToast(
+              'AIタブを開けませんでした。拡張機能を再読み込みして、もう一度お試しください。',
+              'warn',
+              5000
+            );
+          } finally {
+            openBtn.disabled = false;
+            openBtn.textContent = 'タブを開く';
           }
         },
       },
@@ -4115,7 +4139,7 @@
         style: 'font-weight:700;margin-bottom:2px',
         text: 'このフェーズの進め方（目安: 3〜5分）',
       }));
-      stepGuide.appendChild(el('div', { text: '① 下のボタンでAI（Claude/ChatGPT等）にプロンプトを挿入' }));
+      stepGuide.appendChild(el('div', { text: '① 「挿入」で推奨AIのタブを開き、プロンプトを自動挿入（「タブを開く」は開くだけ）' }));
       stepGuide.appendChild(el('div', { text: '② AIの返答をコピーして下の貼付欄に入れる' }));
       stepGuide.appendChild(el('div', { text: '③ 「次のフェーズへ →」を押して保存' }));
       stepBody.appendChild(stepGuide);
@@ -4129,7 +4153,7 @@
 
       // AI挿入行（サブプロンプトの推奨AI優先 → フェーズ推奨 → claude）
       const recommended =
-        (step && step.prompt && step.prompt.for) || phase.primaryAi || 'claude';
+        (step && step.prompt && step.prompt.for) || phase.defaultFor || 'claude';
       const aiActions = buildAiActionRow(function () {
         return promptBox.textContent;
       }, recommended);
@@ -4676,7 +4700,7 @@
         style: 'color:#0f766e;font-weight:600',
         text: '✓ ' + guidePrev,
       }));
-      stepGuide.appendChild(el('div', { text: '① 下のボタンで AI（' + (step.for || 'claude') + ' 推奨）にプロンプト挿入 or コピー' }));
+      stepGuide.appendChild(el('div', { text: '① 「挿入」で推奨AI（' + (step.for || 'claude') + '）のタブを開いて自動挿入（または「コピー」）' }));
       stepGuide.appendChild(el('div', { text: '② AI の応答をコピーして下の貼付欄へ' }));
       stepGuide.appendChild(el('div', { text: '③ 「このステップ完了 →」を押して次へ' }));
       overlay.appendChild(stepGuide);
