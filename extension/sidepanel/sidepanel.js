@@ -2905,8 +2905,45 @@ function scheduleStableRender(reason) {
   });
 }
 
+async function openOptionsPageSafe() {
+  const runtime = globalThis.chrome?.runtime;
+  try {
+    if (typeof runtime?.openOptionsPage === 'function') {
+      await runtime.openOptionsPage();
+      return true;
+    }
+  } catch (error) {
+    console.warn('[STRATEGY-KIT] openOptionsPage failed; trying direct URL:', error);
+  }
+
+  const optionsUrl = runtime?.getURL?.('options/options.html') || '';
+  try {
+    if (optionsUrl && typeof globalThis.chrome?.tabs?.create === 'function') {
+      await globalThis.chrome.tabs.create({ url: optionsUrl, active: true });
+      return true;
+    }
+  } catch (error) {
+    console.warn('[STRATEGY-KIT] direct options tab failed:', error);
+  }
+
+  showToast('設定画面を開けませんでした。拡張機能を更新して、もう一度お試しください。', true, 5000);
+  return false;
+}
+
+function bindCriticalOptionsNavigation() {
+  for (const id of ['open-options', 'open-business-settings']) {
+    const button = document.getElementById(id);
+    if (!button || button.dataset.optionsNavigationBound === 'true') continue;
+    button.dataset.optionsNavigationBound = 'true';
+    button.addEventListener('click', function (event) {
+      event.preventDefault();
+      openOptionsPageSafe();
+    });
+  }
+}
+
 function openBusinessSettings() {
-  chrome.runtime.openOptionsPage?.();
+  return openOptionsPageSafe();
 }
 
 function normalizeAutomationExecutionMode(mode) {
@@ -3356,9 +3393,9 @@ function bindSetupChecklist() {
       if (!btn) return;
       const action = btn.dataset.action;
       if (action === 'open-options') {
-        chrome.runtime.openOptionsPage?.();
+        openOptionsPageSafe();
       } else if (action === 'run-gemini-probe') {
-        chrome.runtime.openOptionsPage?.();
+        openOptionsPageSafe();
       } else if (action === 'open-setup') {
         document.getElementById('contextbar-edit')?.click();
       } else if (action === 'open-master-doc') {
@@ -3738,7 +3775,7 @@ function syncEmptyStates() {
 
 function bindEmptyStates() {
   const handler = () => {
-    if (chrome.runtime.openOptionsPage) chrome.runtime.openOptionsPage();
+    openOptionsPageSafe();
   };
   const btn = document.getElementById('automation-empty-cta');
   if (btn) btn.addEventListener('click', handler);
@@ -5361,12 +5398,9 @@ function bindSetupForm() {
   const select = document.getElementById('industry-select');
   const indInput = document.getElementById('industry-input');
   const storeInput = document.getElementById('store-input');
-  const openBusinessBtn = document.getElementById('open-business-settings');
 
   renderBusinessSettingsReadout();
-  if (openBusinessBtn) {
-    openBusinessBtn.addEventListener('click', openBusinessSettings);
-  }
+  bindCriticalOptionsNavigation();
 
   if (indInput) indInput.value = state.settings.industryLabel || '';
   if (storeInput) storeInput.value = state.settings.storeName || '';
@@ -5420,10 +5454,6 @@ function bindSetupForm() {
     state.settings.showSafetyNotice = false;
     persistSettings();
     document.getElementById('safety').classList.add('hidden');
-  });
-
-  document.getElementById('open-options').addEventListener('click', () => {
-    chrome.runtime.openOptionsPage?.();
   });
 
   // 段階5: •••「初期設定を開く」— 完了後に退避した #setup カードをインラインで再表示する。
@@ -5530,11 +5560,11 @@ function bindSetupForm() {
         chrome.tabs.create({ url: res.docUrl });
       } else {
         showToast('マスタードキュメントが未設定です。設定画面でURL確認または新規作成をしてください', true, 4000);
-        chrome.runtime.openOptionsPage?.();
+        openOptionsPageSafe();
       }
     } catch (e) {
       showToast('マスタードキュメントを確認できませんでした。設定画面を確認してください', true, 4000);
-      chrome.runtime.openOptionsPage?.();
+      openOptionsPageSafe();
     }
   });
 }
@@ -5610,6 +5640,10 @@ window.SK_CORE = {
     return window.SK_STATE || null;
   },
 };
+
+// 初期データ・案件・OAuth の非同期読込を待たず、最初の設定導線だけは操作可能にする。
+// bindSetupForm() でも再確認するが、data 属性で二重登録を防いでいる。
+bindCriticalOptionsNavigation();
 
 (async function init() {
   try {
@@ -6057,7 +6091,7 @@ window.SK_CORE = {
         const oauthItem = strip.querySelector('[data-step="oauth"]');
         if (oauthItem) {
           oauthItem.querySelector('button').addEventListener('click', function () {
-            if (chrome.runtime.openOptionsPage) chrome.runtime.openOptionsPage();
+            openOptionsPageSafe();
           });
         }
 
