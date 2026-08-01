@@ -18,7 +18,7 @@
     'https://www.genspark.ai',
     'https://www.perplexity.ai',
     'https://perplexity.ai',
-    'https://notebooklm.google.com',
+    'https://notebook.google.com',
     'https://grok.com',
     'https://www.grok.com',
     'https://docs.google.com',
@@ -154,16 +154,18 @@
     const draftManagerUrl = chrome.runtime.getURL('phase0/draft-manager.js');
     const masterDocManagerUrl = chrome.runtime.getURL('phase0/master-doc-manager.js');
     const masterSectionWriterUrl = chrome.runtime.getURL('phase0/master-section-writer.js');
-    const masterMigrationUrl = chrome.runtime.getURL('phase0/master-migration.js');
-    const [docsClient, driveClient, draftManager, masterDocManager, masterSectionWriter, masterMigration] = await Promise.all([
+    const externalImporterUrl = chrome.runtime.getURL('phase0/external-document-importer.js');
+    const geminiClientUrl = chrome.runtime.getURL('phase0/gemini-client.js');
+    const [docsClient, driveClient, draftManager, masterDocManager, masterSectionWriter, externalImporter, geminiClient] = await Promise.all([
       import(docsUrl),
       import(driveUrl),
       import(draftManagerUrl),
       import(masterDocManagerUrl),
       import(masterSectionWriterUrl),
-      import(masterMigrationUrl),
+      import(externalImporterUrl),
+      import(geminiClientUrl),
     ]);
-    return { docsClient, driveClient, draftManager, masterDocManager, masterSectionWriter, masterMigration };
+    return { docsClient, driveClient, draftManager, masterDocManager, masterSectionWriter, externalImporter, geminiClient };
   }
 
   function normalizeDraftBusinessValue(value) {
@@ -394,7 +396,8 @@
       return x.low + ' / ' + x.mid + ' / ' + x.high + u;
     }
     function tag(x) {
-      return x && x.tag ? x.tag : '';
+      const original = x && x.tag ? ' / original=' + x.tag : '';
+      return 'to_be_verified [要最新確認]' + original;
     }
     const sourcesText = (b.sources || [])
       .map(function (s, i) {
@@ -408,7 +411,11 @@
       ' / 更新 ' +
       b.updated +
       '）】';
-    const lines = ['', header];
+    const lines = [
+      '',
+      header,
+      '※ここの数値は実行時点の事実ではなく、自社実測または現在の一次情報で検証する仮説レンジです。検証できない値は unknown とし、判定を保留してください。',
+    ];
     if (b.notes) lines.push('> ' + b.notes);
     lines.push('', '| 指標 | low / mid / high | タグ |', '|---|---|---|');
     // metrics は JSON のキー順を維持して動的に行生成（キー名をそのまま指標名に使う）
@@ -427,7 +434,12 @@
       lines.push('');
     }
     if (platform.algorithmNotes) {
-      lines.push('【アルゴリズム特性メモ】', platform.algorithmNotes, '');
+      lines.push(
+        '【アルゴリズム仮説メモ（未検証の固定法則として使用禁止）】',
+        platform.algorithmNotes,
+        '※実行時に公式一次情報と対象アカウントの実測で検証し、出典と参照日を Claim Ledger に残す。',
+        ''
+      );
     }
     lines.push('【主要出典】', sourcesText, '');
     return lines.join('\n') + '\n\n' + body;
@@ -549,19 +561,20 @@
     // （業種・店舗・テーマは applyTemplate で置換済み。残りは蓄積データ系）
     body = body.replace(/★[^★\n]+★/g, '（後段の【蓄積コンテキスト】参照）');
 
-    // 末尾に蓄積コンテキストを必ず追加
-    body += '\n\n---\n\n【蓄積コンテキスト】\n\n' + ctx;
+    // 末尾に蓄積コンテキストを必ず追加。過去章の本文は外部AIの
+    // 出力も含むため、内部の命令を再実行しないデータ境界で囲う。
+    body += '\n\n---\n\n' + window.SK_CORE.wrapUntrustedData('蓄積コンテキスト', ctx);
 
     // 初期入力も追加
     if (formInputs) {
-      body +=
-        '\n\n---\n\n【ユーザー初期入力】\n' +
+      const inputText =
         '業種: ' + (formInputs.industry || '未指定') + '\n' +
         '店舗: ' + (formInputs.storeName || '未指定') + '\n' +
         '現状メモ:\n' + (formInputs.memo || '（なし）') + '\n' +
         (formInputs.context ? '\n追加コンテキスト:\n' + formInputs.context + '\n' : '');
+      body += '\n\n---\n\n' + window.SK_CORE.wrapUntrustedData('ユーザー初期入力', inputText);
     }
-    return body;
+    return window.SK_CORE.preparePrompt({ id: prompt.id || '', body: body });
   }
 
   // フェーズの全サブプロンプトを横並びにフラット化
@@ -712,7 +725,7 @@
       }),
       el('div', {
         style: 'font-size:11px;color:#166534;line-height:1.5',
-        text: '全自動・半自動の保存先はマスター本体です。旧 DRAFT は取り込み・後処理が必要な場合だけ使います。',
+        text: '全自動・半自動の保存先はマスター本体です。外部の議事録・企画書・旧形式文書も、下の取り込み機能でマスター化できます。',
       })
     );
     slot.appendChild(masterPrimaryCard);
@@ -892,32 +905,32 @@
     legacyDraftDetails.appendChild(
       el('summary', {
         style: 'font-size:12px;font-weight:700;color:#475569;cursor:pointer',
-        text: '旧 DRAFT 取り込み・後処理（必要な場合だけ）',
+        text: '外部ドキュメントを取り込む',
       })
     );
     legacyDraftDetails.appendChild(
       el('p', {
         style: 'font-size:11px;color:#64748b;margin:6px 0 10px;line-height:1.5',
-        text: '通常の実行はマスター本体へ保存します。過去のDRAFTを取り込む、または旧DRAFTを整形する場合だけ開いて使います。',
+        text: 'Googleドキュメントの議事録・企画書・旧形式ファイルを解析し、取り込み先フェーズを確認してからマスターへ反映します。原本は変更しません。',
       })
     );
 
-    // ===== 旧 DRAFT 補助セクション =====
+    // ===== 外部ドキュメント取り込み（旧DRAFT互換を内包） =====
     const resumeDraftCard = el('div', {
       style: 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin-bottom:10px',
     });
     resumeDraftCard.appendChild(
-      el('div', { style: 'font-size:12px;font-weight:700;color:#0f766e;margin-bottom:6px', text: '📂 旧 DRAFT を扱う' })
+      el('div', { style: 'font-size:12px;font-weight:700;color:#0f766e;margin-bottom:6px', text: '📂 外部資料をStrategy Kitへ変換' })
     );
     resumeDraftCard.appendChild(
       el('div', {
         style: 'font-size:11px;color:#64748b;margin-bottom:6px',
-        text: '既存DRAFTの進捗確認・マスター取り込み・後処理だけをここで行います。通常の実行はマスター本体へ保存します。',
+        text: 'まずURLを貼って「内容を解析」。認識済み形式はそのまま、自由形式はAIが§0〜§9へ分類します。分類結果は書き込み前に選び直せます。',
       })
     );
     const draftUrlInput = el('input', {
       type: 'text',
-      placeholder: 'DRAFT Doc URL（https://docs.google.com/document/d/...）任意',
+      placeholder: '取り込むGoogleドキュメントのURL',
       style: 'width:100%;box-sizing:border-box;padding:6px 8px;font-size:11px;border:1px solid #cbd5e1;border-radius:4px;margin-bottom:6px',
     });
     resumeDraftCard.appendChild(draftUrlInput);
@@ -934,19 +947,40 @@
     const checkProgressBtn = el('button', {
       class: 'btn btn-ghost',
       type: 'button',
-      text: '旧DRAFTの進捗を確認',
+      text: '内容を解析',
       style: 'font-size:12px',
     });
     const importDraftBtn = el('button', {
       class: 'btn btn-ghost',
       type: 'button',
-      text: '旧 DRAFT からマスターへ取り込む',
+      disabled: true,
+      text: '選択した内容を取り込む',
       style: 'font-size:12px',
     });
     const draftProgressStatus = el('div', {
       style: 'font-size:11px;color:#475569;margin-top:6px',
       attrs: { role: 'status', 'aria-live': 'polite' },
     });
+    const importDestination = el('select', {
+      style: 'width:100%;box-sizing:border-box;padding:6px 8px;font-size:11px;border:1px solid #cbd5e1;border-radius:4px;margin:4px 0 6px',
+    },
+      el('option', { value: 'new', text: '新しいマスタードキュメントに変換（推奨）' }),
+      el('option', { value: 'append', text: '現在のマスターへフェーズ別に追記' })
+    );
+    const snapshotCheckbox = el('input', { type: 'checkbox' });
+    const snapshotLabel = el('label', {
+      style: 'display:none;align-items:flex-start;gap:6px;font-size:11px;color:#475569;margin-bottom:8px',
+    }, snapshotCheckbox, el('span', { text: '取り込み前に現在のマスターのスナップショットを作る（任意）' }));
+    importDestination.addEventListener('change', function () {
+      snapshotLabel.style.display = importDestination.value === 'append' ? 'flex' : 'none';
+      if (importDestination.value !== 'append') snapshotCheckbox.checked = false;
+    });
+    const importPreview = el('div', {
+      style: 'display:none;margin:8px 0;padding:8px;background:#ffffff;border:1px solid #cbd5e1;border-radius:5px',
+    });
+    resumeDraftCard.appendChild(importDestination);
+    resumeDraftCard.appendChild(snapshotLabel);
+    resumeDraftCard.appendChild(importPreview);
 
     // 進捗確認ボタンのクリックハンドラ
     //   v0.9.13: §N-M サブインデックス再開対応。
@@ -955,11 +989,89 @@
     let draftResumeStartIndex = '0';
     let cachedDraftProgress = null;
     let cachedFailedSections = [];
+    let externalAnalysis = null;
     let cachedMasterProgress = null;
     let cachedMasterFailedSections = [];
     let cachedMasterResumeContext = null;
     let automationPrimaryAction = null;
     let automationActionRefreshSeq = 0;
+
+    function renderExternalImportPreview(analysis) {
+      window.SK_CORE.clearChildren(importPreview);
+      importPreview.style.display = '';
+      const methodLabel = analysis.method === 'recognized-format'
+        ? 'Strategy Kit形式を認識しました'
+        : '自由形式をAIで分類しました';
+      importPreview.appendChild(el('div', {
+        style: 'font-size:12px;font-weight:700;color:#0f172a;margin-bottom:4px',
+        text: analysis.sourceTitle || '外部ドキュメント',
+      }));
+      importPreview.appendChild(el('div', {
+        style: 'font-size:11px;color:#475569;margin-bottom:8px',
+        text: methodLabel + '。取り込まないフェーズはチェックを外してください。',
+      }));
+      const phases = (window.SK_CORE.getPhases ? window.SK_CORE.getPhases() : [])
+        .filter(function (phase) { return Number(phase.no) !== 99; });
+      for (const section of analysis.sections || []) {
+        const line = el('label', {
+          style: 'display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px;align-items:start;padding:6px 0;border-top:1px solid #e2e8f0;font-size:11px;color:#0f172a',
+        });
+        const check = el('input', { type: 'checkbox', checked: true });
+        check.dataset.externalSectionKey = String(section['key']);
+        const select = el('select', {
+          style: 'width:100%;padding:4px;border:1px solid #cbd5e1;border-radius:4px;font-size:11px',
+        });
+        if (!phases.some(function (phase) { return String(phase.no) === String(section['key']); })) {
+          select.appendChild(el('option', {
+            value: String(section['key']),
+            text: '§' + section['key'] + ' ' + (section['title'] || '旧形式の小節'),
+            selected: true,
+          }));
+        }
+        for (const phase of phases) {
+          const value = String(phase.no);
+          select.appendChild(el('option', {
+            value,
+            text: '§' + value + ' ' + (phase.title || ''),
+            selected: value === String(section['key']),
+          }));
+        }
+        select.dataset.externalSectionSelect = String(section['key']);
+        const excerpt = String(section['body'] || '').replace(/\s+/g, ' ').slice(0, 120);
+        const detail = el('div', {}, select, el('div', {
+          style: 'margin-top:4px;color:#475569;line-height:1.45',
+          text: excerpt + (String(section['body'] || '').length > 120 ? '…' : ''),
+        }));
+        line.appendChild(check);
+        line.appendChild(detail);
+        importPreview.appendChild(line);
+      }
+      if (analysis.unclassified && analysis.unclassified.length) {
+        importPreview.appendChild(el('div', {
+          style: 'margin-top:8px;padding:6px;background:#fffbeb;border:1px solid #fcd34d;border-radius:4px;color:#92400e;font-size:11px',
+          text: '未分類・要確認: ' + analysis.unclassified.join(' / '),
+        }));
+      }
+    }
+
+    function collectExternalImportSections() {
+      if (!externalAnalysis) return [];
+      const selected = [];
+      for (const section of externalAnalysis.sections || []) {
+        const key = String(section['key']);
+        const checkbox = importPreview.querySelector('input[data-external-section-key="' + key + '"]');
+        const select = importPreview.querySelector('select[data-external-section-select="' + key + '"]');
+        if (!checkbox || !checkbox.checked) continue;
+        const phase = (window.SK_CORE.getPhases ? window.SK_CORE.getPhases() : [])
+          .find(function (candidate) { return String(candidate.no) === String(select ? select.value : key); });
+        selected.push({
+          ...section,
+          key: select ? select.value : key,
+          title: phase?.title || section['title'],
+        });
+      }
+      return selected;
+    }
 
     async function createFreshDraftFromUi(triggerButton) {
       const originalText = triggerButton ? triggerButton.textContent : '';
@@ -1014,71 +1126,35 @@
       draftProgressStatus.textContent = '確認中…';
       draftProgressStatus.style.color = '#475569';
       try {
-        const { docsClient, draftManager } = await loadDraftManagerDeps();
-        // URLが入力されていれば先に DRAFT を切り替える
         const urlVal = draftUrlInput.value.trim();
-        if (urlVal) {
-          const setRes = await draftManager.setDraftDocFromUrl(urlVal, {
-            docsClient,
-            storageArea: chrome.storage.sync,
-          });
-          draftProgressStatus.textContent = 'DRAFT切替: 「' + (setRes.draftDocTitle || '(無題)') + '」を使います。進捗を確認中…';
-          draftProgressStatus.style.color = '#475569';
-        }
-        const res = await draftManager.getDraftProgress({
-          docsClient,
+        if (!urlVal) throw new Error('取り込むGoogleドキュメントのURLを貼り付けてください');
+        const deps = await loadMasterMigrationDeps();
+        const setRes = await deps.draftManager.setDraftDocFromUrl(urlVal, {
+          docsClient: deps.docsClient,
           storageArea: chrome.storage.sync,
-          phases: window.SK_CORE.getPhases ? window.SK_CORE.getPhases() : [],
         });
-        const businessPatch = await applyDraftBusinessInfoToSettings(res.businessInfo);
-        const businessSuffix = businessPatch ? ' DRAFTから事業情報も引き継ぎました。' : '';
         const phases = window.SK_CORE.getPhases ? window.SK_CORE.getPhases() : [];
-        const resumeDeps = await loadAutomationResumeDeps();
-        cachedDraftProgress = res;
-        try {
-          const draftText = await draftManager.getDraftText({
-            docsClient,
-            storageArea: chrome.storage.sync,
-          });
-          cachedFailedSections = resumeDeps.findFailedSectionsFromDraftText(draftText.text || '');
-        } catch (_) {
-          cachedFailedSections = [];
-        }
-
-        const next = resumeDeps.computeNextDraftResumeIndex({ progress: res, phases });
-        if (next.complete) {
-          draftProgressStatus.textContent = cachedFailedSections.length
-            ? '旧DRAFT内に生成エラーがあります。取り込み後、マスター側の failed 章として確認できます。' + businessSuffix
-            : '旧DRAFT検出: 全章完了済みです。必要ならマスターへ取り込んでください。' + businessSuffix;
-          draftProgressStatus.style.color = cachedFailedSections.length ? '#b91c1c' : '#0f766e';
-        } else if (res.maxFilledSection < 0 && (!res.subFilledSections || Object.keys(res.subFilledSections).length === 0) && cachedFailedSections.length === 0) {
-          draftProgressStatus.textContent = '旧DRAFTに記入済みの章がありません。' + businessSuffix;
-          draftProgressStatus.style.color = '#475569';
-        } else {
-          draftResumeStartIndex = next.rawIndex;
-          const subFilled = res.subFilledSections || {};
-          const filledLabels = [];
-          (res.filledSections || []).forEach(function (n) {
-            const subs = subFilled[String(n)];
-            if (subs && subs.length > 0) {
-              subs.forEach(function (s) {
-                filledLabels.push('§' + n + '-' + s);
-              });
-            } else {
-              filledLabels.push('§' + n);
-            }
-          });
-          const filled = filledLabels.length ? filledLabels.join('・') : '未記入';
-          draftProgressStatus.textContent = '旧DRAFT検出: ' + filled + ' が記入済み。必要ならマスターへ取り込んでください。' + businessSuffix;
-          draftProgressStatus.style.color = '#0f766e';
-        }
-        refreshAutomationPrimaryAction();
+        draftProgressStatus.textContent = '「' + (setRes.draftDocTitle || '(無題)') + '」を解析中…';
+        externalAnalysis = await deps.externalImporter.analyzeExternalDocument({
+          docsClient: deps.docsClient,
+          geminiClient: deps.geminiClient,
+          sourceDocumentId: setRes.draftDocId,
+          phases,
+          model: modelSelect.value || 'gemini-3.6-flash',
+        });
+        await applyDraftBusinessInfoToSettings(externalAnalysis.businessInfo);
+        renderExternalImportPreview(externalAnalysis);
+        importDraftBtn.disabled = !externalAnalysis.sections.length;
+        draftProgressStatus.textContent = externalAnalysis.sections.length
+          ? externalAnalysis.sections.length + 'フェーズへの振り分け案を作成しました。確認して取り込んでください。'
+          : '取り込める内容を判定できませんでした。原文を確認してください。';
+        draftProgressStatus.style.color = externalAnalysis.sections.length ? '#0f766e' : '#b45309';
       } catch (e) {
         const help = describeAutomationError(e);
-        draftProgressStatus.textContent = 'DRAFT未作成またはGoogle連携エラー: ' + help.short;
+        draftProgressStatus.textContent = '外部ドキュメント解析エラー: ' + help.short;
         draftProgressStatus.style.color = '#b91c1c';
-        cachedDraftProgress = null;
-        cachedFailedSections = [];
+        externalAnalysis = null;
+        importPreview.style.display = 'none';
       } finally {
         checkProgressBtn.disabled = false;
         if (!isAutomationRunning) setAutomationRunIdle();
@@ -1089,66 +1165,79 @@
       event.preventDefault();
       event.stopPropagation();
       if (isAutomationRunning) return;
-      const ok = window.confirm('バックアップ作成後にマスターへ取り込みます。既存 DRAFT は削除しません。続行しますか？');
+      if (!externalAnalysis) {
+        window.SK_CORE.showToast('先に「内容を解析」を実行してください。', true, 4000);
+        return;
+      }
+      const selectedSections = collectExternalImportSections();
+      if (!selectedSections.length) {
+        window.SK_CORE.showToast('取り込むフェーズを1つ以上選んでください。', true, 4000);
+        return;
+      }
+      const destinationLabel = importDestination.value === 'new'
+        ? '新しいマスタードキュメントを作成します。'
+        : '現在のマスターへ選択内容を追記します。';
+      const ok = window.confirm(destinationLabel + ' 元の外部資料は変更しません。続行しますか？');
       if (!ok) return;
 
       const originalText = importDraftBtn.textContent;
       importDraftBtn.disabled = true;
       checkProgressBtn.disabled = true;
       importDraftBtn.textContent = '取り込み中…';
-      draftProgressStatus.textContent = 'DRAFTを確認し、マスターのバックアップを作成中…';
+      draftProgressStatus.textContent = importDestination.value === 'new'
+        ? '新しいマスターを作成中…'
+        : snapshotCheckbox.checked
+          ? '任意スナップショットを作成して取り込み中…'
+          : '現在のマスターへ取り込み中…';
       draftProgressStatus.style.color = '#475569';
 
       try {
         const deps = await loadMasterMigrationDeps();
-        const urlVal = draftUrlInput.value.trim();
-        if (urlVal) {
-          const setRes = await deps.draftManager.setDraftDocFromUrl(urlVal, {
+        const phases = window.SK_CORE.getPhases ? window.SK_CORE.getPhases() : [];
+        if (importDestination.value === 'new') {
+          const settings = window.SK_CORE.getState()?.settings || {};
+          await deps.masterDocManager.createMasterDocument({
             docsClient: deps.docsClient,
             storageArea: chrome.storage.sync,
+            phases,
+            industryLabel: settings.industryLabel || '',
+            storeName: settings.storeName || '',
+            title: (externalAnalysis.sourceTitle || '外部資料') + ' Strategy Kit Master',
           });
-          draftProgressStatus.textContent = 'DRAFT切替: 「' + (setRes.draftDocTitle || '(無題)') + '」を取り込みます。';
         }
-
-        const res = await deps.masterMigration.importDraftToMaster({
+        const res = await deps.externalImporter.importExternalSectionsToMaster({
           docsClient: deps.docsClient,
           driveClient: deps.driveClient,
-          draftManager: deps.draftManager,
           masterDocManager: deps.masterDocManager,
           masterSectionWriter: deps.masterSectionWriter,
           storageArea: chrome.storage.sync,
-          phases: window.SK_CORE.getPhases ? window.SK_CORE.getPhases() : [],
+          sourceDocumentId: externalAnalysis.sourceDocumentId,
+          sourceTitle: externalAnalysis.sourceTitle,
+          sections: selectedSections,
+          phases,
+          mode: importDestination.value === 'new' ? 'replace' : 'append',
+          createSnapshot: importDestination.value === 'append' && snapshotCheckbox.checked,
         });
 
         showMasterInfo(draftInfoArea, {
           masterDocUrl: res.masterDocUrl,
-          title: res.title,
-          backup: res.backup,
+          title: res.masterTitle,
+          backup: res.snapshot,
         });
-        const legacySuffix = res.masterFormat === 'legacy'
-          ? ' 旧形式マスターのため、既存本文を残して marker 付きで追記しました。'
-          : '';
-        const failedSuffix = res.failedCount
-          ? ' 生成エラー章 ' + res.failedCount + ' 件は failed として残しました。'
-          : '';
-        if (res.action === 'noop') {
-          draftProgressStatus.textContent = '取り込めるDRAFT本文がありません。DRAFT本文または対象URLを確認してください。';
-          draftProgressStatus.style.color = '#b45309';
-        } else {
-          draftProgressStatus.textContent = 'DRAFT取り込み完了: ' + res.importedCount + ' 件をマスターへ反映しました。DRAFTは削除していません。' + failedSuffix + legacySuffix;
-          draftProgressStatus.style.color = res.failedCount ? '#b45309' : '#0f766e';
-          window.SK_CORE.showToast('旧 DRAFT をマスターへ取り込みました。', false, 5000);
-        }
+        draftProgressStatus.textContent = res.action === 'duplicate'
+          ? '同じ内容はすでに取り込み済みです。二重書き込みを防止しました。'
+          : '取り込み完了: ' + res.importedCount + 'フェーズをマスターへ反映しました。原本は変更していません。';
+        draftProgressStatus.style.color = res.action === 'duplicate' ? '#b45309' : '#0f766e';
+        window.SK_CORE.showToast('外部資料をStrategy Kitへ取り込みました。', false, 5000);
         await refreshMasterActionCache();
-        await refreshDraftActionCache();
         refreshAutomationPrimaryAction();
       } catch (e) {
         const help = describeAutomationError(e);
-        draftProgressStatus.textContent = 'DRAFT取り込みエラー: ' + help.short;
+        draftProgressStatus.textContent = '外部資料の取り込みエラー: ' + help.short;
         draftProgressStatus.style.color = '#b91c1c';
-        window.SK_CORE.showToast('DRAFT取り込みに失敗しました。' + help.short, true, 6000);
+        window.SK_CORE.showToast('外部資料の取り込みに失敗しました。' + help.short, true, 6000);
       } finally {
-        importDraftBtn.disabled = false;
+        importDraftBtn.disabled = !externalAnalysis || !externalAnalysis.sections.length;
         checkProgressBtn.disabled = false;
         importDraftBtn.textContent = originalText;
       }
@@ -2057,7 +2146,10 @@
         onGenerateQuestions: async function () {
           // モードA: runFullAuto を使わず、質問設計プロンプトを単発 generateContent で実行
           const designBody = getModeADesignPromptBody();
-          const promptText = window.SK_CORE.applyTemplate(designBody);
+          const promptText = window.SK_CORE.preparePrompt({
+            id: 'phase-0-mode-a-hearing-design-prompt',
+            body: designBody,
+          });
           const geminiClient = await loadGeminiClient();
           const result = await geminiClient.generateContent({
             prompt: promptText,
@@ -2385,7 +2477,7 @@
     });
 
     // ===========================================================
-    // 旧 DRAFT 後処理セクション（整形＋Executive Summary）
+    // 選択した外部資料の派生ファイル作成（旧形式との互換処理を内部利用）
     // ===========================================================
     const postCard = el('div', {
       style: 'margin-top:16px;padding:10px 12px;background:#f0fdfa;border:1px solid #14b8a6;border-radius:6px',
@@ -2393,13 +2485,13 @@
     postCard.appendChild(
       el('div', {
         style: 'font-size:12px;font-weight:700;color:#0f766e;margin-bottom:4px',
-        text: '✨ 旧 DRAFT 後処理（任意）',
+        text: '✨ 外部資料から派生ファイルを作る（任意）',
       })
     );
     postCard.appendChild(
       el('p', {
         style: 'font-size:11px;color:#475569;margin:0 0 8px;line-height:1.5',
-        text: '旧DRAFTを Gemini で整形して読みやすくしたり、A4 1枚相当の Executive Summary を別ファイルとして生成できます。',
+        text: '上で選択した外部資料をGeminiで読みやすく整形したり、A4 1枚相当のExecutive Summaryを別ファイルとして生成できます。マスターへの取り込みとは別の任意機能です。',
       })
     );
 
@@ -2452,7 +2544,7 @@
     const cleanupBtn = el('button', {
       class: 'btn btn-ghost',
       type: 'button',
-      text: '🧹 旧DRAFTを整形（Docs + HTML）',
+      text: '🧹 外部資料を整形（Docs + HTML）',
       on: {
         click: async function () {
           cleanupBtn.disabled = true;
@@ -2468,7 +2560,7 @@
             });
           } catch (e) {
             console.error('[STRATEGY-KIT] DRAFT整形エラー:', e);
-            postStatus.textContent = 'DRAFT整形に失敗しました。Google連携とGemini API keyを確認してください。';
+            postStatus.textContent = '外部資料の整形に失敗しました。Google連携とGemini API keyを確認してください。';
             postStatus.style.color = '#b91c1c';
           } finally {
             cleanupBtn.disabled = false;
@@ -2606,28 +2698,14 @@
     });
   }
 
-  // 修正B: 全自動の「頭から実行する初回」以外（再試行・途中再開・失敗章スキップ等の継続実行）
-  //   ではバックアップ Doc を量産しないよう、バックアップ作成をスキップすべきか判定する純関数。
-  function shouldSkipFullAutoBackup_(opts) {
-    const o = opts || {};
-    const retrySections = Array.isArray(o.retrySections) ? o.retrySections : [];
-    const isContinuation =
-      retrySections.length > 0 ||
-      !!o.retryOnly ||
-      (Number(o.startIndex) > 0) ||
-      (Number(o.startSubNo) > 0);
-    return isContinuation;
-  }
-
-  async function ensureFullAutoMasterTarget_(ui, skipBackup) {
+  async function ensureFullAutoMasterTarget_(ui) {
     try {
-      const { docsClient, driveClient, masterDocManager } = await loadMasterWriterDeps();
+      const { docsClient, masterDocManager } = await loadMasterWriterDeps();
       const settings = window.SK_CORE.getState()?.settings || {};
       let info = await masterDocManager.getStoredMasterDocInfo({
         docsClient,
         storageArea: chrome.storage.sync,
       });
-      let backup = null;
       let created = false;
 
       if (!info.exists) {
@@ -2648,53 +2726,21 @@
           masterInfo: createdInfo.masterInfo,
         };
         created = true;
-      } else if (!skipBackup) {
-        // 既存マスター + 頭からの初回実行のときだけバックアップを取る（破壊防止の安全網）
-        ui.progressLabel.textContent = 'マスターのバックアップを作成中…';
-        backup = await createMasterBackupCopy_({
-          driveClient,
-          masterInfo: info.masterInfo || info,
-        });
       }
 
       showMasterInfo(ui.draftInfoArea, {
         masterDocUrl: info.docUrl,
         title: info.title,
-        backup,
       });
-      ui.progressLabel.textContent = backup
-        ? 'バックアップ作成済み。マスター本体へ書き込みます。'
-        : created
+      ui.progressLabel.textContent = created
         ? '新規マスターを作成しました。マスター本体へ書き込みます。'
-        : '既存マスターへ続きを書き込みます。';
+        : '既存マスターへ書き込みます。変更はGoogleドキュメントの履歴から戻せます。';
       return 'ready';
     } catch (e) {
       ui.progressLabel.textContent = 'マスター準備失敗: ' + (e.message || String(e));
-      window.SK_CORE.showToast('マスター準備に失敗しました。バックアップ作成またはGoogle連携を確認してください。', true, 6000);
+      window.SK_CORE.showToast('マスター準備に失敗しました。Google連携を確認してください。', true, 6000);
       return 'cancelled';
     }
-  }
-
-  async function createMasterBackupCopy_({ driveClient, masterInfo }) {
-    if (!driveClient || typeof driveClient.copyFile !== 'function') {
-      throw new Error('driveClient.copyFile is required');
-    }
-    const documentId = masterInfo?.documentId;
-    if (!documentId) throw new Error('マスター Doc が未設定です');
-    const baseTitle = masterInfo.title || (brandFooterLabel_() + ' Master');
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const copied = await driveClient.copyFile(documentId, {
-      name: '[BACKUP before full auto] ' + baseTitle + ' ' + timestamp,
-    });
-    const backup = {
-      documentId: copied.id,
-      docUrl: copied.webViewLink || ('https://docs.google.com/document/d/' + encodeURIComponent(copied.id) + '/edit'),
-      title: copied.name || '',
-      sourceMasterDocumentId: documentId,
-      createdAt: new Date().toISOString(),
-    };
-    await chrome.storage.sync.set({ sk_master_backup_v012: backup });
-    return backup;
   }
 
   async function showCurrentMasterInfo_(container) {
@@ -2950,14 +2996,7 @@
       return;
     }
 
-    // 修正B: 再試行・途中再開・失敗章スキップ等の継続実行ではバックアップを作らない
-    const skipBackup = shouldSkipFullAutoBackup_({
-      startIndex: startIndex,
-      startSubNo: startSubNo,
-      retrySections: retrySections,
-      retryOnly: opts && opts.retryOnly,
-    });
-    const masterReady = await ensureFullAutoMasterTarget_(ui, skipBackup);
+    const masterReady = await ensureFullAutoMasterTarget_(ui);
     if (masterReady === 'cancelled') {
       ui.progressLabel.textContent = 'キャンセルされました。';
       publishTaskMonitor_({ status: 'idle', visible: false });
@@ -3565,13 +3604,7 @@
       return;
     }
 
-    // 修正B: 再試行・途中再開等の継続実行ではバックアップを作らない
-    const skipBackup = shouldSkipFullAutoBackup_({
-      startIndex: startIndex,
-      startSubNo: startSubNo,
-      retrySections: (opts && opts.retrySections) || [],
-    });
-    const masterReady = await ensureFullAutoMasterTarget_(ui, skipBackup);
+    const masterReady = await ensureFullAutoMasterTarget_(ui);
     if (masterReady === 'cancelled') {
       ui.progressLabel.textContent = 'キャンセルされました。';
       publishTaskMonitor_({ status: 'idle', visible: false });
@@ -3771,7 +3804,7 @@
     allAis.forEach(function (id) {
       const opt = el('option', {
         value: id,
-        text: (aiLabels[id] || id) + (id === recommended ? '（推奨）' : ''),
+        text: (aiLabels[id] || id) + (id === recommended ? '（初期候補）' : ''),
       });
       if (id === recommended) opt.selected = true;
       aiSelect.appendChild(opt);
@@ -3797,7 +3830,11 @@
             if (!resp || !resp.ok) {
               throw new Error(resp?.error || 'insert-failed');
             }
-            window.SK_CORE.showToast('AIタブを開いて挿入しました（送信は手動で）');
+            window.SK_CORE.showToast(
+              resp.recoveredConnection
+                ? '古いAIタブは残したまま、新しいタブへ再接続して挿入しました（送信は手動で）'
+                : 'AIタブを開いて挿入しました（送信は手動で）'
+            );
           } catch (error) {
             console.error('[STRATEGY-KIT] 挿入エラー:', error?.message || error);
             window.SK_CORE.showToast(
@@ -4577,32 +4614,35 @@
   // サイクル各ステップのプロンプト構築
   // R1: cycleAccumulated を末尾に展開して『これまでの経過』を必ずプロンプトに含める
   function buildCycleStepPrompt(step, theme, prevOutputs, originalPrompt, cycleAccumulated) {
+    const wrapData = function (label, value) {
+      return window.SK_CORE.wrapUntrustedData(label, value || '（未取得）');
+    };
     let body = step.body || '';
     body = body.replaceAll('★テーマ★', theme);
     body = body.replaceAll('★1次と同じテーマ★', theme);
     body = body.replaceAll(
       '★research-NN-primary.md を貼付★',
-      prevOutputs.primary || '（未取得）'
+      wrapData('1次リサーチ出力', prevOutputs.primary)
     );
     body = body.replaceAll(
       '★research-NN-primary.md の内容を貼付★',
-      prevOutputs.primary || '（未取得）'
+      wrapData('1次リサーチ出力', prevOutputs.primary)
     );
     body = body.replaceAll(
       '★research-NN-secondary.md を貼付★',
-      prevOutputs.secondary || '（未取得）'
+      wrapData('2次リサーチ出力', prevOutputs.secondary)
     );
     body = body.replaceAll(
       '★research-NN-secondary.md の内容を貼付★',
-      prevOutputs.secondary || '（未取得）'
+      wrapData('2次リサーチ出力', prevOutputs.secondary)
     );
     body = body.replaceAll(
       '★research-NN-factcheck.md を貼付（無ければ「実施せず」）★',
-      prevOutputs.factcheck || '（実施せず）'
+      wrapData('ファクトチェック出力', prevOutputs.factcheck || '（実施せず）')
     );
     body = body.replaceAll(
       '★research-NN-factcheck.md を貼付★',
-      prevOutputs.factcheck || '（実施せず）'
+      wrapData('ファクトチェック出力', prevOutputs.factcheck || '（実施せず）')
     );
     // ★業種★ ★店舗名★ ★テーマ★（一般版）など共通プレースホルダを置換
     if (window.SK_CORE && typeof window.SK_CORE.applyTemplate === 'function') {
@@ -4636,19 +4676,15 @@
           return '## ' + k + '\n' + cycleAccumulated[k];
         })
         .join('\n\n');
-      body +=
-        '\n\n---\n\n' +
-        '【これまでの経過・コンテキスト】\n' +
-        '※このリサーチは下記フェーズを掘り下げるための作業です。出力はこの問いに答える素材として使えるよう構成してください。\n\n' +
-        ctxBlock;
+      body += '\n\n---\n\n' + window.SK_CORE.wrapUntrustedData(
+        'これまでの経過・コンテキスト',
+        'このリサーチは下記フェーズを掘り下げるための作業です。出力はこの問いに答える素材として使えるよう構成してください。\n\n' + ctxBlock
+      );
     } else if (originalPrompt) {
       // フォールバック: cycleAccumulated 未供給時は元のフェーズプロンプトだけでも入れる
-      body +=
-        '\n\n---\n\n【元のフェーズの問い】\n' +
-        '※このリサーチは下記フェーズを掘り下げるためのものです。出力はこの問いに答える素材として使えるよう構成してください。\n\n' +
-        originalPrompt;
+      body += '\n\n---\n\n' + window.SK_CORE.wrapUntrustedData('元のフェーズの問い', originalPrompt);
     }
-    return body;
+    return window.SK_CORE.preparePrompt({ id: step.id || '', body: body });
   }
 
   // サイクル1ステップ用のUIを overlay 内に出して、ユーザー入力を待つ
@@ -4674,8 +4710,8 @@
       });
       const altText =
         step.alternativeFor && step.alternativeFor.length
-          ? '（推奨: ' + step.for + ' / 代替: ' + step.alternativeFor.join('・') + '）'
-          : '（推奨: ' + step.for + '）';
+          ? '（初期候補: ' + step.for + ' / 代替: ' + step.alternativeFor.join('・') + '）'
+          : '（初期候補: ' + step.for + '）';
       meta.textContent =
         '出力ファイル: ' + (step.outputFile || '?') + '　／　目安: ' + (step.estimatedMinutes || '?') + '分　' + altText;
       overlay.appendChild(meta);

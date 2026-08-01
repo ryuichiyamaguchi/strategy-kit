@@ -74,12 +74,62 @@
     return false;
   }
 
+  function isUsableTarget(el) {
+    if (!el || el.disabled || el.readOnly) return false;
+    if (el.getAttribute('aria-hidden') === 'true') return false;
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
   function findFirstMatching(selectors) {
     for (const sel of selectors) {
-      const el = document.querySelector(sel);
-      if (el) return el;
+      const candidates = document.querySelectorAll(sel);
+      for (const el of candidates) {
+        if (isUsableTarget(el)) return el;
+      }
     }
     return null;
+  }
+
+  /**
+   * AIごとの入力欄を同じ規約で扱う。
+   *
+   * 対象が無いフレームは応答しない。tabs.sendMessage は全フレームの
+   * content script に届くため、入力欄を持つ埋め込みフレームだけが
+   * 成功応答を返せるようにする。入力欄がまだ描画されていない場合は
+   * background 側が短時間再試行し、最終的な no-target を判定する。
+   */
+  function registerInsertionHandler({ site, selectors }) {
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      if (msg?.type !== 'STRATEGY_KIT_INSERT') return false;
+      const target = findFirstMatching(selectors);
+      if (!target) return false;
+
+      try {
+        const ok = insertSmart(target, msg.text);
+        showToast(
+          ok
+            ? 'プロンプトを挿入しました（送信は手動で行ってください）'
+            : '挿入に失敗しました',
+          { error: !ok }
+        );
+        sendResponse({
+          ok,
+          site,
+          ...(ok ? {} : { error: 'insert-failed' }),
+        });
+      } catch (error) {
+        showToast('エラー: ' + error.message, { error: true });
+        sendResponse({
+          ok: false,
+          error: error?.message || String(error),
+          site,
+        });
+      }
+      return true;
+    });
   }
 
   function showToast(message, opts = {}) {
@@ -120,6 +170,8 @@
     insertIntoTextarea,
     insertIntoContentEditable,
     findFirstMatching,
+    isUsableTarget,
+    registerInsertionHandler,
     showToast,
     copyToClipboardFallback,
   };

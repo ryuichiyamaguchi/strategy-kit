@@ -2,7 +2,7 @@ import {
   collectSectionMarkers,
   normalizeSectionKey,
 } from './section-state.js';
-import { computeEndIndex } from './docs-sections.js';
+import { computeEndIndex, getTextInRange } from './docs-sections.js';
 import { buildGoogleDocUrl } from './draft-manager.js';
 
 const MASTER_KEY = 'sk_master_doc_v012';
@@ -98,8 +98,6 @@ export function buildMasterSectionWriteRequests(doc, {
     .sort((a, b) => compareSectionKeys(a['key'], b['key']) || (a.startIndex - b.startIndex))[0] || null;
   const baseInsertIndex = successor ? successor.startIndex : computeEndIndex(doc);
 
-  // 章ブロックは常にマーカー付きで丸ごと挿入する（移動を伴うため）。
-  const insertText = `\n[[SK-SECTION:§${key}]]${block.text}`;
   const headingBaseOffset = `\n[[SK-SECTION:§${key}]]`.length + block.headingStartOffset;
   const headingLength = block.headingEndOffset - block.headingStartOffset;
 
@@ -113,6 +111,16 @@ export function buildMasterSectionWriteRequests(doc, {
     const laterInDoc = markers.find((marker) => marker.startIndex > existing.startIndex);
     deleteEnd = laterInDoc ? laterInDoc.startIndex : computeEndIndex(doc);
   }
+
+  // 対象フェーズに後から追記されたリサーチブロックは、章の再実行時も保持する。
+  // 通常本文は従来どおり置換するが、SK-RESEARCH-ADDENDUM 以降だけを
+  // 新しい章ブロックの末尾へ戻し、深掘り結果の消失を防ぐ。
+  const preservedResearch = existing
+    ? extractResearchAddenda(doc, deleteStart, deleteEnd, key)
+    : '';
+
+  // 章ブロックは常にマーカー付きで丸ごと挿入する（移動を伴うため）。
+  const insertText = `\n[[SK-SECTION:§${key}]]${block.text}${preservedResearch}`;
 
   // batchUpdate は配列順に逐次適用される。delete を先に適用し、
   // 挿入位置が削除範囲より後方なら削除長ぶんだけインデックスを補正する。
@@ -247,6 +255,16 @@ function normalizeSectionBlock(block) {
     headingStartOffset: Number.isFinite(block.headingStartOffset) ? block.headingStartOffset : 0,
     headingEndOffset: Number.isFinite(block.headingEndOffset) ? block.headingEndOffset : 0,
   };
+}
+
+function extractResearchAddenda(doc, startIndex, endIndex, sectionKey) {
+  if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex) || endIndex <= startIndex) return '';
+  const phaseKey = String(sectionKey).split('-')[0];
+  const text = getTextInRange(doc, startIndex, endIndex);
+  const marker = `[[SK-RESEARCH-ADDENDUM:phase=${phaseKey} `;
+  const markerIndex = text.indexOf(marker);
+  if (markerIndex < 0) return '';
+  return `\n${text.slice(markerIndex).trim()}\n`;
 }
 
 function requireSectionKey(value) {

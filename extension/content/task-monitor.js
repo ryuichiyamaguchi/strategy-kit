@@ -1,6 +1,9 @@
 // STRATEGY-KIT task monitor
 // The page surface shows only the active task. Mission route ownership stays in the side panel.
 (function () {
+  // AI入力欄検出は埋め込みフレームでも動かすが、実況UIはトップ画面に1つだけ表示する。
+  if (window.top !== window.self) return;
+
   const STORAGE_KEY = 'sk_task_monitor_v1';
   const STALE_AFTER_MS = 10 * 60 * 1000;
   const COMPLETED_VISIBLE_MS = 15 * 1000;

@@ -15,10 +15,26 @@ export function isRetryableTabMessageError(error) {
   );
 }
 
+export function isNoTargetTabMessageError(error) {
+  const message = String(error?.message || error || '');
+  return (
+    message.includes('The message port closed') ||
+    message.includes('message channel closed before a response was received')
+  );
+}
+
+export function shouldRecoverTabMessageResponse(response) {
+  return (
+    response == null ||
+    (response.ok === false && response.error === 'no-target')
+  );
+}
+
 /**
  * Newly-created AI tabs do not have their content script immediately.
- * Retry only connection/readiness failures; a real content-script response
- * such as { ok:false, error:'no-target' } must be returned to the caller.
+ * Retry connection/readiness failures. When retryResponseFn is supplied,
+ * a content-script readiness response (no-target / no response yet) can also
+ * be retried while a SPA or embedded frame finishes rendering its input.
  */
 export async function sendTabMessageWithRetry({
   tabsApi,
@@ -27,13 +43,18 @@ export async function sendTabMessageWithRetry({
   attempts = DEFAULT_RETRY_ATTEMPTS,
   delayMs = DEFAULT_RETRY_DELAY_MS,
   waitFn = wait,
+  retryResponseFn = null,
 }) {
   let lastError = null;
   const maxAttempts = Math.max(1, Number(attempts) || 1);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      return await tabsApi.sendMessage(tabId, message);
+      const response = await tabsApi.sendMessage(tabId, message);
+      const shouldRetryResponse =
+        typeof retryResponseFn === 'function' && retryResponseFn(response);
+      if (!shouldRetryResponse || attempt === maxAttempts) return response;
+      await waitFn(delayMs);
     } catch (error) {
       lastError = error;
       if (!isRetryableTabMessageError(error) || attempt === maxAttempts) {
@@ -44,4 +65,55 @@ export async function sendTabMessageWithRetry({
   }
 
   throw lastError || new Error('AIタブへ接続できませんでした。');
+}
+
+/**
+ * 拡張機能の再読み込み前から開いていたタブには content script が存在しない。
+ * そのタブを再読み込みすると未送信の入力を失うため、接続エラーの場合だけ
+ * recoverTab() で新しいAIタブを作り、そちらへ挿入する。
+ */
+export async function sendTabMessageWithRecovery({
+  tabsApi,
+  tabId,
+  message,
+  recoverTab,
+  initialAttempts = 4,
+  initialDelayMs = 200,
+  recoveredAttempts = DEFAULT_RETRY_ATTEMPTS,
+  recoveredDelayMs = DEFAULT_RETRY_DELAY_MS,
+  waitFn = wait,
+}) {
+  let initialResponse = null;
+  try {
+    initialResponse = await sendTabMessageWithRetry({
+      tabsApi,
+      tabId,
+      message,
+      attempts: initialAttempts,
+      delayMs: initialDelayMs,
+      waitFn,
+      retryResponseFn: shouldRecoverTabMessageResponse,
+    });
+    if (!shouldRecoverTabMessageResponse(initialResponse)) return initialResponse;
+  } catch (error) {
+    if (!isRetryableTabMessageError(error) || typeof recoverTab !== 'function') {
+      throw error;
+    }
+  }
+  if (typeof recoverTab !== 'function') return initialResponse;
+  const recoveredTab = await recoverTab();
+  if (!recoveredTab?.id) return initialResponse || { ok: false, error: 'recovery-tab-not-created' };
+  const response = await sendTabMessageWithRetry({
+    tabsApi,
+    tabId: recoveredTab.id,
+    message,
+    attempts: recoveredAttempts,
+    delayMs: recoveredDelayMs,
+    waitFn,
+    retryResponseFn: shouldRecoverTabMessageResponse,
+  });
+  if (!response || typeof response !== 'object') {
+    return { ok: !!response, recoveredConnection: true, tabId: recoveredTab.id };
+  }
+  return { ...response, recoveredConnection: true, tabId: recoveredTab.id };
 }

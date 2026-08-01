@@ -80,10 +80,10 @@
             <p id="mission-phase-desc" class="mission-phase-desc"></p>
             <div id="mission-mode-banner" class="mission-mode-banner" hidden></div>
             <p id="mission-phase-guide" class="mission-phase-guide">
-              この画面から、フェーズ選択・プロンプト・AI・半自動／全自動の実行を直接操作できます。
+              フェーズごとのプロンプト確認・AIへの挿入・回答保存はサイドパネルで行います。
             </p>
             <button id="mission-open-phase" class="mission-rail-action" type="button">
-              このフェーズを操作
+              サイドパネルでこのフェーズを開く
             </button>
             <button id="mission-restart-phase" class="mission-rail-action mission-rail-action-danger" type="button">
               このフェーズからやり直す
@@ -205,6 +205,9 @@
               <p id="mission-sparring-context" class="mission-sparring-context">
                 案件の種類を問わず、不足している情報をAIと1問ずつ整理できます。
               </p>
+              <p class="mission-sparring-note">
+                壁打ちの会話中は、戦略やマスターへまだ反映されません。「ヒアリング要約を作る」→「確定して今後のプロンプトに反映」まで行うと反映されます。
+              </p>
 
               <label class="mission-field mission-field-wide">
                 <span>やりとりの方法</span>
@@ -268,8 +271,11 @@
                   ></textarea>
                 </label>
                 <p id="mission-sparring-counter" class="mission-sparring-note"></p>
+                <p class="mission-sparring-note">
+                  確定すると、この案件のヒアリング要約を上書きします。以後に新しく作るフェーズでは事業コンテキストとして参照されます。すでにマスターへ保存済みの章は自動では書き換えません。必要な章は「このフェーズからやり直す」で再生成してください。
+                </p>
                 <button id="mission-sparring-confirm-btn" class="mission-btn mission-btn-run" type="button">
-                  この要約で確定
+                  確定して今後のプロンプトに反映
                 </button>
               </div>
 
@@ -417,7 +423,7 @@
         <article>
           <span>半自動</span>
           <h3>回答を確認しながら進める</h3>
-          <p>「このフェーズを操作」でサイドパネルを開き、プロンプトをコピー → AIで回答を作る → 内容を確認して保存、の順です。</p>
+          <p>「サイドパネルでこのフェーズを開く」を押し、プロンプトをAIへ挿入 → 回答を確認 → 保存、の順です。このボタンだけではAI実行やマスター保存は行いません。</p>
         </article>
         <article>
           <span>全自動</span>
@@ -429,7 +435,7 @@
       <section class="mission-help-section">
         <h3>ボタンを押すと、どこが開く？</h3>
         <dl class="mission-help-map">
-          <div><dt>このフェーズを操作</dt><dd>サイドパネルの同じフェーズ</dd></div>
+          <div><dt>サイドパネルでこのフェーズを開く</dt><dd>サイドパネルの同じフェーズを選択（実行・保存はしません）</dd></div>
           <div><dt>AIで開く</dt><dd>現在選んでいるAIのタブ</dd></div>
           <div><dt>マスターを開く</dt><dd>作成中のGoogle Docs戦略書</dd></div>
           <div><dt>設定</dt><dd>Google連携・APIキーなどの設定画面</dd></div>

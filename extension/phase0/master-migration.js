@@ -20,6 +20,12 @@ export function extractDraftSections(doc, phases = []) {
     .map(toPublicSection);
 }
 
+// 外部資料の追記時は partial を含む既存本文も保持する必要がある。
+// 旧DRAFT取り込みの対象判定とは分け、認識できた全セクションを公開する。
+export function extractDocumentSections(doc, phases = []) {
+  return collectDraftSectionCandidates(doc, phases).map(toPublicSection);
+}
+
 export function buildDraftImportPlan({
   draftDoc,
   masterDoc,
@@ -51,9 +57,10 @@ export async function importDraftToMaster({
   masterSectionWriter,
   storageArea = chrome.storage.sync,
   phases = [],
+  createSnapshot = false,
   now = () => new Date(),
 } = {}) {
-  assertImportDeps({ docsClient, driveClient, draftManager, masterDocManager, masterSectionWriter });
+  assertImportDeps({ docsClient, driveClient, draftManager, masterDocManager, masterSectionWriter, requireDrive: createSnapshot });
 
   const draftInfo = await draftManager.getStoredDraftInfo({
     docsClient,
@@ -93,12 +100,16 @@ export async function importDraftToMaster({
     };
   }
 
-  const backup = await createMasterBackupCopy({
-    driveClient,
-    storageArea,
-    masterInfo: masterInfo.masterInfo || masterInfo,
-    now,
-  });
+  const backup = createSnapshot
+    ? await createMasterBackupCopy({
+        driveClient,
+        storageArea,
+        masterInfo: masterInfo.masterInfo || masterInfo,
+        now,
+        reason: 'external-import',
+        namePrefix: '[SNAPSHOT before external import]',
+      })
+    : null;
 
   const written = [];
   for (const section of plan.sections) {
@@ -151,6 +162,8 @@ export async function createMasterBackupCopy({
   driveClient,
   storageArea = chrome.storage.sync,
   masterInfo,
+  reason = 'external-import',
+  namePrefix = '[SNAPSHOT before external import]',
   now = () => new Date(),
 } = {}) {
   if (!driveClient || typeof driveClient.copyFile !== 'function') {
@@ -163,14 +176,14 @@ export async function createMasterBackupCopy({
   const baseTitle = masterInfo.title || 'STRATEGY-KIT Master';
   const timestamp = createdAt.replace(/[:.]/g, '-');
   const copied = await driveClient.copyFile(documentId, {
-    name: '[BACKUP before draft import] ' + baseTitle + ' ' + timestamp,
+    name: namePrefix + ' ' + baseTitle + ' ' + timestamp,
   });
   const backup = {
     documentId: copied.id,
     docUrl: copied.webViewLink || buildGoogleDocUrl(copied.id),
     title: copied.name || '',
     sourceMasterDocumentId: documentId,
-    reason: 'draft-import',
+    reason,
     createdAt,
   };
   await storageArea.set({ [MASTER_BACKUP_KEY]: backup });
@@ -183,10 +196,10 @@ export async function createMasterBackupCopy({
 // （それらのキーワードで別分類に丸められ、復旧導線が消えるのを避ける）。原因は cause に保持。
 function buildPartialImportError({ cause, section, writtenCount, backup } = {}) {
   const label = ('§' + (section?.['key'] || '') + ' ' + (section?.title || '')).trim().slice(0, 14);
-  const message = 'DRAFT取り込みが途中で失敗しました（' + label + '）。'
+  const message = '外部資料の取り込みが途中で失敗しました（' + label + '）。'
     + 'マスターに' + writtenCount + '章書き込み済み・残り未適用。'
-    + 'もう一度「取り込み」を押すと済んだ章は自動で置換され途中から復旧します'
-    + '（取り込み前バックアップDoc作成済み）。';
+    + 'もう一度「取り込み」を押すと途中から復旧できます。'
+    + (backup ? '任意スナップショットは作成済みです。' : '元の外部資料は変更していません。');
   const error = new Error(message);
   error.code = FAILURE_ERROR_CODE;
   error.partialImport = true;
@@ -528,11 +541,11 @@ function isTemplateTableCell(cell) {
   return /^(社名|戦略仮説|USP仮説|価格帯|出典URLor§章番号|タグ|項目|内容)$/.test(normalized);
 }
 
-function assertImportDeps({ docsClient, driveClient, draftManager, masterDocManager, masterSectionWriter }) {
+function assertImportDeps({ docsClient, driveClient, draftManager, masterDocManager, masterSectionWriter, requireDrive = false }) {
   if (!docsClient || typeof docsClient.getDocument !== 'function') {
     throw new Error('docsClient.getDocument is required');
   }
-  if (!driveClient || typeof driveClient.copyFile !== 'function') {
+  if (requireDrive && (!driveClient || typeof driveClient.copyFile !== 'function')) {
     throw new Error('driveClient.copyFile is required');
   }
   if (!draftManager || typeof draftManager.getStoredDraftInfo !== 'function') {

@@ -3,6 +3,7 @@ export const FINANCE_GATE_RECOMMENDED_MODEL = 'gemini-3.6-flash';
 
 const DEFERRAL_PATTERN = /詳細な試算数値.*PDCA|PDCA.*更新|測定結果に基づき.*アップデート|後日.*更新|後で.*確認/;
 const PLACEHOLDER_PATTERN = /[◯〇○]|空欄|未設定|N\/A|TBD/i;
+const EXPLICIT_UNKNOWN_PATTERN = /\bunknown\b|不明|未取得|要確認|測定前|データなし/i;
 
 const REQUIRED_METRICS = [
   {
@@ -232,14 +233,16 @@ function classifyVerdict(cell) {
   const text = normalizeDigits(cell || '');
   const isNoGo = /no-?go|却下|不採用/i.test(text);
   const isConditional = /条件付/.test(text);
+  const isHold = /判定保留|保留|pending|unknown/i.test(text);
   const isGo = /\bgo\b|採用|ＧＯ|GO/i.test(text) && !isNoGo;
   return {
     raw: String(cell || '').trim(),
     isNoGo,
     isConditional,
+    isHold,
     isGo,
     plainGo: isGo && !isConditional,
-    known: isNoGo || isGo || isConditional,
+    known: isNoGo || isGo || isConditional || isHold,
   };
 }
 
@@ -333,15 +336,25 @@ export function validateUnitEconomicsArithmetic(text, options = {}) {
     const name = slot.name || '枠';
     const m = slot.metrics;
     const range = {};
+    const explicitUnknowns = [];
     // 欠損／プレースホルダ検出
     for (const label of NUMERIC_SUMMARY_LABELS) {
-      const r = parseRange(m[label]);
+      const cell = String(m[label] || '');
+      const explicitlyUnknown = EXPLICIT_UNKNOWN_PATTERN.test(cell) && !hasNumber(cell);
+      const r = parseRange(cell);
       range[label] = r;
-      if (!r) violations.push(`${name}: ${label} が数値で埋まっていません（◯・空欄・要確認のままにしない）`);
+      if (explicitlyUnknown) {
+        explicitUnknowns.push(label);
+      } else if (!r) {
+        violations.push(`${name}: ${label} が数値または明示的な unknown で埋まっていません（◯・空欄・TBDのままにしない）`);
+      }
     }
     const verdict = classifyVerdict(m['採否判定']);
     if (!verdict.known) {
-      violations.push(`${name}: 採否判定が GO / 条件付GO / NO-GO のいずれでもありません`);
+      violations.push(`${name}: 採否判定が GO / 条件付GO / NO-GO / 判定保留 のいずれでもありません`);
+    }
+    if (explicitUnknowns.length && !verdict.isHold) {
+      violations.push(`${name}: ${explicitUnknowns.join('・')} が unknown のため、採否は「判定保留」にしてください`);
     }
 
     const budget = range['投下予算'];
@@ -485,7 +498,7 @@ export function buildUnitEconomicsRepairPrompt({
     '【数値矛盾（算術整合違反・未解決）】',
     violations || '- なし',
     '',
-    '【記入済みの要約表サンプル（この構造をそのままコピーし、数字だけ自案件の値に置換する）】',
+    '【要約表の構造例（数値は説明用であり、自案件へ転記禁止）】',
     '| 指標 | Quick Win 1 | Quick Win 2 | 地道 |',
     '|---|---|---|---|',
     '| 投下予算 | 100,000-200,000円 | 80,000-150,000円 | 30,000-60,000円 |',
@@ -496,17 +509,17 @@ export function buildUnitEconomicsRepairPrompt({
     '| LTV_CAC比(粗利) | 7-15倍 | 7-17倍 | 10-29倍 |',
     '| Payback月数 | 1-3ヶ月 | 1-3ヶ月 | 1-2ヶ月 |',
     '| 損益分岐 | 20-30人 | 20-30人 | 15-25人 |',
-    '| 採否判定 | GO | GO | GO |',
-    '※ 上のサンプルはヘッダ `| 指標 | Quick Win 1 | Quick Win 2 | 地道 |` を一字一句そのままにし、9行すべてを数字レンジで埋める。◯・空欄・要確認 を一つも残さない。縦持ち表にしない。',
+    '| 採否判定 | 判定保留 | 判定保留 | 判定保留 |',
+    '※ ヘッダと9行の構造だけを使う。数値が取得できないセルは `unknown [不明]` とし、その列の採否を「判定保留」にする。サンプル数値を転記しない。',
     '',
     '【必須条件】',
     '- Quick Win 1 / Quick Win 2 / 地道 をすべて出す（旧表記の Quick Win 3 は地道として扱う）',
-    '- 各短期枠に 投下予算 / CAC / 想定獲得人数 / 売上LTV / 粗利LTV / Payback / 損益分岐 / 採否判定 を必ず数値入りで出す',
+    '- 各短期枠に 投下予算 / CAC / 想定獲得人数 / 売上LTV / 粗利LTV / Payback / 損益分岐 / 採否判定 を出す。取得済みの値は数値、未取得は `unknown [不明]`',
     '- ラベル固定の「ユニットエコノミクス要約表」を必ず出力する（ラベル文字列は変更しない）',
     '- 想定獲得人数 = 投下予算 ÷ CAC（手入力で書き換えない）／ 粗利LTV = 売上LTV × 粗利率',
     '- 採否は「粗利LTV/CAC ≥ 3」かつ「Payback ≤ 12ヶ月」で GO。満たさなければ 条件付GO / NO-GO にする',
-    '- 空欄、◯円、後で確認、PDCAで更新、測定後に更新、という先送りは禁止',
-    '- 実測がない項目は、元プロンプトの業種別ベンチマーク low/mid/high から [仮説] として仮置きする',
+    '- 空欄、◯円、TBDは禁止。不明なら理由付きの `unknown [不明]` とし、必要な計測と判定条件を書く',
+    '- 実測がない項目は、業種別ベンチマークの適用条件と出典を確認できる場合だけ [仮説] レンジに使う。確認できなければ unknown',
     '- 出力はMarkdownのみ。HTMLは出さない',
     '',
     `【元の${sectionLabel}プロンプト】`,

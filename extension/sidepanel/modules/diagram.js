@@ -1,6 +1,6 @@
 // STRATEGY-KIT v0.9 — 図解生成モジュール
 // 役割:
-//   DRAFT / 原本マスター / 手動入力を元に、HTMLカード中心の図解を生成する
+//   マスタードキュメント / 手動入力 / 旧形式文書を元に、HTMLカード中心の図解を生成する
 //   生成は AI（Gemini API or 手動 AI挿入）経由
 //   Mermaid は上級者向けの後方互換として残す
 
@@ -33,9 +33,9 @@
   const EXPERT_GROUP_LABEL = '上級者向け（Mermaid）';
   const NOTEBOOKLM_SOURCE_BASENAME = 'notebooklm-source-all';
   const NOTEBOOKLM_SOURCE_CHOICES = [
-    { value: 'draft', label: 'DRAFT' },
-    { value: 'master', label: 'master document' },
+    { value: 'master', label: 'master document（推奨）' },
     { value: 'chapter', label: 'chapter record' },
+    { value: 'draft', label: '旧形式文書（互換）' },
   ];
 
   async function loadDiagramTypes() {
@@ -148,7 +148,7 @@
   // source: 'master' (原本) | 'draft' (DRAFT版)
   async function fetchSourceText(sectionNos, source) {
     const requestedSource = source === 'draft' ? 'draft' : 'master';
-    const sourceLabel = requestedSource === 'draft' ? 'DRAFT版' : '原本マスター';
+    const sourceLabel = requestedSource === 'draft' ? '旧形式文書' : 'マスタードキュメント';
 
     const fromRequested = await fetchSectionsFromDocs(sectionNos, requestedSource);
     if (fromRequested.parts.length) {
@@ -183,7 +183,7 @@
       sourceUsed: requestedSource,
       requestedSource: requestedSource,
       notice: requestedSource === 'draft'
-        ? 'DRAFT本文を取得できませんでした。原本マスターも取得できなかったため、図解生成を継続できません。'
+        ? '旧形式文書を取得できず、マスタードキュメントも未設定のため図解生成を継続できません。'
         : sourceLabel + 'から本文を取得できませんでした。',
       fallbackUsed: false,
       missingSections: sectionNos.map(normalizeSectionNo).filter(Boolean),
@@ -192,15 +192,16 @@
 
   function buildDiagramPrompt(diagram, sourceInfo) {
     const sourceText = typeof sourceInfo === 'string' ? sourceInfo : (sourceInfo && sourceInfo.text) || '';
+    const sourceBlock = window.SK_CORE.wrapUntrustedData('図解の元データ', sourceText);
     let body = window.SK_CORE.applyTemplate(diagram.body || '');
-    body = body.replaceAll('★貼付★', sourceText);
-    body = body.replaceAll('★sourceText★', sourceText);
+    body = body.replaceAll('★貼付★', sourceBlock);
+    body = body.replaceAll('★sourceText★', sourceBlock);
     body = body.replace(/★[^★\n]+★/g, '（後段の元データ参照）');
-    body += '\n\n---\n\n【元データ】\n\n' + sourceText;
+    body += '\n\n---\n\n' + sourceBlock;
     if (sourceInfo && sourceInfo.requestedSource && sourceInfo.sourceUsed && sourceInfo.requestedSource !== sourceInfo.sourceUsed) {
-      body += '\n\n【補足】\nDRAFT取得に失敗したため、今回は原本マスターを参照しています。';
+      body += '\n\n【補足】\n旧形式文書を取得できなかったため、今回はマスタードキュメントを参照しています。';
     }
-    return body;
+    return window.SK_CORE.preparePrompt({ id: diagram.id || 'diagram', body: body });
   }
 
   function getDefaultNotebookLmPhases() {
@@ -237,7 +238,7 @@
   function getNotebookLmSourceLabel(sourceUsed) {
     if (sourceUsed === 'master') return 'master document';
     if (sourceUsed === 'chapter') return 'chapter record';
-    return 'DRAFT';
+    return '旧形式文書';
   }
 
   async function getStoredMasterDocUrlForExport() {
@@ -415,10 +416,10 @@
     if (!phases.length) throw new Error('NotebookLM export 対象のフェーズが見つかりません');
 
     const exportedAt = new Date();
-    const sourceUsed = ['master', 'draft', 'chapter'].includes(sourceChoice) ? sourceChoice : 'draft';
+    const sourceUsed = ['master', 'draft', 'chapter'].includes(sourceChoice) ? sourceChoice : 'master';
     const sourceResult = await fetchNotebookLmSectionsFromDocs(phases, sourceUsed);
     if (!sourceResult.foundCount) {
-      throw new Error(getNotebookLmSourceLabel(sourceUsed) + ' から章本文を取得できません。source 選択を変えるか、先に DRAFT / 章別記録を作成してください');
+      throw new Error(getNotebookLmSourceLabel(sourceUsed) + ' から章本文を取得できません。元データを変えるか、先にマスタードキュメントを作成してください');
     }
 
     const project = getProjectInfoForExport(sourceUsed);
@@ -564,7 +565,7 @@
     }));
     section.appendChild(el('p', {
       class: 'muted-note',
-      text: 'master document / DRAFT / chapter record から選んだ source.md を作成します。Studio prompt は source の末尾に入ります。',
+      text: 'master document / chapter record / 旧形式文書から選んだsource.mdを作成します。Studio promptはsourceの末尾に入ります。',
     }));
     section.appendChild(el('p', {
       class: 'muted-note',
@@ -586,7 +587,7 @@
     NOTEBOOKLM_SOURCE_CHOICES.forEach(function (choice) {
       sourceChoice.appendChild(el('option', { value: choice.value, text: choice.label }));
     });
-    sourceChoice.value = 'draft';
+    sourceChoice.value = 'master';
     section.appendChild(el('label', { class: 'form-row' },
       el('span', { class: 'form-label', text: 'NotebookLM source 選択' }),
       sourceChoice
@@ -802,7 +803,7 @@
     }));
     actions.appendChild(el('button', {
       class: 'btn',
-      text: 'DRAFTにメタ情報を追記',
+      text: '旧形式文書にメタ情報を追記',
       on: {
         click: async function () {
           try {
@@ -813,7 +814,7 @@
               generatedAt: generatedAt,
               sourceLabel: sourceLabel,
             });
-            window.SK_CORE.showToast('DRAFTにメタ情報を追記しました', false, 4000);
+            window.SK_CORE.showToast('旧形式文書にメタ情報を追記しました', false, 4000);
           } catch (e) {
             window.SK_CORE.showToast('追記失敗: ' + e.message, true);
           }
@@ -1669,8 +1670,8 @@
     const joined = sections.join(' と ');
     if (sourceValue === 'draft') {
       return joined
-        ? joined + ' の DRAFT 章本文を抽出して図解化します'
-        : 'DRAFT 章本文を抽出して図解化します';
+        ? joined + ' の旧形式文書を抽出して図解化します'
+        : '旧形式文書を抽出して図解化します';
     }
     if (sourceValue === 'master') {
       return joined
@@ -1689,7 +1690,7 @@
       return '§ ' + normalizeSectionNo(n);
     }).filter(Boolean);
     const sectionText = sections.length ? ' ' + sections.join('・') : '';
-    const sourceLabel = sourceInfo.sourceUsed === 'draft' ? 'DRAFT' : '原本マスター';
+    const sourceLabel = sourceInfo.sourceUsed === 'draft' ? '旧形式文書' : 'マスタードキュメント';
     return '📄 元データ: ' + sourceLabel + sectionText;
   }
 
@@ -1708,7 +1709,7 @@
       slot.appendChild(
         el('p', {
           class: 'muted-note',
-          text: 'DRAFTの本文から、HTMLカード、全体マップ、関係図を作れます。出力モードで編集用コード・画像プロンプト・画像直接生成を切り替えてください。',
+          text: 'マスタードキュメントの本文から、HTMLカード、全体マップ、関係図を作れます。出力モードで編集用コード・画像プロンプト・画像直接生成を切り替えてください。',
         })
       );
 
@@ -1722,7 +1723,7 @@
         text: '基本操作: 図解タイプ → 出力モード → 元データ → 生成',
       }));
       guideCard.appendChild(el('div', {
-        text: '画像AIへ貼る指示文が欲しい時は「画像プロンプト」を選びます。DRAFTが取れない時は原本マスターへ切り替え、理由を画面に表示します。',
+        text: '画像AIへ貼る指示文が欲しい時は「画像プロンプト」を選びます。通常はマスタードキュメントを元データにしてください。',
       }));
       slot.appendChild(guideCard);
 
@@ -1785,14 +1786,14 @@
 
       const sourceSelect = el('select', { id: 'sk-diagram-source', style: SELECT_FORCE_STYLE });
       [
-        { value: 'draft', label: 'ドラフト' },
-        { value: 'master', label: 'マスタードキュメント' },
+        { value: 'master', label: 'マスタードキュメント（推奨）' },
         { value: 'manual', label: '自分で入力' },
+        { value: 'draft', label: '旧形式文書（互換）' },
       ].forEach(function (s) {
         console.log('[STRATEGY-KIT][diagram] appending source option', s);
         sourceSelect.appendChild(el('option', { value: s.value, text: s.label }));
       });
-      sourceSelect.value = 'draft';
+      sourceSelect.value = 'master';
       slot.appendChild(
         el(
           'label',
@@ -1938,7 +1939,7 @@
           restoreInlineNotice(resultArea);
 
           if (sourceInfo.requestedSource === 'draft' && sourceInfo.sourceUsed === 'master') {
-            window.SK_CORE.showToast('DRAFT取得に失敗したため原本マスターへ切り替えました', false, 4500);
+            window.SK_CORE.showToast('旧形式文書を取得できなかったためマスターへ切り替えました', false, 4500);
           }
 
           const generationMode = generationModeSelect.value === 'image'
@@ -2036,7 +2037,7 @@
   async function appendDiagramToDraft(diagram, renderMeta) {
     const stored = await chrome.storage.sync.get(['sk_draft_doc_v012', 'sk_chapter_doc_v012']);
     const documentId = stored.sk_draft_doc_v012?.documentId || stored.sk_chapter_doc_v012?.documentId;
-    if (!documentId) throw new Error('DRAFT または章別記録 Docs が未作成です');
+    if (!documentId) throw new Error('旧形式文書または章別記録Docsが未作成です');
 
     const docsUrl = chrome.runtime.getURL('phase0/docs-client.js');
     const sectionsUrl = chrome.runtime.getURL('phase0/docs-sections.js');
@@ -2052,7 +2053,7 @@
         '- mode: Nano Banana image',
         '- model: ' + (renderMeta.modelName || 'unknown'),
         '- generatedAt: ' + (renderMeta.generatedAt || new Date().toISOString()),
-        '- source: ' + (renderMeta.sourceLabel || 'DRAFT / manual source'),
+        '- source: ' + (renderMeta.sourceLabel || 'master / manual source'),
         '- savedFile: browser download',
         '',
         '### prompt',
@@ -2099,7 +2100,7 @@
     const recommended = diagram.promptFor || 'claude';
     const aiSelect = el('select', { class: 'ai-selector', style: SELECT_FORCE_STYLE });
     ['claude', 'chatgpt', 'gemini', 'manus', 'genspark', 'perplexity', 'grok'].forEach(function (id) {
-      const opt = el('option', { value: id, text: id + (id === recommended ? '（推奨）' : '') });
+      const opt = el('option', { value: id, text: id + (id === recommended ? '（初期候補）' : '') });
       if (id === recommended) opt.selected = true;
       aiSelect.appendChild(opt);
     });
@@ -2108,28 +2109,31 @@
       class: 'btn btn-ghost',
       text: '挿入',
       on: {
-        click: function () {
-          chrome.runtime.sendMessage(
-            { type: 'INSERT_PROMPT', text: promptBox.textContent, site: aiSelect.value },
-            function (resp) {
-              if (chrome.runtime.lastError || !resp || !resp.ok) {
-                navigator.clipboard.writeText(promptBox.textContent);
-                const aiUrls = {
-                  claude: 'https://claude.ai/',
-                  chatgpt: 'https://chatgpt.com/',
-                  gemini: 'https://gemini.google.com/app',
-                  manus: 'https://manus.im/',
-                  genspark: 'https://genspark.ai/',
-                  perplexity: 'https://www.perplexity.ai/',
-                  grok: 'https://grok.com/',
-                };
-                chrome.tabs.create({ url: aiUrls[aiSelect.value] || 'https://claude.ai/' });
-                window.SK_CORE.showToast('挿入失敗。コピー＋AIタブを開きました', false, 4000);
-              } else {
-                window.SK_CORE.showToast('挿入しました');
-              }
-            }
-          );
+        click: async function () {
+          insertBtn.disabled = true;
+          insertBtn.textContent = '開いて挿入中…';
+          try {
+            await navigator.clipboard.writeText(promptBox.textContent).catch(function () {});
+            const resp = await chrome.runtime.sendMessage({
+              type: 'INSERT_PROMPT',
+              text: promptBox.textContent,
+              site: aiSelect.value,
+              openIfMissing: true,
+              focus: true,
+            });
+            if (!resp?.ok) throw new Error(resp?.error || 'insert-failed');
+            window.SK_CORE.showToast('AIタブを開いて挿入しました（送信は手動で）');
+          } catch (error) {
+            console.error('[STRATEGY-KIT] 図解プロンプト挿入エラー:', error?.message || error);
+            window.SK_CORE.showToast(
+              '自動挿入できませんでした。コピー済みです。AIの入力欄へ貼り付けてください。',
+              'warn',
+              5000
+            );
+          } finally {
+            insertBtn.disabled = false;
+            insertBtn.textContent = '挿入';
+          }
         },
       },
     });
@@ -2327,12 +2331,12 @@
     actions.appendChild(
       el('button', {
         class: 'btn',
-        text: 'DRAFTに追記',
+        text: '旧形式文書に追記',
         on: {
           click: async function () {
             try {
               await appendDiagramToDraft(diagram, renderMeta);
-              window.SK_CORE.showToast('DRAFTに追記しました', false, 4000);
+              window.SK_CORE.showToast('旧形式文書に追記しました', false, 4000);
             } catch (e) {
               window.SK_CORE.showToast('追記失敗: ' + e.message, true);
             }

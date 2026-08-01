@@ -272,9 +272,18 @@ function render() {
   const confirmed = $('mission-sparring-confirmed');
   if (confirmed) {
     const hearing = hearingState();
+    const updatedAt = Number(hearing.updatedAt || 0);
+    const updatedLabel = updatedAt
+      ? new Date(updatedAt).toLocaleString('ja-JP', {
+          month: 'numeric',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '';
     confirmed.hidden = !isConfirmed();
     confirmed.textContent = isConfirmed()
-      ? `✓ この案件のヒアリング要約は確定済みです（${Number(hearing.summaryLength || 0).toLocaleString()}字）。作り直したいときは、このまま壁打ちを続けて要約を出し直してください。`
+      ? `✓ この案件のヒアリング要約は確定済みです（${Number(hearing.summaryLength || 0).toLocaleString()}字${updatedLabel ? `・最終確定 ${updatedLabel}` : ''}）。以後に新しく作るフェーズでは事業コンテキストとして参照されます。保存済みの章は自動更新されないため、反映し直す章は「このフェーズからやり直す」で再生成してください。`
       : '';
   }
 
@@ -522,7 +531,7 @@ async function requestSummary() {
     if (input) input.value = '';
     const summaryArea = $('mission-sparring-summary');
     if (summaryArea) summaryArea.value = text;
-    setStatus('要約ができました。内容を確認して「この要約で確定」を押してください。', 'success');
+    setStatus('要約ができました。内容を確認して「確定して今後のプロンプトに反映」を押してください。', 'success');
   } catch (error) {
     console.warn('[STRATEGY-KIT][sparring] summary failed:', error);
     await recordFailedRequests(base, projectId, prompt, error);
@@ -568,7 +577,7 @@ async function confirmSummary() {
     confirmTimer = null;
     if (!pendingConfirm) return;
     pendingConfirm = false;
-    setStatus('要約を保存できませんでした。サイドパネルを開いてから、もう一度「この要約で確定」を押してください。', 'warn');
+    setStatus('要約を保存できませんでした。サイドパネルを開いてから、もう一度「確定して今後のプロンプトに反映」を押してください。', 'warn');
     renderConfirmCounter();
   }, Number(deps?.confirmTimeoutMs) || CONFIRM_TIMEOUT_MS);
   await saveSession({ ...base, summaryDraft: text }, projectId);
@@ -621,7 +630,7 @@ export function handleSparringCommandResult(value) {
   clearConfirmTimer();
   pendingConfirm = false;
   if (value.ok) {
-    setStatus(value.message || 'ヒアリング要約を確定しました。§0 と §1 以降のプロンプトにこの要約が入ります。', 'success');
+    setStatus(value.message || 'ヒアリング要約を確定しました。以後に新しく作るフェーズでは事業コンテキストとして参照します。保存済みの章は自動更新されません。', 'success');
   } else {
     setStatus(value.message || '要約を保存できませんでした。サイドパネルで状態を確認してください。', 'warn');
   }

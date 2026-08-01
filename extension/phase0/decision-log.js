@@ -1,8 +1,8 @@
 import { batchUpdate, getDocument } from './docs-client.js';
 import { computeEndIndex, findSectionRange, getSectionText } from './docs-sections.js';
 
-export function chooseDecisionDocumentId({ draftDoc, chapterDoc } = {}) {
-  return draftDoc?.documentId || chapterDoc?.documentId || null;
+export function chooseDecisionDocumentId({ masterDoc, draftDoc, chapterDoc } = {}) {
+  return masterDoc?.documentId || chapterDoc?.documentId || draftDoc?.documentId || null;
 }
 
 export function buildDecisionEntry({ decision, reason, action, now = new Date() } = {}) {
@@ -55,12 +55,13 @@ export async function appendDecisionLog(input, {
   storage = chrome.storage.sync,
   docs = { getDocument, batchUpdate },
 } = {}) {
-  const stored = await storage.get(['sk_draft_doc_v012', 'sk_chapter_doc_v012']);
+  const stored = await storage.get(['sk_master_doc_v012', 'sk_chapter_doc_v012', 'sk_draft_doc_v012']);
   const documentId = chooseDecisionDocumentId({
+    masterDoc: stored.sk_master_doc_v012,
     draftDoc: stored.sk_draft_doc_v012,
     chapterDoc: stored.sk_chapter_doc_v012,
   });
-  if (!documentId) throw new Error('DRAFT または章別記録 Docs が未作成です');
+  if (!documentId) throw new Error('マスタードキュメントが未作成です');
 
   const doc = await docs.getDocument(documentId);
   const entry = buildDecisionEntry(input);
@@ -76,8 +77,9 @@ export async function getDecisionLogText({
   storage = chrome.storage.sync,
   docs = { getDocument },
 } = {}) {
-  const stored = await storage.get(['sk_draft_doc_v012', 'sk_chapter_doc_v012']);
+  const stored = await storage.get(['sk_master_doc_v012', 'sk_chapter_doc_v012', 'sk_draft_doc_v012']);
   const documentId = chooseDecisionDocumentId({
+    masterDoc: stored.sk_master_doc_v012,
     draftDoc: stored.sk_draft_doc_v012,
     chapterDoc: stored.sk_chapter_doc_v012,
   });

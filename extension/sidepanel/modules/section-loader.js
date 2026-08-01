@@ -88,9 +88,9 @@
       'sk_master_doc_v012',
     ]);
     return (
-      stored.sk_draft_doc_v012?.documentId ||
-      stored.sk_chapter_doc_v012?.documentId ||
       stored.sk_master_doc_v012?.documentId ||
+      stored.sk_chapter_doc_v012?.documentId ||
+      stored.sk_draft_doc_v012?.documentId ||
       null
     );
   }
@@ -98,7 +98,7 @@
   // 対象 §番号セットを Docs から取得し Map<no, text> を返す
   async function fetchSections(secNos) {
     const documentId = await getSourceDocumentId();
-    if (!documentId) throw new Error('DRAFT または章別記録 Docs が未作成です');
+    if (!documentId) throw new Error('マスタードキュメントが未作成です');
 
     const docsUrl = chrome.runtime.getURL('phase0/docs-client.js');
     const sectionsUrl = chrome.runtime.getURL('phase0/docs-sections.js');

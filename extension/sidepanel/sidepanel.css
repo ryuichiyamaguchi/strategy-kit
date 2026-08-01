@@ -6376,7 +6376,8 @@ textarea:focus-visible {
 
 /* ── リサーチタブ: カード新装 ─────────────────────────── */
 #tab-research .research-card,
-#tab-research .research-steps {
+#tab-research .research-steps,
+#tab-research #mod-research-saver-slot {
   margin: 12px 12px 0;
   padding: 16px;
   border: 1px solid var(--studio-border);
@@ -6386,6 +6387,7 @@ textarea:focus-visible {
   box-shadow: 0 6px 18px rgba(16, 35, 61, 0.06);
 }
 #tab-research .research-steps { margin-bottom: 14px; }
+#tab-research #mod-research-saver-slot { margin-bottom: 14px; }
 
 /* 見出しは Deep Route。左のバーは Route Blue(現在地/航路) */
 #tab-research .section-title {
@@ -8073,7 +8075,8 @@ body {
 }
 
 #tab-research .research-card,
-#tab-research .research-steps {
+#tab-research .research-steps,
+#tab-research #mod-research-saver-slot {
   border-color: var(--executive-line);
   border-left-color: var(--executive-cyan);
   color: var(--executive-text);
@@ -8093,6 +8096,9 @@ body {
 
 #tab-research .research-card input[type="text"],
 #tab-research .research-card select,
+#tab-research #mod-research-saver-slot input[type="text"],
+#tab-research #mod-research-saver-slot select,
+#tab-research #mod-research-saver-slot textarea,
 #research-steps-list .ai-selector {
   border-color: #315363;
   color: #edf7f9;
@@ -8101,6 +8107,9 @@ body {
 
 #tab-research .research-card input[type="text"]:hover,
 #tab-research .research-card select:hover,
+#tab-research #mod-research-saver-slot input[type="text"]:hover,
+#tab-research #mod-research-saver-slot select:hover,
+#tab-research #mod-research-saver-slot textarea:hover,
 #research-steps-list .ai-selector:hover {
   border-color: var(--executive-cyan);
   color: #ffffff;
@@ -8125,6 +8134,67 @@ body {
   background: #071722;
 }
 
+#tab-research .research-flow-guide {
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid rgba(28, 225, 230, 0.34);
+  border-left: 4px solid var(--executive-cyan);
+  border-radius: 0.625rem;
+  color: #d9f1f4;
+  background: rgba(28, 225, 230, 0.07);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+
+#research-steps-list .research-cycle-output-field {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+#research-steps-list .research-cycle-output-label {
+  color: #7df7f3;
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+#research-steps-list .research-cycle-output {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 8rem;
+  resize: vertical;
+  padding: 0.75rem;
+  border: 1px solid #315363;
+  border-radius: 0.625rem;
+  color: #edf7f9;
+  background: #03101a;
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+#research-steps-list .research-cycle-output:hover {
+  border-color: #5bbec3;
+  background: #071722;
+}
+
+#research-steps-list .research-cycle-output:focus {
+  border-color: #7df7f3;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(28, 225, 230, 0.16);
+}
+
+#research-steps-list .research-cycle-output::placeholder {
+  color: #829ba6;
+  opacity: 1;
+}
+
+#research-steps-list .research-cycle-output-note {
+  color: #9fb6bf;
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
 #tab-research .btn:not(.btn-ghost) {
   border-color: var(--executive-cyan);
   color: #041419;
@@ -8135,6 +8205,78 @@ body {
   border-color: #8bfffb;
   color: #031116;
   background: #72eee9;
+}
+
+#tab-research #mod-research-saver-slot .card-title {
+  margin: 0 0 6px;
+  color: #f0fbfc;
+  font-size: 14px;
+}
+
+#tab-research #mod-research-saver-slot .rs-content-area {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 180px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  resize: vertical;
+  border: 1px solid #315363;
+  border-radius: 8px;
+  color: #edf7f9;
+  background: #05111a;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+#tab-research #mod-research-saver-slot .rs-content-area:focus {
+  border-color: var(--executive-cyan);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(28, 225, 230, 0.14);
+}
+
+#tab-research #mod-research-saver-slot .rs-result {
+  padding: 10px 12px;
+  border: 1px solid #315363;
+  border-radius: 8px;
+  color: #dcebee;
+  background: #071722;
+}
+
+#tab-research #mod-research-saver-slot .rs-result-success {
+  border-color: #2f817e;
+  background: #092727;
+}
+
+#tab-research #mod-research-saver-slot .rs-result-warning {
+  border-color: #a97731;
+  background: #2b2112;
+}
+
+#tab-research #mod-research-saver-slot .rs-result-label {
+  color: #f0fbfc;
+}
+
+#tab-research #mod-research-saver-slot .rs-result-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 7px;
+}
+
+#tab-research #mod-research-saver-slot .rs-result-link {
+  color: #78efeb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+#tab-research #mod-research-saver-slot .rs-result-link:hover {
+  color: #ffffff;
+}
+
+#tab-research #mod-research-saver-slot .rs-file-meta {
+  color: #9bb1bb;
 }
 
 .hearing-import-heading {

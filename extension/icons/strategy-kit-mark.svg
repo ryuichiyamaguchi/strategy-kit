@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">STRATEGY-KIT</title>
+  <desc id="desc">最新版UIのヘッダーと共通の六角形ルートマーク</desc>
+  <defs>
+    <linearGradient id="route-frame" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1ce1e6" />
+      <stop offset="48%" stop-color="#4b8cff" />
+      <stop offset="100%" stop-color="#8258f4" />
+    </linearGradient>
+    <linearGradient id="route-arrow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1ce1e6" />
+      <stop offset="100%" stop-color="#8258f4" />
+    </linearGradient>
+  </defs>
+  <path fill="url(#route-frame)" d="M64 2 122 34v60l-58 32L6 94V34Z" />
+  <path fill="#07111c" d="M64 12 113 39v50l-49 27-49-27V39Z" />
+  <path fill="url(#route-arrow)" d="M64 38 93 92H82.6L64 57.8 45.4 92H35Z" />
+</svg>

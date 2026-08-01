@@ -5,7 +5,7 @@
   'use strict';
 
   var STORAGE_KEY = 'slides_handoff_v1';
-  var NBM_URL = 'https://notebooklm.google.com/';
+  var NBM_URL = 'https://notebook.google.com/';
 
   var STAGES = [
     { id: 1, label: '戦略整理',            note: 'Chat · source 効く',    warn: false },

@@ -93,7 +93,7 @@
         closeModal(backdrop);
       } catch (e) {
         console.error('[STRATEGY-KIT] 決定ログ追記エラー:', e);
-        window.SK_CORE.showToast('決定ログの追記に失敗しました。Google 連携とDRAFT状態を確認してください。', true);
+        window.SK_CORE.showToast('決定ログの追記に失敗しました。Google連携とマスタードキュメントを確認してください。', true);
         appendBtn.disabled = false;
         appendBtn.textContent = '追記';
       }
@@ -165,7 +165,7 @@
         );
       } catch (e) {
         console.error('[STRATEGY-KIT] タイムスタンプ更新エラー:', e);
-        window.SK_CORE.showToast('タイムスタンプ更新記録の追記に失敗しました。Google 連携とDRAFT状態を確認してください。', true);
+        window.SK_CORE.showToast('タイムスタンプ更新記録の追記に失敗しました。Google連携とマスタードキュメントを確認してください。', true);
       } finally {
         tsBtn.disabled = false;
         tsBtn.textContent = 'タイムスタンプ記録を追記';

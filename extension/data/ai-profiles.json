@@ -89,7 +89,7 @@
     {
       "id": "notebooklm",
       "label": "NotebookLM",
-      "url": "https://notebooklm.google.com/",
+      "url": "https://notebook.google.com/",
       "strengths": ["ソース固定要約", "引用付き要約", "Discover Sources", "音声・動画解説生成"],
       "weaknesses": ["戦略判断より、投入・選択したソースへの接地が主目的"],
       "researchPower": "中（Discover Sourcesで候補収集、Notebook内ではソース固定で引用確認）",

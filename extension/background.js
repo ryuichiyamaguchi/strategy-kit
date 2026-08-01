@@ -5,7 +5,12 @@
 //   3) 初回起動時に既定設定を storage へ書き込む
 
 import './phase0/phase0-smoke-test.js';
-import { sendTabMessageWithRetry } from './phase0/ai-tab-routing.js';
+import {
+  isNoTargetTabMessageError,
+  sendTabMessageWithRecovery,
+  sendTabMessageWithRetry,
+  shouldRecoverTabMessageResponse,
+} from './phase0/ai-tab-routing.js';
 
 const DEFAULT_SETTINGS = {
   industry: 'generic',
@@ -26,7 +31,7 @@ const AI_ORIGINS = {
   genspark: 'https://www.genspark.ai',
   perplexity: 'https://www.perplexity.ai',
   grok: 'https://grok.com',
-  notebooklm: 'https://notebooklm.google.com',
+  notebooklm: 'https://notebook.google.com',
   'google-docs': 'https://docs.google.com',
 };
 
@@ -47,11 +52,19 @@ async function findLastFocusedTabForSite(site) {
 
   const focusedWindow = await chrome.windows.getLastFocused().catch(() => null);
   if (focusedWindow?.id) {
-    const inFocusedWindow = tabs.find((tab) => tab.windowId === focusedWindow.id);
-    if (inFocusedWindow) return inFocusedWindow;
+    const inFocusedWindow = tabs.filter((tab) => tab.windowId === focusedWindow.id);
+    const active = inFocusedWindow.find((tab) => tab.active);
+    if (active) return active;
+    if (inFocusedWindow.length) {
+      return inFocusedWindow.sort(
+        (a, b) => Number(b.lastAccessed || 0) - Number(a.lastAccessed || 0),
+      )[0];
+    }
   }
 
-  return tabs[0];
+  return tabs.sort(
+    (a, b) => Number(b.lastAccessed || 0) - Number(a.lastAccessed || 0),
+  )[0];
 }
 
 // 全画面 見守りページ(mission.html)が開いている間だけ「フォーカス抑止モード」を有効にする。
@@ -210,6 +223,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     try {
       let targetTab = null;
+      let targetWasCreated = false;
       if (message.site) {
         targetTab = await findLastFocusedTabForSite(message.site);
         if (!targetTab?.id) {
@@ -223,6 +237,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               url: targetUrl,
               active: message.focus === true,
             });
+            targetWasCreated = true;
           } else {
             sendResponse({ ok: false, error: 'site-tab-not-found', site: message.site });
             return;
@@ -260,19 +275,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       }
 
-      const response = await sendTabMessageWithRetry({
-        tabsApi: chrome.tabs,
-        tabId: targetTab.id,
-        message: {
-          type: 'STRATEGY_KIT_INSERT',
-          text: message.text,
-          site: message.site || null,
-        },
-      });
+      const insertMessage = {
+        type: 'STRATEGY_KIT_INSERT',
+        text: message.text,
+        site: message.site || null,
+      };
+      // 新しく作った／まだ読み込み中のタブは、content script の準備を通常どおり待つ。
+      // 読み込み済みなのに受信先が無い既存タブは、拡張再読込前から残っている可能性が高い。
+      // そのタブをreloadすると入力中の内容を失うため、新しい同サイトタブで安全に回復する。
+      const canRecoverWithFreshTab =
+        !!message.site && !targetWasCreated && targetTab.status !== 'loading';
+      const response = canRecoverWithFreshTab
+        ? await sendTabMessageWithRecovery({
+            tabsApi: chrome.tabs,
+            tabId: targetTab.id,
+            message: insertMessage,
+            recoverTab: () => chrome.tabs.create({
+              url: AI_ORIGINS[message.site],
+              active: message.focus === true,
+            }),
+          })
+        : await sendTabMessageWithRetry({
+            tabsApi: chrome.tabs,
+            tabId: targetTab.id,
+            message: insertMessage,
+            retryResponseFn: shouldRecoverTabMessageResponse,
+          });
       // content script が { ok, error } を返す前提。非オブジェクト応答はフォールバック。
-      sendResponse(response && typeof response === 'object' ? response : { ok: !!response });
+      sendResponse(
+        response && typeof response === 'object'
+          ? response
+          : { ok: false, error: 'no-target', site: message.site || null }
+      );
     } catch (e) {
-      sendResponse({ ok: false, error: e?.message || String(e) });
+      if (isNoTargetTabMessageError(e)) {
+        sendResponse({ ok: false, error: 'no-target', site: message.site || null });
+      } else {
+        sendResponse({ ok: false, error: e?.message || String(e) });
+      }
     }
   })();
 

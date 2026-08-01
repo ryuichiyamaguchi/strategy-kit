@@ -237,7 +237,7 @@
       <div class="saving-overlay-card" role="status">
         <div class="saving-spinner" aria-hidden="true"></div>
         <p id="saving-overlay-title" class="saving-overlay-title">保存中…</p>
-        <p id="saving-overlay-text" class="saving-overlay-text">Drive と DRAFT に書き込み中です</p>
+        <p id="saving-overlay-text" class="saving-overlay-text">Google Drive に書き込み中です</p>
       </div>
     </div>
 
@@ -397,8 +397,9 @@
       <div id="tab-research" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-research">
         <section class="card research-card">
           <h2 class="section-title">リサーチサイクル</h2>
-          <p class="section-lede">1次調査 → 2次調査 → 統合 の3ステップで深掘り。</p>
+          <p class="section-lede">1次調査 → 2次調査 → 検証 → 統合 の4ステップで深掘り。</p>
           <p id="research-desc" class="muted-note"></p>
+          <p id="research-flow-guide" class="research-flow-guide"></p>
 
           <label class="form-row">
             <span class="form-label">関連フェーズ（任意）</span>
@@ -420,6 +421,8 @@
           <h2 class="section-title">3ステップで深掘る</h2>
           <div id="research-steps-list" class="prompts-list"></div>
         </section>
+
+        <section id="mod-research-saver-slot" class="card mod-slot hidden"></section>
       </div>
 
       <div id="tab-automation" class="tab-content" role="tabpanel" aria-label="実行モードを管理">
@@ -494,8 +497,8 @@
             </li>
             <li class="slides-row">
               <span class="slides-row-icon" aria-hidden="true">🎨</span>
-              <span class="slides-row-label">デザインガイド</span>
-              <span class="slides-row-pill is-guide">guide</span>
+              <span class="slides-row-label">STRATEGY ROUTE ガイド</span>
+              <span class="slides-row-pill is-guide">brandbook</span>
               <div class="slides-row-actions">
                 <button id="slides-copy-guide" class="slides-action-btn" type="button" title="全文コピー">
                   <svg class="icon icon-xs" aria-hidden="true"><use href="#i-copy"/></svg>
@@ -593,7 +596,6 @@
       </section>
 
       <section id="mod-decision-logger-slot" class="card mod-slot hidden"></section>
-      <section id="mod-research-saver-slot" class="card mod-slot hidden"></section>
       <section id="mod-progress-tracker-slot" class="card mod-slot hidden"></section>
     </section>
     </main>

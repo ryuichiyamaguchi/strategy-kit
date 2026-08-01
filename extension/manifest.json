@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "STRATEGY-KIT Helper",
-  "version": "0.12.34",
+  "version": "0.12.37",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArhjpMOgnUQQx4GxKNVm4CV+fwtSjCy0oyMZOocCNIVZsdf81Vncj26K2wuDJzxf5X4Ee2TldrC7I8P20f2oUmEztE9cPYCWNUS2rmuaSFIb96asNiuDqmJLFwRgYHgX+lQEOqCz3l+lAgpwBPpYscfB7XKi5l45CpNMfpd+km2qw+FITYasn0NMYIPymx1Btod+OLJdRMxLW2ijfa13F6OKmnQerJrzvtDsHFF9HmSZ0BamNyVObaiPROQnpeb9NvUkV+wuu+OGnOJ24Myn8aYTrVaN2mtdJWZV81rq69SpJbtyLmKx5kwVabP5wKVZdvmpSOIRuqomOuLzAYoLn7QIDAQAB",
   "oauth2": {
     "client_id": "975964313152-9oo5d5f2onr7ds3ei4qntg4qs3k2fltt.apps.googleusercontent.com",
@@ -13,7 +13,7 @@
   },
   "description": "マーケティング戦略立案を10フェーズで進める教材用 Chrome 拡張機能。対応する AI チャット画面へユーザー操作でプロンプトを挿入し、Google ドキュメントへ章別記録します。",
   "default_locale": "ja",
-  "minimum_chrome_version": "116",
+  "minimum_chrome_version": "119",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -56,6 +56,7 @@
     "https://www.perplexity.ai/*",
     "https://perplexity.ai/*",
     "https://notebooklm.google.com/*",
+    "https://notebook.google.com/*",
     "https://docs.google.com/*",
     "https://grok.com/*",
     "https://www.grok.com/*",
@@ -77,6 +78,8 @@
         "content/task-monitor.js",
         "content/claude.js"
       ],
+      "all_frames": true,
+      "match_origin_as_fallback": true,
       "run_at": "document_idle"
     },
     {
@@ -89,6 +92,8 @@
         "content/task-monitor.js",
         "content/chatgpt.js"
       ],
+      "all_frames": true,
+      "match_origin_as_fallback": true,
       "run_at": "document_idle"
     },
     {
@@ -100,6 +105,8 @@
         "content/task-monitor.js",
         "content/gemini.js"
       ],
+      "all_frames": true,
+      "match_origin_as_fallback": true,
       "run_at": "document_idle"
     },
     {
@@ -112,6 +119,8 @@
         "content/task-monitor.js",
         "content/manus.js"
       ],
+      "all_frames": true,
+      "match_origin_as_fallback": true,
       "run_at": "document_idle"
     },
     {
@@ -124,6 +133,8 @@
         "content/task-monitor.js",
         "content/genspark.js"
       ],
+      "all_frames": true,
+      "match_origin_as_fallback": true,
       "run_at": "document_idle"
     },
     {
@@ -136,17 +147,22 @@
         "content/task-monitor.js",
         "content/perplexity.js"
       ],
+      "all_frames": true,
+      "match_origin_as_fallback": true,
       "run_at": "document_idle"
     },
     {
       "matches": [
-        "https://notebooklm.google.com/*"
+        "https://notebooklm.google.com/*",
+        "https://notebook.google.com/*"
       ],
       "js": [
         "lib/insert-helpers.js",
         "content/task-monitor.js",
         "content/notebooklm.js"
       ],
+      "all_frames": true,
+      "match_origin_as_fallback": true,
       "run_at": "document_idle"
     },
     {
@@ -159,6 +175,8 @@
         "content/task-monitor.js",
         "content/grok.js"
       ],
+      "all_frames": true,
+      "match_origin_as_fallback": true,
       "run_at": "document_idle"
     },
     {
@@ -194,6 +212,7 @@
         "https://www.perplexity.ai/*",
         "https://perplexity.ai/*",
         "https://notebooklm.google.com/*",
+        "https://notebook.google.com/*",
         "https://docs.google.com/*",
         "https://grok.com/*",
         "https://www.grok.com/*"

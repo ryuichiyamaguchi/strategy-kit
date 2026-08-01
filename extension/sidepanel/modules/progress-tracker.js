@@ -41,7 +41,7 @@
 
   async function loadProgressFromDocs() {
     const documentId = await getProgressDocumentId();
-    if (!documentId) throw new Error('DRAFT または章別記録 Docs が未作成です');
+    if (!documentId) throw new Error('マスタードキュメントが未作成です');
 
     const docsUrl = chrome.runtime.getURL('phase0/docs-client.js');
     const sectionsUrl = chrome.runtime.getURL('phase0/docs-sections.js');

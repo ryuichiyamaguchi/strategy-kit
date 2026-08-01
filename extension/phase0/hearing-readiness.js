@@ -144,6 +144,13 @@ export function getHearingReadiness({ mode, summary, meta, skipAck, settings = {
   };
 }
 
+// 「自社事業」かつ、同一案件でユーザーが明示的にヒアリングを省略した場合だけ、
+// §1 を質問設計ではなく既知情報の整理へ切り替える。
+// mode=C だけを対象にすることで、ヒアリング実施前(A)・ヒアリング済(B)の契約は変えない。
+export function shouldUseNoHearingPhaseOne({ mode, status } = {}) {
+  return mode === 'C' && status === 'ack-skipped';
+}
+
 // ゲートモーダルの選択肢マトリクス（設計 §4-2）。
 // choice.id: 'wallbounce' | 'paste' | 'summarize' | 'generate-questions' | 'keep-stale' | 'proceed'
 // choice.ackOnProceed: true のとき選択で skip ack を記録して続行する。
@@ -235,12 +242,17 @@ export function getHearingGatePlan({ mode, status, staleStoreName } = {}) {
   }
 
   // モード C（自社事業・デフォルト）
+  const proceedWithoutHearing = {
+    ...proceed,
+    label: 'ヒアリングせず進む',
+    desc: '質問項目は作らず、§0の調査結果と入力済み情報から現状整理・不足情報・検証計画を作ります。',
+  };
   return {
     mode,
     status,
-    title: 'まずヒアリングを完了させましょう',
-    lede: '全自動の品質は入口のヒアリングで決まります。AI と壁打ちして事業情報を整理してから全自動を回すことを推奨します。',
-    choices: [wallbounce, paste, proceed],
+    title: '自社事業の進め方を選んでください',
+    lede: '壁打ちで情報を整えるか、ヒアリングを省略して手元の情報と調査結果から進めるかを選べます。',
+    choices: [wallbounce, paste, proceedWithoutHearing],
   };
 }
 
