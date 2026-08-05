@@ -7,7 +7,7 @@
 | パス | 内容 |
 |---|---|
 | `extension/` | Chrome 拡張本体（ソース） |
-| `strategy-kit-v0.12.37.zip` | STRATEGY-KIT 配布版（マーケ戦略立案） |
+| `strategy-kit-v0.12.39.zip` | STRATEGY-KIT 配布版（マーケ戦略立案） |
 | `x-kit-v0.12.24.zip` | X-KIT 配布版（X / 旧Twitter アカウント運用） |
 | `instagram-kit-v0.12.24.zip` | INSTAGRAM-KIT 配布版（Instagram アカウント運用） |
 | `apps-script/` | Google Apps Script（ライブラリ / shim） |
@@ -16,7 +16,7 @@
 
 ## インストール（受講者向け）
 
-1. お使いの製品の ZIP（`strategy-kit-v0.12.37.zip` / `x-kit-v0.12.24.zip` / `instagram-kit-v0.12.24.zip`）をダウンロードして**解凍**します。
+1. お使いの製品の ZIP（`strategy-kit-v0.12.39.zip` / `x-kit-v0.12.24.zip` / `instagram-kit-v0.12.24.zip`）をダウンロードして**解凍**します。
 2. Chrome で `chrome://extensions` を開き、右上の「**デベロッパーモード**」を ON にします。
 3. 「**パッケージ化されていない拡張機能を読み込む**」をクリックし、解凍したフォルダを選択します。
 4. テストユーザー登録済みの Google アカウントでログインし、拡張の設定画面で「Google 連携」を行うと使えます。
@@ -49,4 +49,4 @@ X（旧Twitter）運用の **X-KIT** と Instagram 運用の **INSTAGRAM-KIT** �
 
 ## バージョン
 
-現在の配布版: **STRATEGY-KIT v0.12.37** / **X-KIT・INSTAGRAM-KIT v0.12.24**
+現在の配布版: **STRATEGY-KIT v0.12.39** / **X-KIT・INSTAGRAM-KIT v0.12.24**

@@ -219,6 +219,11 @@
     return await import(financeGateUrl);
   }
 
+  async function loadSummaryGateDeps() {
+    const summaryGateUrl = chrome.runtime.getURL('lib/summary-gate.js');
+    return await import(summaryGateUrl);
+  }
+
   async function loadDraftPreviewDeps() {
     const previewUrl = chrome.runtime.getURL('phase0/draft-preview.js');
     return await import(previewUrl);
@@ -2909,6 +2914,56 @@
     }];
   }
 
+  // Summary Gate: 出力中の「要点版」ブロックに、本文に無い数値・格上げタグが
+  // 混入していないかを決定的照合で検査する（LLM検出器は使わない）。
+  // 不一致は 1 回だけ repair し、なお不一致なら ⚠要確認 を付けて完走する（止めない）。
+  const MAX_SUMMARY_REPAIRS = 1;
+  async function applySummaryGate({ geminiClient, summaryGate, bodyText, model, sectionLabel }) {
+    if (!summaryGate) return { bodyText: bodyText, summaryGate: null, summaryGateWarning: false };
+    let currentBody = String(bodyText || '');
+    let block = summaryGate.extractSummaryBlock(currentBody);
+    if (!block.found) return { bodyText: currentBody, summaryGate: null, summaryGateWarning: false };
+    currentBody = block.text; // 改行正規化済みテキストで以後を統一
+    let validation = summaryGate.validateSummaryFidelity({
+      summaryText: block.summary,
+      sourceText: currentBody.slice(0, block.startIndex),
+    });
+    if (validation.ok) return { bodyText: currentBody, summaryGate: validation, summaryGateWarning: false };
+    let repairs = 0;
+    while (!validation.ok && repairs < MAX_SUMMARY_REPAIRS) {
+      repairs += 1;
+      try {
+        const repairPrompt = summaryGate.buildSummaryRepairPrompt({
+          headingLine: block.headingLine,
+          summaryText: block.summary,
+          validation: validation,
+          sourceText: currentBody.slice(0, block.startIndex),
+        });
+        const res = await geminiClient.generateContent({ prompt: repairPrompt, model: model, temperature: 0.2 });
+        const fixed = String((res && res.text) || '').trim();
+        if (!fixed) break;
+        const candidate = summaryGate.replaceSummaryBlock(currentBody, block, fixed);
+        const reBlock = summaryGate.extractSummaryBlock(candidate);
+        if (!reBlock.found) break;
+        currentBody = reBlock.text;
+        block = reBlock;
+        validation = summaryGate.validateSummaryFidelity({
+          summaryText: reBlock.summary,
+          sourceText: currentBody.slice(0, reBlock.startIndex),
+        });
+      } catch (e) {
+        console.warn('[STRATEGY-KIT] Summary Gate repair 失敗 (' + sectionLabel + '):', e);
+        break;
+      }
+    }
+    if (validation.ok) return { bodyText: currentBody, summaryGate: validation, summaryGateWarning: false };
+    const annotated = summaryGate.replaceSummaryBlock(currentBody, block, summaryGate.applySummaryWarning({
+      summaryText: block.summary,
+      validation: validation,
+    }));
+    return { bodyText: annotated, summaryGate: validation, summaryGateWarning: true };
+  }
+
   async function generateWithFinanceGate({
     geminiClient,
     financeGate,
@@ -3102,6 +3157,12 @@
     const financeModel = (opts && opts.financeModel) || 'gemini-3.6-flash';
     const financeGate = await loadFinanceGateDeps();
     const geminiClient = await loadGeminiClient();
+    let summaryGate = null;
+    try {
+      summaryGate = await loadSummaryGateDeps();
+    } catch (e) {
+      console.warn('[STRATEGY-KIT] summary-gate 読み込み失敗（ゲートなしで続行）:', e);
+    }
     let effectiveStartIndex = startIndex;
 
     if (retrySections.length > 0) {
@@ -3213,7 +3274,23 @@
           });
           bodyText = generated.bodyText;
           usedModel = generated.model;
-          accumulated[unit.accKey] = bodyText.slice(0, 2000);
+          // Summary Gate: 要点版ブロックの数値・タグを本文と照合（要点版が無い出力は素通り）
+          const summaryGated = await applySummaryGate({
+            geminiClient: geminiClient,
+            summaryGate: summaryGate,
+            bodyText: bodyText,
+            model: usedModel,
+            sectionLabel: '§' + unit.sectionNo + ' ' + unit.title,
+          });
+          bodyText = summaryGated.bodyText;
+          if (summaryGated.summaryGateWarning) {
+            window.SK_CORE.showToast('§' + (unit.displayNo || unit.sectionNo) + ' の要点版に本文と一致しない数値/タグがあります（⚠付きで続行）', 'warn', 5000);
+          }
+          // ハンドオフは「先頭2000字の切り詰め」ではなく要点版ブロック優先で蓄積する
+          // （切り詰めは出力末尾の要点版をむしろ切り落とすため）
+          accumulated[unit.accKey] = summaryGate
+            ? summaryGate.preferSummaryForHandoff(bodyText, 2000)
+            : bodyText.slice(0, 2000);
           phaseOutputs.push(bodyText);
           if (generated.financeGateWarning) {
             // 2回 repair してなお不合格 → ⚠要確認 注記付きで完走（停止しない）。
@@ -3273,7 +3350,10 @@
       }
 
       if (phaseOutputs.length) {
-        accumulated['§' + phase.no] = phaseOutputs.join('\n\n---\n\n').slice(0, 2000);
+        accumulated['§' + phase.no] = (summaryGate
+          ? phaseOutputs.map(function (t) { return summaryGate.preferSummaryForHandoff(t, 2000); }).join('\n\n---\n\n')
+          : phaseOutputs.join('\n\n---\n\n')
+        ).slice(0, 2000);
       }
 
       if (ctrl.cancelled) {
@@ -3435,6 +3515,12 @@
     const phases = window.SK_CORE.getPhases();
     const financeGate = await loadFinanceGateDeps();
     const geminiClient = await loadGeminiClient();
+    let summaryGate = null;
+    try {
+      summaryGate = await loadSummaryGateDeps();
+    } catch (e) {
+      console.warn('[STRATEGY-KIT] summary-gate 読み込み失敗（ゲートなしで続行）:', e);
+    }
 
     let successCount = 0;
     const stillFailed = [];
@@ -3477,7 +3563,20 @@
         });
         bodyText = generated.bodyText;
         usedModel = generated.model;
-        accumulated[unit.accKey] = bodyText.slice(0, 2000);
+        const summaryGatedRetry = await applySummaryGate({
+          geminiClient: geminiClient,
+          summaryGate: summaryGate,
+          bodyText: bodyText,
+          model: usedModel,
+          sectionLabel: '§' + unit.sectionNo + ' ' + unit.title,
+        });
+        bodyText = summaryGatedRetry.bodyText;
+        if (summaryGatedRetry.summaryGateWarning) {
+          window.SK_CORE.showToast('§' + (unit.displayNo || unit.sectionNo) + ' の要点版に本文と一致しない数値/タグがあります（⚠付きで続行）', 'warn', 5000);
+        }
+        accumulated[unit.accKey] = summaryGate
+          ? summaryGate.preferSummaryForHandoff(bodyText, 2000)
+          : bodyText.slice(0, 2000);
         if (generated.financeGateWarning) {
           // 2回 repair してなお不合格でも throw せず ⚠要確認 注記付きで done 保存する。
           window.SK_CORE.showToast('§' + (unit.displayNo || unit.sectionNo) + ' に要確認項目があります。done として保存します。', 'warn', 5000);
@@ -3701,7 +3800,30 @@
         step.totalSubs > 1
           ? '§' + phase.no + '-' + step.subNo + '（' + step.prompt.label + '）'
           : '§' + phase.no;
-      accumulated[accKey] = userOutput.text;
+      let semiSummaryGate = null;
+      try {
+        semiSummaryGate = await loadSummaryGateDeps();
+      } catch (e) {
+        console.warn('[STRATEGY-KIT] summary-gate 読み込み失敗（従来どおり全文蓄積）:', e);
+      }
+      if (semiSummaryGate) {
+        const semiBlock = semiSummaryGate.extractSummaryBlock(userOutput.text);
+        if (semiBlock.found) {
+          const semiValidation = semiSummaryGate.validateSummaryFidelity({
+            summaryText: semiBlock.summary,
+            sourceText: semiBlock.text.slice(0, semiBlock.startIndex),
+          });
+          if (!semiValidation.ok) {
+            window.SK_CORE.showToast('要点版に本文と一致しない数値/タグがあります: ' + semiValidation.report, 'warn', 6000);
+          }
+          // 蓄積コンテキストの肥大化を防ぐ: 要点版があるフェーズは要点版で引き継ぐ
+          accumulated[accKey] = semiSummaryGate.preferSummaryForHandoff(userOutput.text, 4000);
+        } else {
+          accumulated[accKey] = userOutput.text;
+        }
+      } else {
+        accumulated[accKey] = userOutput.text;
+      }
 
       // フェーズ最終ステップで §N にも統合
       if (step.subNo === step.totalSubs && step.totalSubs > 1) {

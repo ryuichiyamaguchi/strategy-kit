@@ -3068,6 +3068,13 @@ function bindMissionControl() {
     switchTab('automation');
   });
 
+  // ドロワーの「エージェント用に書き出す」→ プロンプト一式＋2周目手順を Markdown で保存。
+  // API キーで詰まる利用者・旧版のまま更新しない利用者・エージェント派の受け皿。
+  document.getElementById('menu-prompt-pack')?.addEventListener('click', function () {
+    setMissionMenuOpen(false);
+    exportPromptPack();
+  });
+
   // 戦略タブ: 現在のフェーズ ⇄ フェーズ一覧 セグメントトグル
   for (const btn of document.querySelectorAll('#strategy-phase-toggle .phase-toggle-btn')) {
     btn.addEventListener('click', () => setPhaseView(btn.dataset.phaseView));
@@ -5626,6 +5633,47 @@ function checkStarPlaceholders(content, onProceed, onCancel) {
   document.addEventListener('keydown', onKeyDown);
 
   return true;
+}
+
+// プロンプトパック書き出し: 現行プロンプト一式＋2周目の手順を 1 つの Markdown で保存する。
+// 拡張の API キーが使えない／エージェントで作業したい利用者の受け皿であり、
+// 配布中のプロンプトを常に最新版で渡せるようにする（版ずれの吸収）。
+async function exportPromptPack() {
+  if (!state.prompts || !Array.isArray(state.prompts.phases) || !state.prompts.phases.length) {
+    showToast('プロンプトの読み込み前です。少し待ってからもう一度お試しください', true, 3600);
+    return;
+  }
+  try {
+    const packModule = await import(chrome.runtime.getURL('lib/prompt-pack.js'));
+    const manifest = chrome.runtime.getManifest ? chrome.runtime.getManifest() : {};
+    const appVersion = manifest && manifest.version ? manifest.version : '';
+    const productName = brandFooterLabel();
+    const generatedOn = new Date().toISOString().slice(0, 10);
+    const markdown = packModule.buildPromptPack({
+      prompts: state.prompts,
+      productName: productName,
+      appVersion: appVersion,
+      generatedOn: generatedOn,
+    });
+    const fileName = packModule.buildPromptPackFileName({
+      productSlug: productName,
+      appVersion: appVersion,
+      generatedOn: generatedOn,
+    });
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    showToast(fileName + ' を書き出しました（AIエージェントにこのファイルを渡してください）', false, 4200);
+  } catch (e) {
+    console.warn('[SK] prompt pack export failed:', e);
+    showToast('書き出しに失敗しました: ' + (e && e.message ? e.message : e), true, 4200);
+  }
 }
 
 function showToast(text, isError = false, duration = 2200) {
