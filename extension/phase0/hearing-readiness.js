@@ -471,6 +471,9 @@ export function parseInterviewItems(text) {
 export function wasPreResearchGrounded(result) {
   if (!result || typeof result !== 'object') return false;
   if (result.mode === 'proxy') return false;
+  // DeepSeek は Responses API のサーバー実行 web_search を使う。検索が実際に走ったかは
+  // gemini-client が応答から判定して grounded に入れてくる（走らなければ false のまま）。
+  if (result.mode === 'deepseek') return Boolean(result.grounded);
   const candidates = result.raw && result.raw.candidates;
   if (!Array.isArray(candidates) || !candidates.length) return false;
   return candidates.some((c) => c && (c.groundingMetadata || c.grounding_metadata));
@@ -514,6 +517,11 @@ function firstCandidate(result) {
 // grounding（google_search）が実際に投げた検索クエリ配列を取り出す（camel/snake 両対応）。
 // 無ければ []。
 export function extractSearchQueries(result) {
+  // DeepSeek は Gemini の groundingMetadata を持たないため、正規化済みの配列を使う。
+  if (result && result.mode === 'deepseek') {
+    const queries = Array.isArray(result.searchQueries) ? result.searchQueries : [];
+    return queries.map((q) => String(q == null ? '' : q)).filter((q) => q);
+  }
   const cand = firstCandidate(result);
   if (!cand) return [];
   const meta = cand.groundingMetadata || cand.grounding_metadata;
@@ -526,6 +534,12 @@ export function extractSearchQueries(result) {
 // url_context が読み取った URL と取得成否を {url, ok}[] で取り出す（camel/snake 両対応）。
 // ok は urlRetrievalStatus が *SUCCESS のとき true。無ければ []。
 export function extractUrlContextStatuses(result) {
+  // DeepSeek は URL を個別に取りに行く url_context に相当する機能を持たない。
+  // web_search が引用した URL は「参照できた URL」として同じ形で見せる。
+  if (result && result.mode === 'deepseek') {
+    const urls = Array.isArray(result.searchUrls) ? result.searchUrls : [];
+    return urls.map((url) => ({ url: String(url == null ? '' : url), ok: true })).filter((e) => e.url);
+  }
   const cand = firstCandidate(result);
   if (!cand) return [];
   const meta = cand.urlContextMetadata || cand.url_context_metadata;

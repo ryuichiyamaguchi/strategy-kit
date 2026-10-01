@@ -7,6 +7,8 @@ import {
 } from '../phase0/apps-script-client.js';
 import { createDocument, batchUpdate, getDocument } from '../phase0/docs-client.js';
 import {
+  DEEPSEEK_API_KEY_KEY,
+  DEFAULT_DEEPSEEK_MODEL,
   GEMINI_API_KEY_KEY,
   GEMINI_PROXY_KEY,
   GEMINI_PROXY_TOKEN_KEY,
@@ -19,8 +21,6 @@ import {
   setMasterDocFromUrl,
 } from '../phase0/master-doc-manager.js';
 import { patchActiveProjectWorkspace } from '../phase0/project-workspace.js';
-
-const LATEST_RELEASE_URL = 'https://github.com/ryuichiyamaguchi/strategy-kit/releases/latest';
 
 async function loadJson(path) {
   const res = await fetch(chrome.runtime.getURL(path));
@@ -35,7 +35,9 @@ const PRODUCT_CONFIG_FALLBACK = {
   promptsPath: 'data/prompts.json',
   benchmarkSource: 'industry',
   benchmarkPath: 'data/industries.json',
+  releaseUrl: 'https://github.com/ryuichiyamaguchi/strategy-kit/releases/latest',
   branding: { name: 'STRATEGY-KIT Helper', footerLabel: 'STRATEGY-KIT' },
+  features: { operations: true },
 };
 
 async function resolveProductConfig(loadJsonFn) {
@@ -52,9 +54,18 @@ async function resolveProductConfig(loadJsonFn) {
     benchmarkSource:
       cfg.benchmarkSource === 'platform' ? 'platform' : PRODUCT_CONFIG_FALLBACK.benchmarkSource,
     benchmarkPath: cfg.benchmarkPath || PRODUCT_CONFIG_FALLBACK.benchmarkPath,
+    // 配布ページ URL は「未設定（null）」を正当な状態として扱う。product.json 自体が
+    // 読めなかったときだけ Webマーケ版の URL へフォールバックする。
+    releaseUrl: raw
+      ? (typeof cfg.releaseUrl === 'string' && cfg.releaseUrl ? cfg.releaseUrl : null)
+      : PRODUCT_CONFIG_FALLBACK.releaseUrl,
     branding: cfg.branding && typeof cfg.branding === 'object'
       ? cfg.branding
       : PRODUCT_CONFIG_FALLBACK.branding,
+    // sidepanel.js と同じ規則（運用ボードを出す製品か）。
+    features: raw
+      ? (cfg.features && typeof cfg.features === 'object' ? cfg.features : {})
+      : PRODUCT_CONFIG_FALLBACK.features,
   };
 }
 
@@ -99,19 +110,33 @@ async function initVersionLabel() {
   }
 }
 
-function bindUpdateCard() {
+// 「最新版・更新」カードの遷移先は product.json の releaseUrl に間接化する。
+// releaseUrl が未設定（SNS 系のように公開配布ページが無い製品）のときは、
+// 存在しないページへ飛ばすより出さないほうが誠実なのでカードごと隠す
+// （サイドバーの導線リンクも一緒に隠さないと、押しても何も起きない項目が残る）。
+function bindUpdateCard(config) {
+  const releaseUrl = (config && config.releaseUrl) || null;
+  const card = document.getElementById('update-settings-card');
+  const navLink = document.getElementById('update-settings-nav');
+  if (!releaseUrl) {
+    if (card) card.hidden = true;
+    if (navLink) navLink.hidden = true;
+    return;
+  }
   document.getElementById('open-latest-release')?.addEventListener('click', () => {
-    chrome.tabs.create({ url: LATEST_RELEASE_URL });
+    chrome.tabs.create({ url: releaseUrl });
   });
 }
 
 // 見出し・タイトル・概要文を product.json の branding に間接化する。
 // 各キー欠落・product.json 未読時は STRATEGY-KIT の現状文言を維持する（既存挙動を一切変えない）。
-async function initBranding() {
+async function initBranding(productConfig) {
   try {
-    const config = await resolveProductConfig(loadJson);
+    const config = productConfig || (await resolveProductConfig(loadJson));
     const branding = (config && config.branding) || {};
     const name = branding.name || 'STRATEGY-KIT';
+    const footerLabel = branding.footerLabel || 'STRATEGY-KIT';
+    const logoMonogram = branding.logoMonogram || 'SK';
     // audienceContext は「〜講座の受講者」想定なので「〜の受講者を主な対象とした」の形で文に馴染ませる。
     // 欠落時は現状 STRATEGY-KIT の固定文言へフォールバックする（既存挙動を変えない）。
     const audienceContext = branding.audienceContext || '';
@@ -120,6 +145,23 @@ async function initBranding() {
     document.title = name + ' 設定';
     const titleEl = document.getElementById('options-title');
     if (titleEl) titleEl.textContent = name;
+    // ページ上部の eyebrow とサイドバーのロゴ表記（HTML 側は製品名を持たない）。
+    const eyebrowEl = document.getElementById('options-eyebrow');
+    if (eyebrowEl) eyebrowEl.textContent = footerLabel + ' · SYSTEM SETTINGS';
+    const sidebarMarkEl = document.getElementById('options-sidebar-mark');
+    if (sidebarMarkEl) sidebarMarkEl.textContent = logoMonogram;
+    const sidebarNameEl = document.getElementById('options-sidebar-name');
+    if (sidebarNameEl) sidebarNameEl.textContent = footerLabel;
+    // リード文の「何を立案するツールか」は製品で変わるので purposeLabel に間接化する。
+    const ledeEl = document.getElementById('options-lede');
+    if (ledeEl) {
+      ledeEl.textContent =
+        '事業情報を入力すれば、サイドパネルから' + purposeLabel +
+        ' + Google Docs 章別記録が使えます。v0.12 では Google アカウント連携で Docs / Drive に直接保存します。';
+    }
+    // 「chrome://extensions/ の◯◯カードで再読み込み」の◯◯は拡張の表示名。
+    const updateExtNameEl = document.getElementById('update-extension-name');
+    if (updateExtNameEl) updateExtNameEl.textContent = footerLabel;
     const aboutTool = document.getElementById('about-tool');
     if (aboutTool) {
       const audienceClause = audienceContext
@@ -462,6 +504,49 @@ function bindGeminiCard() {
     }
   });
 
+  // DeepSeek: key は local storage のみ（sync へは載せない）。
+  // 「実行確認」は DeepSeek のモデルを明示して呼び、Gemini 経路へ落ちないようにする。
+  document.getElementById('deepseek-key-save')?.addEventListener('click', async () => {
+    const status = document.getElementById('deepseek-status');
+    const input = document.getElementById('deepseek-api-key');
+    const ack = document.getElementById('deepseek-local-key-ack');
+    if (!ack?.checked) {
+      setStatus(status, '注意事項を確認してチェックしてください', 'warn');
+      return;
+    }
+    const key = input.value.trim();
+    if (!key) {
+      setStatus(status, 'API key を入力してください', 'warn');
+      return;
+    }
+    await chrome.storage.local.set({ [DEEPSEEK_API_KEY_KEY]: key });
+    input.value = '';
+    setStatus(status, '保存済み', 'ok');
+  });
+
+  document.getElementById('deepseek-key-delete')?.addEventListener('click', async () => {
+    await chrome.storage.local.remove([DEEPSEEK_API_KEY_KEY]);
+    setStatus(document.getElementById('deepseek-status'), '削除しました', 'ok');
+  });
+
+  document.getElementById('deepseek-probe')?.addEventListener('click', async () => {
+    const status = document.getElementById('deepseek-status');
+    setStatus(status, '実行確認中…');
+    try {
+      const result = await generateContent({
+        prompt: 'Reply with exactly: STRATEGY-KIT OK',
+        model: DEFAULT_DEEPSEEK_MODEL,
+        temperature: 0,
+      }, {
+        storage: chrome.storage.local,
+        syncStorage: null,
+      });
+      setStatus(status, result.text ? '実行OK' : '応答なし', result.text ? 'ok' : 'warn');
+    } catch (error) {
+      setStatus(status, getErrorMessage(error), 'ng');
+    }
+  });
+
   document.getElementById('gemini-proxy-create')?.addEventListener('click', async () => {
     const status = document.getElementById('gemini-proxy-status');
     setStatus(status, 'proxy 作成中…');
@@ -562,8 +647,15 @@ function bindGeminiCard() {
 
 async function init() {
   bindBackButtons();
-  bindUpdateCard();
-  await initBranding();
+  // 製品設定は表示文言と配布ページ URL の唯一の情報源。1回だけ解決して両方に渡す。
+  let productConfig = null;
+  try {
+    productConfig = await resolveProductConfig(loadJson);
+  } catch (_) {
+    productConfig = null;
+  }
+  bindUpdateCard(productConfig);
+  await initBranding(productConfig);
   await initVersionLabel();
   await loadBusinessSettings();
   bindOAuthCard();

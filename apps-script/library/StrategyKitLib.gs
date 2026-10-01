@@ -1591,8 +1591,10 @@ function handle_geminiProxy_(body, props) {
     typeof body.temperature === 'number' ? body.temperature : undefined;
 
   const modelChain = [requestedModel];
-  if (requestedModel !== 'gemini-2.5-flash') modelChain.push('gemini-2.5-flash');
-  if (requestedModel !== 'gemini-2.5-flash-lite') modelChain.push('gemini-2.5-flash-lite');
+  if (requestedModel !== 'gemini-3.8-flash') modelChain.push('gemini-3.8-flash');
+  if (requestedModel !== 'gemini-3.6-flash') modelChain.push('gemini-3.6-flash');
+  if (requestedModel !== 'gemini-3.5-flash') modelChain.push('gemini-3.5-flash');
+  if (requestedModel !== 'gemini-3.5-flash-lite') modelChain.push('gemini-3.5-flash-lite');
 
   let lastError = '';
   for (let mi = 0; mi < modelChain.length; mi++) {
@@ -1825,7 +1827,7 @@ function handle_cleanupDraft_(body, props) {
     let formatted = raw;
     try {
       if (apiKey) {
-        const result = _geminiCall_(formatPrompt, 'gemini-2.5-flash', 0.2, apiKey);
+        const result = _geminiCall_(formatPrompt, 'gemini-3.8-flash', 0.2, apiKey);
         if (typeof result === 'string' && result.indexOf('[ERROR]') !== 0) {
           formatted = _cleanupAiText_(result);
         }
@@ -1955,9 +1957,9 @@ function handle_generateExecutiveSummary_(body, props) {
 
   let summary = '';
   try {
-    let result = _geminiCall_(prompt, 'gemini-2.5-flash', 0.3, apiKey);
+    let result = _geminiCall_(prompt, 'gemini-3.8-flash', 0.3, apiKey);
     if (typeof result === 'string' && result.indexOf('[ERROR]') === 0) {
-      result = _geminiCall_(prompt, 'gemini-2.5-flash-lite', 0.3, apiKey);
+      result = _geminiCall_(prompt, 'gemini-3.5-flash-lite', 0.3, apiKey);
     }
     if (typeof result === 'string' && result.indexOf('[ERROR]') !== 0 && result.length > 50) {
       summary = _cleanupAiText_(result);

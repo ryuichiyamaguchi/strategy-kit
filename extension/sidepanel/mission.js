@@ -39,6 +39,9 @@ let automationDraftProjectId = null;
 let automationDraftLoadPromise = null;
 let automationDraftLoadingId = null;
 let lastCommandTs = 0;
+// product.json 解決までは空（initBranding が上書き）。ここに 'STRATEGY-KIT' を置くと
+// X-KIT / INSTAGRAM-KIT で解決前に誤った製品名が出るため、暫定値は持たせない。
+let brandLabel = '';
 
 function $(id) {
   return document.getElementById(id);
@@ -47,6 +50,108 @@ function $(id) {
 function clearChildren(node) {
   if (!node) return;
   while (node.firstChild) node.removeChild(node.firstChild);
+}
+
+// =====================================================
+// ブランド表記の間接化（sidepanel.js / options.js と同一パターン）
+// =====================================================
+// この画面は sidepanel.js を読み込まないため、product.json の解決を自前で持つ。
+// resolveProductConfig の挙動は sidepanel.js / options.js と揃える（loadJson 注入式・
+// product.json が無い／壊れている場合は Webマーケ版へ完全フォールバック）。
+
+async function loadJson(path) {
+  const res = await fetch(chrome.runtime.getURL(path));
+  return res.json();
+}
+
+const PRODUCT_CONFIG_FALLBACK = {
+  productLine: 'strategy-kit-v0.11',
+  promptsPath: 'data/prompts.json',
+  benchmarkSource: 'industry',
+  benchmarkPath: 'data/industries.json',
+  releaseUrl: 'https://github.com/ryuichiyamaguchi/strategy-kit/releases/latest',
+  branding: { name: 'STRATEGY-KIT Helper', footerLabel: 'STRATEGY-KIT' },
+};
+
+async function resolveProductConfig(loadJsonFn) {
+  let raw = null;
+  try {
+    raw = await loadJsonFn('product.json');
+  } catch (e) {
+    raw = null;
+  }
+  const cfg = raw && typeof raw === 'object' ? raw : {};
+  return {
+    productLine: cfg.productLine || PRODUCT_CONFIG_FALLBACK.productLine,
+    promptsPath: cfg.promptsPath || PRODUCT_CONFIG_FALLBACK.promptsPath,
+    benchmarkSource:
+      cfg.benchmarkSource === 'platform' ? 'platform' : PRODUCT_CONFIG_FALLBACK.benchmarkSource,
+    benchmarkPath: cfg.benchmarkPath || PRODUCT_CONFIG_FALLBACK.benchmarkPath,
+    // 配布ページ URL は「未設定（null）」を正当な状態として扱う。product.json 自体が
+    // 読めなかったときだけ Webマーケ版の URL へフォールバックする。
+    releaseUrl: raw
+      ? (typeof cfg.releaseUrl === 'string' && cfg.releaseUrl ? cfg.releaseUrl : null)
+      : PRODUCT_CONFIG_FALLBACK.releaseUrl,
+    branding: cfg.branding && typeof cfg.branding === 'object'
+      ? cfg.branding
+      : PRODUCT_CONFIG_FALLBACK.branding,
+    // 運用ボードを出す製品か（sidepanel.js と同じ規則。product.json が読めなければ Webマーケ版既定）。
+    features: raw
+      ? (cfg.features && typeof cfg.features === 'object' ? cfg.features : {})
+      : { operations: true },
+  };
+}
+
+// 上バー・フッター・使い方ダイアログ・タブタイトルの製品名を branding に間接化する。
+// HTML 側は製品名を持たない（SNS 版のビルドへ STRATEGY-KIT が焼き込まれるのを防ぐ）ので、
+// 解決に失敗したときだけ STRATEGY-KIT の現状文言へフォールバックする。
+async function initBranding() {
+  let branding = null;
+  let operationsEnabled = false;
+  try {
+    const config = await resolveProductConfig(loadJson);
+    branding = (config && config.branding) || null;
+    operationsEnabled = Boolean(config?.features?.operations);
+  } catch (_) {
+    branding = null;
+  }
+  const opsButton = $('mission-open-ops');
+  if (opsButton) opsButton.hidden = !operationsEnabled;
+  try {
+    const footerLabel = (branding && branding.footerLabel) || 'STRATEGY-KIT';
+    const name = (branding && branding.name) || 'STRATEGY-KIT Helper';
+    // 「完成物: ◯◯ 戦略書」などモデル側の文言にも反映するため、解決値を保持して再描画する。
+    brandLabel = footerLabel;
+
+    document.title = footerLabel + ' — ホーム（司令塔）';
+    const brandNameEl = $('mission-brand-name');
+    if (brandNameEl) brandNameEl.textContent = footerLabel;
+    const helpTitleEl = $('mission-help-title');
+    if (helpTitleEl) helpTitleEl.textContent = footerLabel + 'の使い方';
+
+    // フッターは "STRATEGY-KIT <em>Helper</em>" の組み。name が footerLabel + 装飾語の
+    // ときだけ装飾語を <em> に残す（X-KIT のように name = footerLabel なら <em> 無し）。
+    const footerBrandEl = $('mission-footer-brand');
+    if (footerBrandEl) {
+      const suffix = name.startsWith(footerLabel) ? name.slice(footerLabel.length).trim() : '';
+      clearChildren(footerBrandEl);
+      footerBrandEl.appendChild(document.createTextNode(footerLabel));
+      if (suffix) {
+        footerBrandEl.appendChild(document.createTextNode(' '));
+        const em = document.createElement('em');
+        em.textContent = suffix;
+        footerBrandEl.appendChild(em);
+      }
+    }
+  } catch (_) {
+    /* DOM 反映に失敗しても画面本体の描画は続ける */
+  }
+  // 製品名を含む描画（詳細リストの「完成物」）を解決後の値で描き直す。
+  try {
+    render();
+  } catch (_) {
+    /* 初回 render 前ならこの時点では何もしなくてよい */
+  }
 }
 
 function providerInitial(value) {
@@ -172,6 +277,8 @@ function render() {
     executionMode: snapshot?.executionMode,
     projects: snapshot?.projects,
     activeProjectId: snapshot?.activeProjectId,
+    // 完了時の「完成物」表記に使う製品名（product.json 由来・未解決時は STRATEGY-KIT）。
+    productLabel: brandLabel,
   });
   currentModel = model;
 
@@ -347,14 +454,14 @@ function updateControls(model) {
   if (restart) restart.disabled = running || model.statusKey === 'setup';
   if (commandState) {
     commandState.textContent = running
-      ? 'RUNNING'
+      ? '実行中'
       : model.status === 'paused'
-        ? 'PAUSED'
+        ? '一時停止中'
         : model.status === 'blocked'
-          ? 'CHECK'
+          ? '要確認・停止中'
           : model.status === 'completed'
-            ? 'DONE'
-            : 'READY';
+            ? '完了'
+            : '開始前';
     commandState.dataset.state = model.status;
   }
 
@@ -418,8 +525,8 @@ function readAutomationDraftFromForm() {
     // この版数があるドラフトは「受講者が選んだ値」として扱い、以後読み替えない。
     modelPolicyVersion: MODEL_POLICY_VERSION,
     mode: selectedExecutionMode(),
-    model: $('mission-model-select')?.value || 'gemini-3.6-flash',
-    financeModel: $('mission-finance-model-select')?.value || 'gemini-3.6-flash',
+    model: $('mission-model-select')?.value || 'gemini-3.8-flash',
+    financeModel: $('mission-finance-model-select')?.value || 'gemini-3.8-flash',
     updatedAt: Date.now(),
   };
 }
@@ -446,7 +553,7 @@ function applyAutomationDraftToForm(draft, { executionMode, skipFocused = false,
   // v0.12.28 以前に自動保存された課金専用モデルだけを無料枠モデルへ読み替える。
   // そのまま復元すると既存受講者だけ §7 で止まり続けるが、逆に毎回読み替えると
   // 課金APIキーで Pro を選んだ人が使い続けられなくなる。版数の有無で区別する。
-  const remap = { remapLegacy: remapLegacyModels };
+  const remap = { remapLegacy: remapLegacyModels, savedPolicyVersion: source.modelPolicyVersion };
   if (model && source.model && !editing(model)) {
     model.value = restoreSelectableModel(source.model, Array.from(model.options).map((o) => o.value), remap);
   }
@@ -711,6 +818,16 @@ function bindControls() {
     updateMissionModeUI();
     persistMissionExecutionMode();
   });
+  // 運用ボード（施策の実行管理・実績・答え合わせ・報告書）を通常タブで開く。
+  $('mission-open-ops')?.addEventListener('click', async () => {
+    const base = chrome.runtime.getURL('sidepanel/operations.html');
+    const existing = await chrome.tabs.query({ url: base + '*' });
+    if (existing && existing.length) {
+      await chrome.tabs.update(existing[0].id, { active: true });
+      return;
+    }
+    await chrome.tabs.create({ url: base, active: true });
+  });
   $('mission-back-panel')?.addEventListener('click', async () => {
     await openSupportingSidePanel();
     globalThis.close();
@@ -827,7 +944,28 @@ function applyChange(key, value) {
   render();
 }
 
+// 運用ボードで「目的から選ぶ」を選んでいると、全自動・半自動はその章だけを進める。
+// 開始ボタンの近くで知らせる（知らないと「一部の章しか進まない」と戸惑うため）。
+async function refreshRecipeNote() {
+  const note = $('mission-recipe-note');
+  if (!note || !globalThis.chrome?.storage?.local) return;
+  try {
+    const opsCore = await import('../lib/ops-core.js');
+    const { 'sk-state.ui.activeProjectId': projectId } = await chrome.storage.local.get(['sk-state.ui.activeProjectId']);
+    const key = opsCore.opsStorageKey(projectId || '');
+    const ops = opsCore.normalizeOpsState((await chrome.storage.local.get([key]))[key]);
+    const recipe = ops.recipe ? opsCore.findRecipe(ops.recipe.id) : null;
+    const phases = opsCore.recipePhaseFilter(recipe);
+    note.hidden = !phases;
+    if (phases) note.textContent = `目的「${recipe.title}」: §${phases.join('・§')} だけを進めます（変更は運用ボードの「目的から選ぶ」）`;
+  } catch (_) {
+    note.hidden = true;
+  }
+}
+
 async function init() {
+  // 製品名の反映は画面本体の初期化を待たせない（fetch 失敗時もフォールバックで解決する）。
+  initBranding();
   bindControls();
   bindProjectSwitch();
   initSparring({
@@ -852,9 +990,13 @@ async function init() {
     /* noop */
   }
   render();
+  refreshRecipeNote();
   setInterval(renderElapsedTime, 1000);
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') return;
+    if (Object.keys(changes).some((k) => /^sk-state\.(projects\.[^.]+\.)?ops$/.test(k) || k === 'sk-state.ui.activeProjectId')) {
+      refreshRecipeNote();
+    }
     if (changes[SNAPSHOT_KEY]) applyChange(SNAPSHOT_KEY, changes[SNAPSHOT_KEY].newValue);
     if (changes[TASK_KEY]) applyChange(TASK_KEY, changes[TASK_KEY].newValue);
     if (changes[COMMAND_RESULT_KEY]) applyChange(COMMAND_RESULT_KEY, changes[COMMAND_RESULT_KEY].newValue);

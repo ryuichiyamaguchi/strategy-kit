@@ -2,7 +2,8 @@
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
-    <title>STRATEGY-KIT 設定</title>
+    <!-- 製品名は options.js の initBranding が product.json から補う（ここでは持たない） -->
+    <title>設定</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -19,19 +20,20 @@
       設定はこのタブで行います。完了したら左上の「← サイドパネルに戻る」ボタン、またはこのタブを閉じてサイドパネルに戻ってください。
     </div>
     <main class="container">
-      <p class="options-eyebrow">STRATEGY-KIT · SYSTEM SETTINGS</p>
+      <p class="options-eyebrow" id="options-eyebrow">SYSTEM SETTINGS</p>
       <h1 id="options-title">AI・プロジェクト設定</h1>
-      <p class="lede">事業情報を入力すれば、サイドパネルから戦略立案 + Google Docs 章別記録が使えます。v0.12 では Google アカウント連携で Docs / Drive に直接保存します。</p>
+      <p class="lede" id="options-lede">事業情報を入力すれば、サイドパネルから戦略立案 + Google Docs 章別記録が使えます。v0.12 では Google アカウント連携で Docs / Drive に直接保存します。</p>
 
       <aside class="settings-sidebar" aria-label="設定メニュー">
-        <div class="settings-sidebar-brand"><span>SK</span><strong>STRATEGY-KIT</strong></div>
-        <a href="#gemini-settings-card" class="is-active">✦ <span>AI設定</span></a>
-        <a href="#business-settings-card">▣ <span>プロジェクト設定</span></a>
-        <a href="#oauth-card">◎ <span>Google連携</span></a>
+        <div class="settings-sidebar-brand"><span id="options-sidebar-mark">SK</span><strong id="options-sidebar-name"></strong></div>
+        <a href="#business-settings-card" class="is-active">▣ <span>事業情報</span></a>
+        <a href="#oauth-card">◎ <span>Google アカウント連携</span></a>
+        <a href="#gemini-settings-card">✦ <span>Gemini 設定（APIキー）</span></a>
+        <a href="#deepseek-settings-card">◈ <span>DeepSeek 設定（任意）</span></a>
         <a href="#display-settings-card">☰ <span>表示設定</span></a>
-        <a href="#master-doc-card">◇ <span>データ管理</span></a>
-        <a href="#update-settings-card">↻ <span>最新版・更新</span></a>
-        <a href="#about-settings-card">？ <span>ヘルプ・情報</span></a>
+        <a href="#master-doc-card">◇ <span>マスタードキュメント</span></a>
+        <a href="#update-settings-card" id="update-settings-nav">↻ <span>最新版・更新</span></a>
+        <a href="#about-settings-card">？ <span>このツールについて</span></a>
       </aside>
 
       <section class="card" id="business-settings-card">
@@ -101,6 +103,19 @@
         <p class="muted">全自動生成と図解自動生成で使います。学習用途では「セキュア学習モード」を推奨します。</p>
         <p class="muted"><strong>無料枠の API key だけで §0〜§9 を最後まで実行できます。</strong>課金 API key を設定すると、「実行モードを管理」で高精度モデル（Gemini 3.1 Pro）と画像系図解が選べるようになります。</p>
 
+        <div class="settings-block key-guide" id="gemini-key-guide">
+          <h3>API キーをまだ持っていない方へ（数分・カード登録不要）</h3>
+          <ol class="steps">
+            <li>下のボタンで Google AI Studio の「API キー」画面を開き、Google アカウントでログインします。</li>
+            <li>初めて使う場合は利用規約に同意すると、プロジェクトとキーが自動で作られます。キーが無いときは「API キーを作成」を押します。</li>
+            <li>表示されたキーをコピーし、この下の「セキュア学習モード」の欄に貼り付けて「proxy に key を設定」を押します。</li>
+          </ol>
+          <div class="row inline">
+            <a class="btn" id="gemini-key-guide-open" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio でキーを作る</a>
+          </div>
+          <p class="muted">会社の Google アカウントで「このプロジェクトでキーを作成する権限がありません」と出た場合は、管理者に権限を依頼するか、個人の Google アカウントで作成してください。キーはパスワードと同じ扱いです。人に送ったり、画面共有で映したりしないでください。</p>
+        </div>
+
         <div class="settings-block" id="gemini-direct-block">
           <h3>直接 API key モード</h3>
           <div class="warning-box">
@@ -113,7 +128,7 @@
           </label>
           <label class="row">
             <span>Gemini API key</span>
-            <input id="gemini-api-key" type="password" placeholder="AIza..." autocomplete="off" />
+            <input id="gemini-api-key" type="password" placeholder="API キーを貼り付け" autocomplete="off" />
           </label>
           <div class="row inline">
             <button id="gemini-key-save" class="btn" type="button">直接 key を保存</button>
@@ -135,7 +150,7 @@
           </div>
           <label class="row">
             <span>Gemini API key（proxyへ送信し、Apps ScriptのScript Propertiesに保存。拡張には保存しません）</span>
-            <input id="gemini-proxy-api-key" type="password" placeholder="AIza..." autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <input id="gemini-proxy-api-key" type="password" placeholder="API キーを貼り付け" autocomplete="off" autocapitalize="off" spellcheck="false" />
           </label>
           <div class="row inline">
             <button id="gemini-proxy-setup-key" class="btn" type="button">proxy に key を設定</button>
@@ -144,12 +159,41 @@
         </div>
       </section>
 
+      <section class="card" id="deepseek-settings-card">
+        <h2>DeepSeek 設定（任意）</h2>
+        <p class="muted">
+          「実行モードを管理」のモデル選択で <strong>DeepSeek V4 Flash</strong> を選んだときだけ使います。
+          未設定でも Gemini での動作には影響しません。
+        </p>
+        <p class="muted">
+          DeepSeek は<strong>ウェブ検索と画像生成に対応していません</strong>。§0 のプレリサーチ（検索あり）は検索なしで実行され、図解の画像生成には Gemini の key が必要です。
+        </p>
+        <div class="settings-block" id="deepseek-direct-block">
+          <div class="warning-box">
+            <strong>注意:</strong>
+            API key をこの端末の local storage に保存します。DeepSeek のダッシュボードで利用上限を絞った key を使ってください。
+          </div>
+          <label class="row checkbox">
+            <input id="deepseek-local-key-ack" type="checkbox" />
+            <span>上限を絞った key だけを保存することを確認しました</span>
+          </label>
+          <label class="row">
+            <span>DeepSeek API key</span>
+            <input id="deepseek-api-key" type="password" placeholder="sk-..." autocomplete="off" autocapitalize="off" spellcheck="false" />
+          </label>
+          <div class="row inline">
+            <button id="deepseek-key-save" class="btn" type="button">key を保存</button>
+            <button id="deepseek-key-delete" class="btn btn-ghost" type="button">key を削除</button>
+            <button id="deepseek-probe" class="btn btn-ghost" type="button">実行確認</button>
+            <span id="deepseek-status" class="status"></span>
+          </div>
+        </div>
+      </section>
+
       <section class="card" id="about-settings-card">
         <h2>このツールについて</h2>
-        <p id="about-tool">
-          STRATEGY-KIT
-          は、職業訓練マーケティング戦略講座の修了記念配布物です。マスタードキュメント中心のマーケ戦略立案を、複数AI横断で支援します。
-        </p>
+        <!-- 本文は options.js の initBranding が product.json の branding から組み立てる -->
+        <p id="about-tool"></p>
         <p>
           <strong>AIの出力を直接マスタードキュメントに書き込まないでください。</strong>必ず別ファイルに残し、人間が選別して転記する運用を守ってください。
         </p>
@@ -160,7 +204,7 @@
         <h2>最新版・更新</h2>
         <p class="muted">
           GitHubで配布している最新版を確認できます。ZIP版は、ダウンロード後に解凍フォルダを差し替え、
-          <code>chrome://extensions/</code> のSTRATEGY-KITカードで「再読み込み」を押してください。
+          <code>chrome://extensions/</code> の<span id="update-extension-name">この拡張機能</span>カードで「再読み込み」を押してください。
         </p>
         <div class="row inline">
           <button id="open-latest-release" class="btn" type="button">最新版を確認・ダウンロード</button>

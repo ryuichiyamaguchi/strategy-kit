@@ -7,16 +7,16 @@
 | パス | 内容 |
 |---|---|
 | `extension/` | Chrome 拡張本体（ソース） |
-| `strategy-kit-v0.12.39.zip` | STRATEGY-KIT 配布版（マーケ戦略立案） |
-| `x-kit-v0.12.40.zip` | X-KIT 配布版（X / 旧Twitter アカウント運用） |
-| `instagram-kit-v0.12.40.zip` | INSTAGRAM-KIT 配布版（Instagram アカウント運用） |
+| `strategy-kit-v0.13.0.zip` | STRATEGY-KIT 配布版（マーケ戦略立案） |
+| `x-kit-v0.13.0.zip` | X-KIT 配布版（X / 旧Twitter アカウント運用） |
+| `instagram-kit-v0.13.0.zip` | INSTAGRAM-KIT 配布版（Instagram アカウント運用） |
 | `apps-script/` | Google Apps Script（ライブラリ / shim） |
 | `docs/` | セットアップガイド・構成図 |
 | `setup/` | 配布ハブページ・完全版ガイド・マスター雛形 |
 
 ## インストール（受講者向け）
 
-1. お使いの製品の ZIP（`strategy-kit-v0.12.39.zip` / `x-kit-v0.12.40.zip` / `instagram-kit-v0.12.40.zip`）をダウンロードして**解凍**します。
+1. お使いの製品の ZIP（`strategy-kit-v0.13.0.zip` / `x-kit-v0.13.0.zip` / `instagram-kit-v0.13.0.zip`）をダウンロードして**解凍**します。
 2. Chrome で `chrome://extensions` を開き、右上の「**デベロッパーモード**」を ON にします。
 3. 「**パッケージ化されていない拡張機能を読み込む**」をクリックし、解凍したフォルダを選択します。
 4. テストユーザー登録済みの Google アカウントでログインし、拡張の設定画面で「Google 連携」を行うと使えます。
@@ -26,8 +26,8 @@
 
 X（旧Twitter）運用の **X-KIT** と Instagram 運用の **INSTAGRAM-KIT** は、STRATEGY-KIT と同じ手順でセットアップできる別製品の拡張機能です。フェーズの中身が各 SNS のアカウント運用計画（§0 プラットフォーム調査 〜 §9 PDCA）になります。
 
-- 直リンク: `https://github.com/ryuichiyamaguchi/strategy-kit/raw/main/x-kit-v0.12.40.zip`
-- 直リンク: `https://github.com/ryuichiyamaguchi/strategy-kit/raw/main/instagram-kit-v0.12.40.zip`
+- 直リンク: `https://github.com/ryuichiyamaguchi/strategy-kit/raw/main/x-kit-v0.13.0.zip`
+- 直リンク: `https://github.com/ryuichiyamaguchi/strategy-kit/raw/main/instagram-kit-v0.13.0.zip`
 
 ## セットアップ
 
@@ -39,8 +39,24 @@ X（旧Twitter）運用の **X-KIT** と Instagram 運用の **INSTAGRAM-KIT** �
 ## 使い方の概要
 
 1. 「事業設定」で業種・店舗名を入力
-2. 全自動／半自動で §0〜§9 を生成（財務章は自動でユニットエコノミクスを試算）
+2. 全自動／半自動で §0〜§9 を生成（財務章は自動でユニットエコノミクスを試算。既定の AI は Gemini 3.8 Flash）
 3. 生成結果はマスターの Google ドキュメントに章番号順で記録されます
+4. 運用ボードで施策の実行・実績の取り込み・答え合わせ・報告を回します
+
+## 運用ボード（v0.13.0〜・STRATEGY-KIT）
+
+戦略書を作った「あと」を回すための全画面です。サイドパネルのメニュー「運用ボード（実行・計測・報告）」か、司令塔の「運用ボード」から開きます。
+
+- **目的から選ぶ**: 「集客が落ちた原因を探したい」「来期の販促計画と予算を作りたい」など、目的に合わせて必要な章だけを全自動・半自動で進めます
+- **今週やること（施策トラッカー）**: §7 の施策に担当・期限・状態を付けて管理し、状態を変えると戦略書 §98 に実施記録が残ります。期限はカレンダー用ファイル（.ics）でも保存できます
+- **実績データ**: GA4・Search Console・Googleビジネスプロフィール・SNSインサイト・POS などの CSV／貼り付けを取り込みます（列の意味は AI が読み取り、集計はツールが計算します）
+- **答え合わせ・2周目**: 目標と実績を突き合わせて「当たり／外れ／判定不能」を出し、元の戦略書を残したまま2周目の戦略書と次の90日プランを作ります
+- **月次レポート／書類の書き出し**: 月次報告、経営会議用1枚サマリー、予算申請の下書き、外注先への依頼書、現場向け「今月やること」、提案スライド原稿、数字の出どころ一覧を Google ドキュメントで作ります
+- **会社資料の先読み**: 会社案内などからヒアリングの事前記入シートを作り、分かったことを全自動の前提に使います
+- **制約と表現チェック**: 予算・人手などの制約をすべてのプロンプトに添え、景品表示法・薬機法・医療広告ガイドラインなどでよく問題になる表現に注意を出します（法的判断ではありません）
+- **チーム共有**: 戦略書とチーム用トラッカー（スプレッドシート）をメンバーに共有し、シートでの更新を取り込みます
+
+追加の Google 権限は使いません（これまでどおり、この拡張で作ったファイルだけを扱います）。
 
 ## 補足
 
@@ -49,4 +65,4 @@ X（旧Twitter）運用の **X-KIT** と Instagram 運用の **INSTAGRAM-KIT** �
 
 ## バージョン
 
-現在の配布版: **STRATEGY-KIT v0.12.39** / **X-KIT v0.12.40** / **INSTAGRAM-KIT v0.12.40**
+現在の配布版: **STRATEGY-KIT v0.13.0** / **X-KIT v0.13.0** / **INSTAGRAM-KIT v0.13.0**

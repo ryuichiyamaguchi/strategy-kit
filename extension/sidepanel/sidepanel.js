@@ -251,8 +251,15 @@ const PRODUCT_CONFIG_FALLBACK = {
   promptsPath: 'data/prompts.json',
   benchmarkSource: 'industry',
   benchmarkPath: 'data/industries.json',
+  releaseUrl: 'https://github.com/ryuichiyamaguchi/strategy-kit/releases/latest',
   branding: { name: 'STRATEGY-KIT Helper', footerLabel: 'STRATEGY-KIT' },
+  features: { operations: true },
 };
+
+// 運用ボード（実行・計測・報告）を出す製品か。product.json の features.operations で切り替える。
+function isOperationsEnabled() {
+  return Boolean(state.productConfig && state.productConfig.features && state.productConfig.features.operations);
+}
 
 // branding 各キーの解決ヘルパー（product.json 未読・欠落時は STRATEGY-KIT 文言へフォールバック）。
 // state.productConfig.branding を単一情報源にして、表示文言を製品横断で間接化する。
@@ -282,9 +289,18 @@ async function resolveProductConfig(loadJsonFn) {
     benchmarkSource:
       cfg.benchmarkSource === 'platform' ? 'platform' : PRODUCT_CONFIG_FALLBACK.benchmarkSource,
     benchmarkPath: cfg.benchmarkPath || PRODUCT_CONFIG_FALLBACK.benchmarkPath,
+    // 配布ページ URL は「未設定（null）」を正当な状態として扱う。product.json 自体が
+    // 読めなかったときだけ Webマーケ版の URL へフォールバックする。
+    releaseUrl: raw
+      ? (typeof cfg.releaseUrl === 'string' && cfg.releaseUrl ? cfg.releaseUrl : null)
+      : PRODUCT_CONFIG_FALLBACK.releaseUrl,
     branding: cfg.branding && typeof cfg.branding === 'object'
       ? cfg.branding
       : PRODUCT_CONFIG_FALLBACK.branding,
+    // 製品ごとの機能の出し分け。product.json 自体が読めないときだけ Webマーケ版の既定へ。
+    features: raw
+      ? (cfg.features && typeof cfg.features === 'object' ? cfg.features : {})
+      : PRODUCT_CONFIG_FALLBACK.features,
   };
 }
 
@@ -1589,7 +1605,7 @@ async function summarizeHearingRawText(rawText) {
     const geminiClient = await import(chrome.runtime.getURL('phase0/gemini-client.js'));
     const request = {
       prompt: buildHearingSummaryPrompt(raw),
-      model: 'gemini-3.6-flash',
+      model: 'gemini-3.8-flash',
       temperature: 0.2,
     };
     const result = typeof geminiClient.generateSummary === 'function'
@@ -2345,7 +2361,11 @@ function getLiveMissionTask() {
   const activeProjectId = window.SK_STATE?._activeProjectId || '';
   if (snapshot.projectId && activeProjectId && snapshot.projectId !== activeProjectId) return null;
   const updatedAt = Number(snapshot.updatedAt || 0);
-  if (!updatedAt || Date.now() - updatedAt > 10 * 60 * 1000) return null;
+  // lib/mission-view-model.js taskStaleAfterMs と同じ規則（classic script のため複製）。
+  // 全自動の実行中だけ10分で失効、半自動・停止・完了は人の時間（24時間）で待つ。
+  const machinePaced = (snapshot.status === 'running' || snapshot.status === 'retrying') && snapshot.mode !== 'semi';
+  const staleAfterMs = machinePaced ? 10 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  if (!updatedAt || Date.now() - updatedAt > staleAfterMs) return null;
   return snapshot;
 }
 
@@ -2539,7 +2559,7 @@ function renderMissionControl() {
     details = [['止まった地点', task.taskLabel], ['直近', task.lastEvent || '処理を停止'], ['保存済み', `${completed}フェーズ`]];
   } else if (status === 'completed') {
     detailTitle = '戦略書が完成しました';
-    details = [['完成物', 'STRATEGY-KIT 戦略書'], ['種別', 'Google Docs'], ['要確認', '数値と固有名詞を最終確認']];
+    details = [['完成物', brandFooterLabel() + ' 戦略書'], ['種別', 'Google Docs'], ['要確認', '数値と固有名詞を最終確認']];
   }
   renderMissionDetails(detailTitle, details);
   renderMissionActivity(phases, filledSet, currentPhase, task);
@@ -2976,6 +2996,110 @@ async function openMissionFullscreen() {
   }
 }
 
+// 運用ボード（sidepanel/operations.html）を通常タブで開く。開いていれば前に出す。
+async function openOperationsPage(hash) {
+  const base = chrome.runtime.getURL('sidepanel/operations.html');
+  const url = hash ? base + '#' + hash : base;
+  try {
+    const existing = await chrome.tabs.query({ url: base + '*' });
+    if (existing && existing.length) {
+      await chrome.tabs.update(existing[0].id, { active: true, ...(hash ? { url } : {}) });
+      if (existing[0].windowId) await chrome.windows.update(existing[0].windowId, { focused: true }).catch(() => {});
+      return existing[0];
+    }
+    return await chrome.tabs.create({ url, active: true });
+  } catch (e) {
+    console.warn('[STRATEGY-KIT] openOperationsPage failed:', e);
+    return null;
+  }
+}
+
+// 運用ボードの保存値（案件スコープ）。読めなければ null。
+async function readOpsState() {
+  try {
+    const opsCore = await import(chrome.runtime.getURL('lib/ops-core.js'));
+    const key = opsCore.opsStorageKey(window.SK_STATE?._activeProjectId || '');
+    const stored = await chrome.storage.local.get([key]);
+    return { opsCore, ops: opsCore.normalizeOpsState(stored?.[key]), key };
+  } catch (_) {
+    return null;
+  }
+}
+
+// コピーするプロンプトにも制約条件・会社資料の要点を添える（全自動・半自動と同じ前提にする）。
+async function buildOpsPromptAddon() {
+  if (!isOperationsEnabled()) return '';
+  const loaded = await readOpsState();
+  if (!loaded) return '';
+  const parts = [];
+  const constraintsText = loaded.opsCore.constraintsToPromptText(loaded.ops.constraints);
+  if (constraintsText) parts.push(constraintsText);
+  if (loaded.ops.prefill && loaded.ops.prefill.useInAutomation && loaded.ops.prefill.contextText) {
+    parts.push(wrapUntrustedData('会社資料から分かっていること（[要確認] は推測）', loaded.ops.prefill.contextText));
+  }
+  return parts.join('\n\n');
+}
+
+// 戦略タブ上部の「今週やること」。施策が取り込まれていれば件数と直近3件を出す。
+let opsWeekCardToken = 0;
+async function renderOpsWeekCard() {
+  const mount = document.getElementById('ops-week-card');
+  if (!mount) return;
+  const token = ++opsWeekCardToken;
+  if (!isOperationsEnabled()) {
+    mount.hidden = true;
+    return;
+  }
+  const loaded = await readOpsState();
+  if (token !== opsWeekCardToken) return;
+  if (!loaded) {
+    mount.hidden = true;
+    return;
+  }
+  const { opsCore, ops } = loaded;
+  const filled = new Set((state.progressFilledNos || []).map(String));
+  const strategyReady = filled.has('7');
+  if (!ops.actions.length && !strategyReady) {
+    mount.hidden = true;
+    return;
+  }
+  clearChildren(mount);
+  const summary = opsCore.summarizeActions(ops.actions, new Date());
+  const head = el('div', { class: 'ops-week-head' });
+  head.appendChild(el('span', { class: 'ops-week-eyebrow', text: '今週やること' }));
+  head.appendChild(el('strong', {
+    class: 'ops-week-count',
+    text: ops.actions.length
+      ? `${summary.thisWeek}件${summary.overdue ? `・期限切れ ${summary.overdue}件` : ''}`
+      : '施策がまだ取り込まれていません',
+  }));
+  mount.appendChild(head);
+  if (ops.actions.length) {
+    const items = [
+      ...opsCore.listOverdueActions(ops.actions, new Date()).map((a) => ({ a, overdue: true })),
+      ...opsCore.listThisWeekActions(ops.actions, new Date()).map((a) => ({ a, overdue: false })),
+    ].slice(0, 3);
+    if (items.length) {
+      const list = el('ul', { class: 'ops-week-list' });
+      for (const { a, overdue } of items) {
+        list.appendChild(el('li', {
+          class: overdue ? 'is-overdue' : '',
+          text: `${overdue ? '【期限切れ】' : ''}${a.title}${a.dueDate ? `（${a.dueDate.slice(5).replace('-', '/')}まで）` : ''}${a.owner ? `／${a.owner}` : ''}`,
+        }));
+      }
+      mount.appendChild(list);
+    } else {
+      mount.appendChild(el('p', { class: 'ops-week-empty', text: '今週が期限の施策はありません。' }));
+    }
+  } else {
+    mount.appendChild(el('p', { class: 'ops-week-empty', text: '§7 の施策を運用ボードに取り込むと、担当・期限・実施記録を管理できます。' }));
+  }
+  const btn = el('button', { class: 'ops-week-open', type: 'button', text: ops.actions.length ? '運用ボードで記録する' : '運用ボードで施策を取り込む' });
+  btn.addEventListener('click', () => openOperationsPage('tracker'));
+  mount.appendChild(btn);
+  mount.hidden = false;
+}
+
 function applyMissionHeaderCollapsed() {
   const header = document.getElementById('mission-header');
   const toggle = document.getElementById('mission-header-toggle');
@@ -3073,6 +3197,12 @@ function bindMissionControl() {
   document.getElementById('menu-prompt-pack')?.addEventListener('click', function () {
     setMissionMenuOpen(false);
     exportPromptPack();
+  });
+
+  // ドロワーの「運用ボード」→ 施策の実行管理・実績・答え合わせ・報告書・書き出しの全画面。
+  document.getElementById('menu-operations')?.addEventListener('click', function () {
+    setMissionMenuOpen(false);
+    openOperationsPage();
   });
 
   // 戦略タブ: 現在のフェーズ ⇄ フェーズ一覧 セグメントトグル
@@ -4549,7 +4679,7 @@ function renderSlimBar() {
   } else if (selected) {
     phaseLabel = `§${selected.no} ${selected.title}`;
   } else {
-    phaseLabel = 'STRATEGY-KIT';
+    phaseLabel = brandFooterLabel();
   }
   phaseEl.textContent = phaseLabel;
   percentEl.textContent = hasBusiness ? `${percent}%` : `${getSetupDoneCount()}/3`;
@@ -4583,7 +4713,9 @@ async function copyPhasePrompt(phase) {
   const raw = firstPrompt.body || firstPrompt.text || '';
   if (!raw) return false;
   try {
-    const text = await enrichWithMasterSummaries(preparePrompt(firstPrompt));
+    let text = await enrichWithMasterSummaries(preparePrompt(firstPrompt));
+    const addon = await buildOpsPromptAddon().catch(() => '');
+    if (addon) text += '\n\n---\n\n' + addon;
     await navigator.clipboard.writeText(text);
     showToast('プロンプトをコピーしました');
     return true;
@@ -4638,6 +4770,7 @@ function _cardMiniNav(selected, phases) {
 
 // 現在フェーズカード本体（状態別: 未設定/手動/全自動/完了 = 設計 §2-6）。
 function renderCurrentPhaseCard() {
+  renderOpsWeekCard();
   const card = document.getElementById('current-phase-card');
   if (!card) return;
   const { phases, filledSet, partialSet, total, completed, currentPhase } = getSlimProgressModel();
@@ -4809,7 +4942,7 @@ function renderCurrentPhaseCard() {
   nmBody.appendChild(el('span', {
     class: 'current-phase-nextmove-text',
     text: executionMode === 'full'
-      ? '実行設定を確認して、全自動を開始します。'
+      ? '実行設定を確認して、全自動を開始します。開始すると進み具合を表示する全画面が開きます。'
       : isFilled
         ? '記入済み。内容を見直すか、次のフェーズへ進めます。'
         : isPartial
@@ -4819,10 +4952,13 @@ function renderCurrentPhaseCard() {
   nm.appendChild(nmBody);
   card.appendChild(nm);
 
-  // 主アクション: 選択中の実行モードと同じ設定画面へ進む。
+  // 主アクション: 選択中の実行モードの実行画面へ進む。
+  // ラベルは「設定を開く」ではなく、押すと仕事が進むことが分かる動詞にする（7月点検 3-1）。
   const primaryBar = el('div', { class: 'current-phase-actions' });
   primaryBar.appendChild(_cardActionBtn(
-    `${executionModeLabel}の設定を開く`,
+    executionMode === 'full'
+      ? '全自動で進める（実行画面へ）'
+      : `§${selected.no} を半自動で進める`,
     '#i-auto',
     'current-phase-primary',
     () => switchTab('automation')
@@ -4832,7 +4968,7 @@ function renderCurrentPhaseCard() {
   // 副アクション: フェーズ単体の手動操作も残す。
   const aiTarget = selected.prompts?.[0]?.for || selected.defaultFor;
   const sub = el('div', { class: 'current-phase-subactions' });
-  sub.appendChild(_cardActionBtn('プロンプトをコピー', '#i-copy', 'current-phase-secondary', () => copyPhasePrompt(selected)));
+  sub.appendChild(_cardActionBtn('プロンプトをコピー（自分でAIに貼る）', '#i-copy', 'current-phase-secondary', () => copyPhasePrompt(selected)));
   sub.appendChild(_cardActionBtn('AIで開く', '#i-external', 'current-phase-secondary', () => openOrFocusAiTab(aiTarget)));
   sub.appendChild(_cardActionBtn('マスターを開く', '#i-edit', 'current-phase-secondary', () => document.getElementById('open-master-doc')?.click()));
   card.appendChild(sub);
@@ -5961,7 +6097,7 @@ function bindSetupForm() {
     modal.appendChild(el('h3', { text: '全状態をリセット' }));
     modal.appendChild(
       el('p', {
-        text: 'すべての作業状態（業種・店舗・テーマ・進捗・生成結果）をリセットしますか？\nこの操作は取り消せません。',
+        text: 'すべての作業状態（業種・店舗・テーマ・進捗・生成結果・書き込み先の戦略書の指定）をリセットしますか？\nGoogle ドキュメント自体は削除されず、Google 連携と AI の設定はそのまま残ります。\nこの操作は取り消せません。',
         style: 'white-space:pre-line;font-size:13px;margin:8px 0 12px',
       })
     );
@@ -5976,29 +6112,24 @@ function bindSetupForm() {
       resetBtn.disabled = true;
       resetBtn.textContent = 'リセット中…';
       await window.SK_STATE.reset();
-      // 業務情報だけを chrome.storage.sync から消す（Google 連携と文書設定は維持）
+      // 案件ごとの作業領域（業務情報・ヒアリング・書き込み先の戦略書の指定）を初期状態へ戻す。
+      // 書き込み先（sk_master_doc_v012 など）を残すと、リセット後に作った新しい案件が
+      // 前の案件の戦略書へ追記してしまう（取り返しがつかない）。案件削除と同じ処理を使う。
+      // Google 連携・Gemini/DeepSeek の設定はこの対象に含まれないので維持される。
       try {
-        await chrome.storage.sync.remove([
-          'industry',
-          'industryLabel',
-          'storeName',
-          'caseId',
-          'caseName',
-          'lastPhase',
-          'lastTab',
-          'researchTopic',
-          'researchNo',
-	          'researchPhaseLink',
-	          'showSafetyNotice',
-	          'sk_engagement_mode',
-	          'sk_hearing_summary_v012',
-	          'sk_hearing_notes_v012',
-	          'sk_hearing_meta_v013',
-	          'sk_hearing_skip_ack_v013',
-	        ]);
-	        await chrome.storage.local.remove(['sk_hearing_rawtext_v012_local', 'sk_hearing_summary_v013_local']);
-	      } catch (e) {
-        console.error('[STRATEGY-KIT] sync.remove エラー:', e);
+        const workspaceModule = await import(chrome.runtime.getURL('phase0/project-workspace.js'));
+        await workspaceModule.resetWorkspaceToDefault({
+          localStorage: chrome.storage.local,
+          syncStorage: chrome.storage.sync,
+        });
+      } catch (e) {
+        console.error('[STRATEGY-KIT] workspace reset エラー:', e);
+      }
+      // 上の読み込みに失敗しても、ヒアリング本文（端末内保存）だけは確実に消す。
+      try {
+        await chrome.storage.local.remove(['sk_hearing_rawtext_v012_local', 'sk_hearing_summary_v013_local']);
+      } catch (e) {
+        console.error('[STRATEGY-KIT] local hearing reset エラー:', e);
       }
       location.reload();
     });
@@ -6135,8 +6266,9 @@ bindCriticalOptionsNavigation();
     try {
       manifestVersionStr = chrome?.runtime?.getManifest?.()?.version || '';
       if (footerVersionEl && manifestVersionStr) {
-        // product.json ロード前なので brandFooterLabel() は null→'STRATEGY-KIT' を返す（ロード後 4216 で上書き）。
-        footerVersionEl.textContent = brandFooterLabel() + ' v' + manifestVersionStr;
+        // product.json ロード前は製品名が確定していない。ここで brandFooterLabel() を使うと
+        // SNS 版でも一瞬 'STRATEGY-KIT' が出るため、版数だけ先に描画してロード後に整える。
+        footerVersionEl.textContent = 'v' + manifestVersionStr;
       }
     } catch (_) {
       /* manifest 取得失敗時はフォールバックでそのまま */
@@ -6147,6 +6279,9 @@ bindCriticalOptionsNavigation();
     // 完全フォールバックする（既存 Webマーケ版を一切壊さない）。
     const productData = await loadProductData(loadJson);
     state.productConfig = productData.config;
+    // 運用ボードは features.operations の製品だけ（SNS 版は今は出さない）。
+    const opsMenuItem = document.getElementById('menu-operations');
+    if (opsMenuItem) opsMenuItem.hidden = !isOperationsEnabled();
     state.industries = productData.industries;
     state.prompts = productData.prompts;
     state.aiProfiles = productData.aiProfiles;
@@ -6182,7 +6317,30 @@ bindCriticalOptionsNavigation();
       if (mainEl) mainEl.textContent = brandLines[0];
       if (subEl) subEl.textContent = brandLines[1];
       if (rootEl) rootEl.setAttribute('aria-label', brandName);
-      if (document.title === 'STRATEGY-KIT') document.title = brandName;
+      document.title = brandName;
+
+      // 薄型バー（常設クローム）のロゴ monogram とブランド表記。
+      // HTML 側は製品名を持たないため、ここが唯一の反映点になる。
+      // name が footerLabel + 装飾語（"STRATEGY-KIT Helper"）のときだけ <em> に装飾語を残す。
+      const footerLabelForSlim = brandFooterLabel();
+      const slimMarkEl = document.getElementById('slim-brand-mark');
+      const slimNameEl = document.getElementById('slim-brand-name');
+      const slimSuffixEl = document.getElementById('slim-brand-suffix');
+      if (slimMarkEl) slimMarkEl.textContent = logoMonogram;
+      if (slimNameEl) slimNameEl.textContent = footerLabelForSlim;
+      if (slimSuffixEl) {
+        slimSuffixEl.textContent = brandName.startsWith(footerLabelForSlim)
+          ? brandName.slice(footerLabelForSlim.length).trim()
+          : '';
+      }
+
+      // 支援技術向けのラベルにも製品名を入れる（HTML では製品名を持たない）。
+      const slimBarEl = document.getElementById('slim-bar');
+      if (slimBarEl) slimBarEl.setAttribute('aria-label', brandName + ' ナビゲーションバー');
+      const missionHeaderEl = document.getElementById('mission-header');
+      if (missionHeaderEl) {
+        missionHeaderEl.setAttribute('aria-label', brandName + ' ミッションコントロール');
+      }
     } catch (_) {
       /* branding 解決失敗時はフォールバック表記のまま */
     }
@@ -6393,6 +6551,14 @@ bindCriticalOptionsNavigation();
     });
     on('progress-updated', () => {
       scheduleStableRender('event-progress-updated');
+    });
+
+    // 運用ボードで施策・期限が更新されたら「今週やること」を描き直す（案件切替も含む）。
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (!sidepanelInitialized || area !== 'local') return;
+      if (Object.keys(changes).some((k) => /^sk-state\.(projects\.[^.]+\.)?ops$/.test(k) || k === 'sk-state.ui.activeProjectId')) {
+        renderOpsWeekCard();
+      }
     });
 
     chrome.storage.onChanged.addListener((changes, areaName) => {

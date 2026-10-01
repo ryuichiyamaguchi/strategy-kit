@@ -348,7 +348,7 @@ function render() {
 }
 
 function selectedModel() {
-  return $('mission-model-select')?.value || 'gemini-3.6-flash';
+  return $('mission-model-select')?.value || 'gemini-3.8-flash';
 }
 
 // 実際に飛んだ HTTP リクエストを数えるための fetch。generateContent の

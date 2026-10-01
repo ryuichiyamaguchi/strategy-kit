@@ -97,7 +97,7 @@ export async function analyzeExternalDocument({
   geminiClient,
   sourceDocumentId,
   phases = [],
-  model = 'gemini-3.6-flash',
+  model = 'gemini-3.8-flash',
 } = {}) {
   if (!docsClient || typeof docsClient.getDocument !== 'function') throw new Error('docsClient.getDocument is required');
   if (!sourceDocumentId) throw new Error('取り込むGoogleドキュメントが未設定です');

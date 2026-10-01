@@ -535,44 +535,47 @@
               仕組みを理解すれば心配する必要はありません。
             </p>
 
-            <p class="step-section-title">主要モデルの無料枠（2025年時点）</p>
+            <p class="step-section-title">STRATEGY-KIT で使うモデル（2026年10月時点）</p>
             <table class="compare-table">
               <thead>
                 <tr>
                   <th>モデル</th>
-                  <th>1分あたり<br>リクエスト数</th>
-                  <th>1日あたり<br>リクエスト数</th>
-                  <th>月の入力<br>トークン</th>
+                  <th>無料枠</th>
                   <th>用途</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><strong>gemini-2.5-flash</strong><br><span style="font-size:0.85em; color:var(--forest-deep); font-weight:700;">★ 推奨</span></td>
-                  <td>10</td>
-                  <td>250</td>
-                  <td>1M</td>
-                  <td>STRATEGY-KIT デフォルト</td>
+                  <td><strong>gemini-3.8-flash</strong><br><span style="font-size:0.85em; color:var(--forest-deep); font-weight:700;">★ 推奨</span></td>
+                  <td>使える</td>
+                  <td>STRATEGY-KIT の既定。§0〜§9 すべてこれで動きます</td>
                 </tr>
                 <tr>
-                  <td><strong>gemini-2.5-flash-lite</strong></td>
-                  <td>15</td>
-                  <td>1,000</td>
-                  <td>1M</td>
-                  <td>より多く使いたい場合</td>
+                  <td><strong>gemini-3.6-flash</strong></td>
+                  <td>使える</td>
+                  <td>1つ前の世代。3.8 Flash が混み合うときの予備</td>
                 </tr>
                 <tr>
-                  <td><strong>gemini-2.5-pro</strong></td>
-                  <td>（少ない）</td>
-                  <td>（少ない）</td>
-                  <td>—</td>
-                  <td>高精度・無料枠は厳しい</td>
+                  <td><strong>gemini-3.5-flash</strong></td>
+                  <td>使える</td>
+                  <td>さらに前の世代。§7 の数値計算用に選べます</td>
+                </tr>
+                <tr>
+                  <td><strong>gemini-3.5-flash-lite</strong></td>
+                  <td>使える</td>
+                  <td>軽量版。回数の制限に当たりやすいときの予備</td>
+                </tr>
+                <tr>
+                  <td><strong>gemini-3.1-pro-preview</strong></td>
+                  <td>使えない</td>
+                  <td>高精度。課金設定をした API キーが必要</td>
                 </tr>
               </tbody>
             </table>
 
             <p style="font-size:0.9rem; color:var(--ink-soft); margin-top:4px;">
-              ※ 「トークン」とは AI が処理するテキストの単位。日本語は 1 文字 ≒ 1〜2 トークン。1M = 100万トークン。
+              ※ 無料枠の回数の上限（1分あたり・1日あたり）はモデルやアカウントによって変わります。いまの上限と使用量は Google AI Studio の画面で確認できます。<br>
+              ※ 以前の推奨モデル <code>gemini-2.5-flash</code> は、現在「過去に使っていた人」以外には提供が制限されています（Google 公式の告知による）。新しく設定する場合は上の表のモデルを使ってください。
             </p>
 
             <h3 style="margin-top:24px;">重要ポイント：クレカ未登録なら課金は物理的に不可能</h3>
@@ -615,7 +618,7 @@
                 <tr>
                   <td><strong>全自動</strong></td>
                   <td>可能だが注意</td>
-                  <td>9〜10 フェーズを連続実行するため、10 RPM 制限に当たる可能性あり</td>
+                  <td>9〜10 フェーズを連続実行するため、無料枠の回数制限に当たる可能性あり</td>
                 </tr>
               </tbody>
             </table>
@@ -700,7 +703,7 @@
             <ol class="detail-steps">
               <li>
                 画面に長い文字列が表示されます。<br>
-                先頭が <code>AIzaSy</code> で始まる、40 文字程度の英数字の羅列が API キーです。
+                英数字が長く並んだ文字列が API キーです（先頭の文字はキーの種類によって異なります）。
               </li>
               <li>
                 「コピー」ボタン（クリップボードのアイコン）をクリックしてコピーします。
@@ -721,7 +724,7 @@
             <p class="step-section-title">Step 4 完了チェックリスト</p>
             <ul class="check-list">
               <li>Google AI Studio（aistudio.google.com）にログインできた</li>
-              <li><code>AIzaSy</code> で始まる API キーを取得した</li>
+              <li>API キーを取得した</li>
               <li>API キーをコピーしてメモ帳に一時保存した</li>
             </ul>
           </div>
@@ -778,7 +781,7 @@
                 「プロパティ」の入力欄に <span class="key-chip">GEMINI_API_KEY</span> と入力します。
               </li>
               <li>
-                「値」の入力欄に Part 4 でコピーした API キー（<code>AIzaSy...</code>）を貼り付けます。
+                「値」の入力欄に Part 4 でコピーした API キーを貼り付けます。
               </li>
               <li>
                 「<strong>スクリプト プロパティを保存</strong>」ボタンをクリックします。
@@ -855,7 +858,7 @@
                 拡張機能のサイドパネルを開き、「<strong>自動化</strong>」タブを選択します。
               </li>
               <li>
-                「使用モデル」が <strong>gemini-2.5-flash</strong>（デフォルト）になっていることを確認します。
+                「使用モデル」が <strong>gemini-3.8-flash</strong>（デフォルト）になっていることを確認します。
               </li>
               <li>
                 「開始フェーズ」を選びます。最初は「§0 から」でよいです。途中から再開する場合は該当フェーズを選びます。
@@ -887,7 +890,7 @@
                 9〜10 フェーズが連続で実行されます。
               </li>
               <li>
-                Gemini 無料枠の分単位制限（10 RPM）に当たった場合、途中で止まる可能性があります。
+                Gemini 無料枠の回数制限に当たった場合、途中で止まる可能性があります。止まった章から再開できます。
               </li>
               <li>
                 v0.11 ではフェーズ間に 7 秒以上の待機を入れる設定を実装予定です。
@@ -940,12 +943,12 @@
               <div class="faq-item">
                 <div class="faq-q"><span class="faq-label">Q3</span>「429 RESOURCE_EXHAUSTED」と出る</div>
                 <div class="faq-a">
-                  <strong>原因：</strong>Gemini 無料枠の分単位制限（10 RPM）に達しました。<br>
+                  <strong>原因：</strong>Gemini 無料枠の回数制限に達したか、選んだモデルが無料枠では使えません。<br>
                   <strong>対処：</strong>
                   <ul style="margin:8px 0 0; padding-left:1.3em; line-height:1.8;">
                     <li>1 分間待ってから「リトライ」または同じフェーズを再実行</li>
                     <li>全自動モードを使っている場合は、半自動モードに切り替えて続きから再開</li>
-                    <li>使用モデルを <code>gemini-2.5-flash-lite</code> に変更すると上限が緩くなる（RPM 15）</li>
+                    <li>使用モデルが <code>gemini-3.1-pro-preview</code> になっていたら <code>gemini-3.8-flash</code> に戻す（Pro は課金設定が必要）</li>
                   </ul>
                   課金は発生しません。制限に当たって止まるだけです。
                 </div>
@@ -1028,8 +1031,7 @@
                 <div class="faq-a">
                   受講者レベルの使い方であれば、月 <strong>数百円〜数千円</strong> が目安です。<br>
                   具体的な金額は使用量（リクエスト数・トークン数）によって変わります。<br><br>
-                  <strong>参考：</strong>gemini-2.5-flash の有料プランは入力トークン 100万あたり $0.15〜$0.60（コンテキスト長による）。<br>
-                  月 100 回の戦略立案（1 回あたり 5 万トークン消費）なら 月 500 万トークン ≒ 月 $0.75〜$3（約 100〜450 円）程度です。<br>
+                  <strong>参考：</strong>最新の単価は Google 公式の料金ページ（<a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener">ai.google.dev/gemini-api/docs/pricing</a>）で確認してください。単価は改定されることがあります。<br>
                   ただし、受講期間中はクレカ登録なし・無料枠での利用を推奨します。
                 </div>
               </div>

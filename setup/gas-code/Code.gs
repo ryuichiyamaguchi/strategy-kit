@@ -1585,11 +1585,13 @@ function handle_geminiProxy_(body) {
   const temperature =
     typeof body.temperature === 'number' ? body.temperature : undefined;
 
-  // モデル試行順: 指定モデル → flash → flash-lite
+  // モデル試行順: 指定モデル → 3.8 Flash → 3.6 Flash → 3.5 Flash → 3.5 Flash-Lite
   // 503/429/UNAVAILABLE/RESOURCE_EXHAUSTED は一時障害扱いで指数バックオフリトライ
   const modelChain = [requestedModel];
-  if (requestedModel !== 'gemini-2.5-flash') modelChain.push('gemini-2.5-flash');
-  if (requestedModel !== 'gemini-2.5-flash-lite') modelChain.push('gemini-2.5-flash-lite');
+  if (requestedModel !== 'gemini-3.8-flash') modelChain.push('gemini-3.8-flash');
+  if (requestedModel !== 'gemini-3.6-flash') modelChain.push('gemini-3.6-flash');
+  if (requestedModel !== 'gemini-3.5-flash') modelChain.push('gemini-3.5-flash');
+  if (requestedModel !== 'gemini-3.5-flash-lite') modelChain.push('gemini-3.5-flash-lite');
 
   let lastError = '';
   for (let mi = 0; mi < modelChain.length; mi++) {
@@ -1842,7 +1844,7 @@ function handle_cleanupDraft_(body) {
 
     let formatted = raw;
     try {
-      const result = GEMINI(formatPrompt, 'gemini-2.5-flash', 0.2);
+      const result = GEMINI(formatPrompt, 'gemini-3.8-flash', 0.2);
       if (typeof result === 'string' && result.indexOf('[ERROR]') !== 0) {
         formatted = _cleanupAiText_(result);
       }
@@ -1973,9 +1975,9 @@ function handle_generateExecutiveSummary_(body) {
 
   let summary = '';
   try {
-    let result = GEMINI(prompt, 'gemini-2.5-flash', 0.3);
+    let result = GEMINI(prompt, 'gemini-3.8-flash', 0.3);
     if (typeof result === 'string' && result.indexOf('[ERROR]') === 0) {
-      result = GEMINI(prompt, 'gemini-2.5-flash-lite', 0.3);
+      result = GEMINI(prompt, 'gemini-3.5-flash-lite', 0.3);
     }
     if (typeof result === 'string' && result.indexOf('[ERROR]') !== 0 && result.length > 50) {
       summary = _cleanupAiText_(result);

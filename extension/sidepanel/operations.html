@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>運用ボード</title>
+    <link rel="stylesheet" href="./operations.css" />
+  </head>
+  <body>
+    <div class="ops-shell">
+      <header class="ops-topbar">
+        <div class="ops-brand">
+          <span class="ops-brand-mark" aria-hidden="true">SK</span>
+          <span class="ops-brand-copy">
+            <strong id="ops-brand-name">運用ボード</strong>
+            <small>実行 → 計測 → 答え合わせ → 報告</small>
+          </span>
+        </div>
+        <div class="ops-context" aria-live="polite">
+          <span class="ops-context-label">案件</span>
+          <strong id="ops-project-name">—</strong>
+          <a id="ops-master-link" class="ops-link" href="#" target="_blank" rel="noopener" hidden>戦略書を開く</a>
+        </div>
+        <label class="ops-model">
+          <span>使うAI</span>
+          <select id="ops-model-select" aria-label="運用ボードで使うAIモデル">
+            <option value="gemini-3.8-flash">Gemini 3.8 Flash（推奨・無料枠OK）</option>
+            <option value="gemini-3.6-flash">Gemini 3.6 Flash（無料枠OK）</option>
+            <option value="gemini-3.5-flash">Gemini 3.5 Flash（無料枠OK）</option>
+            <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite（無料枠OK）</option>
+            <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro（課金APIキーが必要）</option>
+            <option value="deepseek-v4-flash">DeepSeek V4 Flash（DeepSeekのAPIキーが必要）</option>
+          </select>
+        </label>
+        <button id="ops-open-mission" class="ops-btn ops-btn-ghost" type="button">司令塔（全画面）を開く</button>
+      </header>
+
+      <div id="ops-disabled" class="ops-notice" hidden>
+        この製品では運用ボードはまだ使えません。
+      </div>
+      <div id="ops-no-master" class="ops-notice ops-notice-warn" hidden>
+        戦略書（マスタードキュメント）がまだありません。サイドパネルで Google 連携と戦略書の作成を済ませると、ここで施策の取り込みや書き出しができます。手で施策を登録する・実績を入れることは今すぐできます。
+      </div>
+
+      <div class="ops-layout">
+        <nav class="ops-tabs" role="tablist" aria-label="運用ボードのメニュー">
+          <button class="ops-tab" role="tab" data-tab="recipes" aria-selected="true">目的から選ぶ</button>
+          <button class="ops-tab" role="tab" data-tab="tracker" aria-selected="false">今週やること（施策）<span id="ops-tab-badge" class="ops-badge" hidden></span></button>
+          <button class="ops-tab" role="tab" data-tab="metrics" aria-selected="false">実績データ</button>
+          <button class="ops-tab" role="tab" data-tab="round2" aria-selected="false">答え合わせ・2周目</button>
+          <button class="ops-tab" role="tab" data-tab="report" aria-selected="false">月次レポート</button>
+          <button class="ops-tab" role="tab" data-tab="exports" aria-selected="false">書類の書き出し</button>
+          <button class="ops-tab" role="tab" data-tab="prefill" aria-selected="false">会社資料の先読み</button>
+          <button class="ops-tab" role="tab" data-tab="guard" aria-selected="false">制約と表現チェック</button>
+          <button class="ops-tab" role="tab" data-tab="team" aria-selected="false">チーム共有</button>
+        </nav>
+
+        <main class="ops-main">
+          <!-- ===================== 目的から選ぶ ===================== -->
+          <section class="ops-panel" data-panel="recipes" role="tabpanel">
+            <h1>目的から選ぶ</h1>
+            <p class="ops-lead">§0〜§9 を毎回すべて通さなくても使えます。いまの困りごとに近いものを選ぶと、全自動・半自動はその章だけを進めます。選ばなかった章は、戦略書に書かれていれば前提として引き継ぎます。</p>
+            <div id="ops-recipe-list" class="ops-recipe-grid"></div>
+            <div id="ops-recipe-current" class="ops-card" hidden></div>
+          </section>
+
+          <!-- ===================== 施策トラッカー ===================== -->
+          <section class="ops-panel" data-panel="tracker" role="tabpanel" hidden>
+            <h1>今週やること（施策トラッカー）</h1>
+            <p class="ops-lead">戦略書 §7 で決めた施策に、担当・期限・状態を付けて回します。状態を変えると、戦略書の §98（案件ステートシート）に「実施記録」が1行残ります。この記録があると、答え合わせで「やらなかった」と「やったが効かなかった」を区別できます。</p>
+            <div id="ops-tracker-summary" class="ops-chips"></div>
+            <div class="ops-toolbar">
+              <button id="ops-actions-extract" class="ops-btn" type="button">§7 から施策を取り込む（AI）</button>
+              <button id="ops-actions-add" class="ops-btn ops-btn-ghost" type="button">施策を手で追加</button>
+              <button id="ops-actions-ics" class="ops-btn ops-btn-ghost" type="button">期限をカレンダー用ファイル（.ics）で保存</button>
+              <label class="ops-check"><input id="ops-write-state-sheet" type="checkbox" checked /> 状態の変更を戦略書 §98 に記録する</label>
+            </div>
+            <form id="ops-action-form" class="ops-card ops-form" hidden>
+              <h2>施策を追加</h2>
+              <div class="ops-form-grid">
+                <label>施策名<input name="title" required maxlength="120" /></label>
+                <label>区分<select name="category"><option value="quickwin">短期（Quick Win）</option><option value="midlong">中長期</option><option value="other">その他</option></select></label>
+                <label>担当<input name="owner" maxlength="40" /></label>
+                <label>期限<input name="dueDate" type="date" /></label>
+                <label>見る指標（KPI）<input name="kpi" maxlength="80" /></label>
+                <label>予算<input name="budget" maxlength="40" placeholder="例: 月3万円" /></label>
+              </div>
+              <div class="ops-form-actions">
+                <button class="ops-btn" type="submit">追加する</button>
+                <button class="ops-btn ops-btn-ghost" type="button" data-action="cancel">やめる</button>
+              </div>
+            </form>
+            <h2 class="ops-subhead">期限切れ</h2>
+            <div id="ops-overdue-list" class="ops-action-list"></div>
+            <h2 class="ops-subhead">今週</h2>
+            <div id="ops-week-list" class="ops-action-list"></div>
+            <h2 class="ops-subhead">すべての施策</h2>
+            <div id="ops-all-list" class="ops-action-list"></div>
+          </section>
+
+          <!-- ===================== 実績データ ===================== -->
+          <section class="ops-panel" data-panel="metrics" role="tabpanel" hidden>
+            <h1>実績データ</h1>
+            <p class="ops-lead">普段見ている管理画面（GA4・Search Console・Google ビジネスプロフィール・Instagram／X のインサイト・POS や予約システム）から書き出した表を、そのまま入れられます。AI が「どの列が日付で、どの列がどの指標か」を読み取り、合計・平均の計算はこのツールが行います。</p>
+            <div class="ops-card">
+              <h2>表を取り込む</h2>
+              <div class="ops-form-grid">
+                <label>CSV ファイル<input id="ops-metrics-file" type="file" accept=".csv,.tsv,.txt,text/csv" /></label>
+                <label class="ops-span-2">または表を貼り付け（Excel・スプレッドシートからコピー）<textarea id="ops-metrics-paste" rows="6" placeholder="日付	ユーザー	セッション&#10;2026/09/01	120	150"></textarea></label>
+              </div>
+              <div class="ops-form-actions">
+                <button id="ops-metrics-read" class="ops-btn" type="button">表を読み取る（AI）</button>
+              </div>
+              <div id="ops-metrics-preview" hidden></div>
+            </div>
+            <form id="ops-metric-form" class="ops-card ops-form">
+              <h2>1件ずつ手で入れる</h2>
+              <div class="ops-form-grid">
+                <label>指標名<input name="metric" required placeholder="例: 新規来店数" /></label>
+                <label>値<input name="value" required inputmode="decimal" placeholder="例: 42" /></label>
+                <label>単位<input name="unit" placeholder="例: 人" /></label>
+                <label>期間の始まり<input name="periodStart" type="date" required /></label>
+                <label>期間の終わり<input name="periodEnd" type="date" required /></label>
+                <label>取得元<input name="source" placeholder="例: 予約システム" /></label>
+              </div>
+              <div class="ops-form-actions"><button class="ops-btn ops-btn-ghost" type="submit">追加する</button></div>
+            </form>
+            <div id="ops-period-notes"></div>
+            <h2 class="ops-subhead">取り込んだ実績</h2>
+            <div id="ops-metrics-table"></div>
+          </section>
+
+          <!-- ===================== 答え合わせ・2周目 ===================== -->
+          <section class="ops-panel" data-panel="round2" role="tabpanel" hidden>
+            <h1>答え合わせ・2周目</h1>
+            <p class="ops-lead">戦略書で置いた目標と、取り込んだ実績・施策の実施記録を突き合わせ、「当たり／外れ／判定不能（理由4分類）」を出します。そのあと、元の戦略書を残したまま「2周目の戦略書」を別ファイルに作り、各章を実績で直します。</p>
+            <ol class="ops-steps">
+              <li class="ops-card">
+                <h2>1. 答え合わせ</h2>
+                <p>期間の長さが違う数字・間が空いている数字は、比べる前にこのツールが印を付けます。</p>
+                <button id="ops-reconcile-run" class="ops-btn" type="button">答え合わせをする（AI）</button>
+                <div id="ops-reconcile-result" class="ops-result" hidden></div>
+              </li>
+              <li class="ops-card">
+                <h2>2. 2周目の戦略書を作る</h2>
+                <p>元の戦略書を複製し、複製した方の各章を「1周目 → 2周目 → 変更理由」が残る形で書き直します。元の戦略書は変わりません。</p>
+                <label class="ops-check"><input id="ops-round2-recipe-only" type="checkbox" /> 「目的から選ぶ」で選んだ章だけ直す</label>
+                <button id="ops-round2-run" class="ops-btn" type="button">2周目の戦略書を作る（AI・章ごとに実行）</button>
+                <div id="ops-round2-progress" class="ops-progress" hidden></div>
+              </li>
+              <li class="ops-card">
+                <h2>3. 次の90日プラン</h2>
+                <button id="ops-plan-run" class="ops-btn" type="button">90日プランを作る（AI）</button>
+                <div id="ops-plan-result" class="ops-result" hidden></div>
+              </li>
+            </ol>
+          </section>
+
+          <!-- ===================== 月次レポート ===================== -->
+          <section class="ops-panel" data-panel="report" role="tabpanel" hidden>
+            <h1>月次レポート</h1>
+            <p class="ops-lead">取り込んだ実績と戦略書 §8 の目標、施策の実施記録から、毎月の報告書を Google ドキュメントで作ります。型は「先月の結果／目標と実績／効いた施策・効かなかった施策／来月やること／判断してほしいこと」で固定です。</p>
+            <div class="ops-card ops-form">
+              <div class="ops-form-grid">
+                <label>対象の月<input id="ops-report-month" type="month" /></label>
+                <label>読み手<select id="ops-report-audience"><option>上司・経営者</option><option>クライアント（取引先）</option><option>チームメンバー</option></select></label>
+              </div>
+              <div class="ops-form-actions"><button id="ops-report-run" class="ops-btn" type="button">月次レポートを作る（AI）</button></div>
+              <div id="ops-report-check" class="ops-hint"></div>
+            </div>
+            <h2 class="ops-subhead">これまでの報告書</h2>
+            <div id="ops-report-history" class="ops-history"></div>
+          </section>
+
+          <!-- ===================== 書類の書き出し ===================== -->
+          <section class="ops-panel" data-panel="exports" role="tabpanel" hidden>
+            <h1>書類の書き出し</h1>
+            <p class="ops-lead">1つの戦略書から、相手と用途に合わせた書類を Google ドキュメントで作ります。戦略書に書かれていないことは「要確認」「未定」と書かれます。</p>
+            <div id="ops-export-grid" class="ops-export-grid"></div>
+            <div class="ops-card">
+              <h2>数字の出どころ一覧（根拠表）</h2>
+              <p>戦略書の中の数字を、確かさのタグと出典つきで一覧にします。「この数字どこから？」と聞かれたとき用です。AI は使いません。</p>
+              <button id="ops-evidence-run" class="ops-btn" type="button">根拠表を作る</button>
+              <div id="ops-evidence-summary" class="ops-hint"></div>
+            </div>
+            <h2 class="ops-subhead">書き出した書類</h2>
+            <div id="ops-export-history" class="ops-history"></div>
+          </section>
+
+          <!-- ===================== 会社資料の先読み ===================== -->
+          <section class="ops-panel" data-panel="prefill" role="tabpanel" hidden>
+            <h1>会社資料の先読み</h1>
+            <p class="ops-lead">会社案内・ホームページ・チラシ・過去の売上表などを先に読み込み、ヒアリングの質問のうち資料で分かるものを先に埋め、本当に聞くべき質問だけを残します。</p>
+            <div class="ops-card ops-form">
+              <div class="ops-form-grid">
+                <label class="ops-span-2">資料の本文を貼り付け<textarea id="ops-prefill-text" rows="8" placeholder="会社案内・サービス紹介・チラシの文面など"></textarea></label>
+                <label>ファイルから読み込む（.txt .md .csv .html）<input id="ops-prefill-files" type="file" multiple accept=".txt,.md,.csv,.tsv,.html,.htm,.json,text/*" /></label>
+                <label>ホームページなどの URL（1行に1つ）<textarea id="ops-prefill-urls" rows="3" placeholder="https://example.com"></textarea></label>
+                <label class="ops-check"><input id="ops-prefill-b2b" type="checkbox" /> 法人向け（BtoB）の案件</label>
+              </div>
+              <div id="ops-prefill-files-note" class="ops-hint"></div>
+              <div class="ops-form-actions"><button id="ops-prefill-run" class="ops-btn" type="button">ヒアリング事前記入シートを作る（AI）</button></div>
+            </div>
+            <div id="ops-prefill-result" class="ops-card" hidden></div>
+          </section>
+
+          <!-- ===================== 制約と表現チェック ===================== -->
+          <section class="ops-panel" data-panel="guard" role="tabpanel" hidden>
+            <h1>制約と表現チェック</h1>
+            <p class="ops-lead">「実行できない施策」と「出せない広告文」を防ぎます。ここで入れた制約は、全自動・半自動・コピーするプロンプトのすべてに添えられます。</p>
+            <form id="ops-constraints-form" class="ops-card ops-form">
+              <h2>実行上の制約</h2>
+              <div class="ops-form-grid">
+                <label>月の販促予算の上限（円）<input name="monthlyBudgetYen" inputmode="numeric" placeholder="例: 50000" /></label>
+                <label>施策に割ける時間（週あたり・時間）<input name="weeklyHours" inputmode="numeric" placeholder="例: 5" /></label>
+                <label>動ける人<input name="people" placeholder="例: 店主1人＋アルバイト2人" /></label>
+                <label>期限・時期の制約<input name="deadline" placeholder="例: 12月の繁忙期までに" /></label>
+                <label class="ops-span-2">使えるチャネル・資産<input name="channelsAvailable" placeholder="例: Instagram（フォロワー800）、LINE公式、店頭POP" /></label>
+                <label class="ops-span-2">使えない／使わないチャネル<input name="channelsUnavailable" placeholder="例: 新聞折込、テレビ" /></label>
+                <label>広告規制の対象<select name="regulated" id="ops-regulated-select"></select></label>
+                <label>その他<input name="other" /></label>
+              </div>
+              <div class="ops-form-actions">
+                <button class="ops-btn" type="submit">制約を保存</button>
+                <span id="ops-constraints-status" class="ops-hint"></span>
+              </div>
+              <details class="ops-details"><summary>AI に添える文面を見る</summary><pre id="ops-constraints-preview"></pre></details>
+            </form>
+            <div class="ops-card">
+              <h2>広告表現チェック</h2>
+              <p>戦略書の §5（USP・コピー）・§6・§7 と、下に貼った文面から、景品表示法・薬機法・医療広告ガイドラインなどでよく問題になる言い回しを拾います。</p>
+              <label class="ops-block">チェックしたい広告文（任意）<textarea id="ops-adcheck-text" rows="4" placeholder="チラシ・LP・投稿の文面を貼り付け"></textarea></label>
+              <div class="ops-form-actions">
+                <button id="ops-adcheck-run" class="ops-btn" type="button">表現をチェックする</button>
+                <button id="ops-adcheck-rewrite" class="ops-btn ops-btn-ghost" type="button" disabled>言い換え案を作る（AI）</button>
+                <button id="ops-adcheck-save" class="ops-btn ops-btn-ghost" type="button" disabled>結果をドキュメントに保存</button>
+              </div>
+              <p class="ops-disclaimer" id="ops-adcheck-disclaimer"></p>
+              <div id="ops-adcheck-result"></div>
+            </div>
+          </section>
+
+          <!-- ===================== チーム共有 ===================== -->
+          <section class="ops-panel" data-panel="team" role="tabpanel" hidden>
+            <h1>チーム共有</h1>
+            <p class="ops-lead">上司・同僚・クライアント担当者と1つの戦略書を一緒に進めます。共有した相手は Google ドキュメント／スプレッドシート上で読み書き・コメントできます。施策の担当・期限・状態は「チーム用トラッカー（スプレッドシート）」で更新してもらい、ここで取り込みます。</p>
+            <div class="ops-card">
+              <h2>チーム用トラッカー（共有スプレッドシート）</h2>
+              <div class="ops-form-actions">
+                <button id="ops-sheet-create" class="ops-btn" type="button">トラッカーをスプレッドシートに書き出す</button>
+                <button id="ops-sheet-pull" class="ops-btn ops-btn-ghost" type="button">シートの更新を取り込む</button>
+                <a id="ops-sheet-link" class="ops-link" href="#" target="_blank" rel="noopener" hidden>スプレッドシートを開く</a>
+              </div>
+              <div id="ops-sheet-status" class="ops-hint"></div>
+            </div>
+            <form id="ops-share-form" class="ops-card ops-form">
+              <h2>メンバーを招待する</h2>
+              <div class="ops-form-grid">
+                <label class="ops-span-2">メールアドレス（複数はカンマか改行で区切る）<textarea name="emails" rows="2" placeholder="tanaka@example.com"></textarea></label>
+                <label>権限<select name="role"><option value="writer">編集できる</option><option value="commenter">コメントできる</option><option value="reader">閲覧のみ</option></select></label>
+                <label>共有するもの<select name="target"><option value="both">戦略書＋チーム用トラッカー</option><option value="master">戦略書だけ</option><option value="sheet">チーム用トラッカーだけ</option></select></label>
+                <label class="ops-span-2">招待メールに添える一言（任意）<input name="message" maxlength="200" /></label>
+              </div>
+              <div class="ops-form-actions"><button class="ops-btn" type="submit">招待する</button></div>
+              <div id="ops-share-status" class="ops-hint"></div>
+            </form>
+            <div class="ops-card">
+              <h2>いま共有している相手</h2>
+              <button id="ops-share-refresh" class="ops-btn ops-btn-ghost" type="button">一覧を更新</button>
+              <div id="ops-share-list"></div>
+              <p class="ops-hint">メンバーが自分の STRATEGY-KIT からこの戦略書へ直接書き込むことはできません（Google の権限の仕組みで、拡張が触れるのは自分が作ったファイルだけのため）。メンバーは共有されたドキュメント・シートを直接編集し、全自動での書き込みは戦略書を作った人が行ってください。</p>
+            </div>
+          </section>
+        </main>
+      </div>
+      <div id="ops-toast" class="ops-toast" role="status" aria-live="polite" hidden></div>
+    </div>
+    <script type="module" src="./operations.js"></script>
+  </body>
+</html>

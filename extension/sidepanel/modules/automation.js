@@ -43,8 +43,11 @@
   // 課金APIキーが必要なモデル。無料枠のキーでは 429 で拒否される。
   // ここを変えたら lib/model-policy.js も同じ内容に揃えること（テストが一致を検査する）。
   const SK_PAID_ONLY_MODELS = ['gemini-3.1-pro-preview', 'gemini-3.1-flash-image', 'gemini-3-pro-image'];
-  const SK_FREE_TIER_FALLBACK_MODEL = 'gemini-3.6-flash';
-  const SK_MODEL_POLICY_VERSION = 1;
+  const SK_FREE_TIER_FALLBACK_MODEL = 'gemini-3.8-flash';
+  // 以前の既定モデル（lib/model-policy.js の PREVIOUS_DEFAULT_MODELS と揃える）。
+  const SK_PREVIOUS_DEFAULT_MODELS = ['gemini-3.6-flash'];
+  // 1: v0.12.29 課金専用モデルの読み替え / 2: v0.13.0 既定を 3.8 Flash へ
+  const SK_MODEL_POLICY_VERSION = 2;
 
   // v0.12.28 では §7 の既定が gemini-3.1-pro-preview だった。その値は
   // sk-state.projects.<id>.automation.uiDraft に残り、更新しても消えない。
@@ -55,12 +58,17 @@
     return (Number(savedDraft && savedDraft.modelPolicyVersion) || 0) < SK_MODEL_POLICY_VERSION;
   }
 
-  function restoreSelectableModel_(savedModel, selectEl, remapLegacy) {
+  function restoreSelectableModel_(savedModel, selectEl, remapLegacy, savedPolicyVersion) {
     const selectable = Array.from(selectEl.options).some(function (option) {
       return option.value === savedModel;
     });
     if (!selectable) return SK_FREE_TIER_FALLBACK_MODEL;
-    if (remapLegacy && SK_PAID_ONLY_MODELS.indexOf(savedModel) !== -1) {
+    if (!remapLegacy) return savedModel;
+    const version = Number(savedPolicyVersion) || 0;
+    if (version < 1 && SK_PAID_ONLY_MODELS.indexOf(savedModel) !== -1) {
+      return SK_FREE_TIER_FALLBACK_MODEL;
+    }
+    if (version < 2 && SK_PREVIOUS_DEFAULT_MODELS.indexOf(savedModel) !== -1) {
       return SK_FREE_TIER_FALLBACK_MODEL;
     }
     return savedModel;
@@ -214,9 +222,16 @@
     return await import(geminiUrl);
   }
 
+  // 読み込んだ Finance Gate モジュールの参照。分割実行の判定（shouldSplitPhaseForFinanceGate）は
+  // 同期関数なので、await できるここから参照を持たせる。検査対象のプロンプトIDは
+  // finance-gate.js を単一の真実源にし、automation.js 側にIDを直書きしない
+  // （同じIDが2箇所に散っていたことが SNS 版で Gate が発動しなかった原因のため）。
+  let financeGateApi = null;
+
   async function loadFinanceGateDeps() {
     const financeGateUrl = chrome.runtime.getURL('phase0/finance-gate.js');
-    return await import(financeGateUrl);
+    financeGateApi = await import(financeGateUrl);
+    return financeGateApi;
   }
 
   async function loadSummaryGateDeps() {
@@ -232,6 +247,77 @@
   async function loadAutomationResumeDeps() {
     const resumeUrl = chrome.runtime.getURL('phase0/automation-resume.js');
     return await import(resumeUrl);
+  }
+
+  // 運用ボード（制約条件・会社資料の要点・目的別レシピ）の読み込み。
+  async function loadOpsDeps() {
+    const [opsCore, opsGoogle] = await Promise.all([
+      import(chrome.runtime.getURL('lib/ops-core.js')),
+      import(chrome.runtime.getURL('phase0/ops-google.js')),
+    ]);
+    return { opsCore, opsGoogle };
+  }
+
+  // 実行開始時に、案件の運用ボード設定を全自動・半自動へ渡す形にまとめる。
+  // 読めなくても実行は止めない（従来どおりの入力だけで進む）。
+  async function readOpsForRun_() {
+    const empty = { contextText: '', recipePhases: null, recipeTitle: '' };
+    try {
+      const { opsCore } = await loadOpsDeps();
+      const projectId = window.SK_STATE?._activeProjectId || '';
+      const key = opsCore.opsStorageKey(projectId);
+      const stored = await chrome.storage.local.get([key]);
+      const ops = opsCore.normalizeOpsState(stored?.[key]);
+      const parts = [];
+      const constraintsText = opsCore.constraintsToPromptText(ops.constraints);
+      if (constraintsText) parts.push(constraintsText);
+      if (ops.prefill && ops.prefill.useInAutomation && ops.prefill.contextText) {
+        parts.push('【会社資料から分かっていること（運用ボードの先読み結果。[要確認] は推測）】\n' + ops.prefill.contextText);
+      }
+      const recipe = ops.recipe ? opsCore.findRecipe(ops.recipe.id) : null;
+      return {
+        contextText: parts.join('\n\n'),
+        recipePhases: opsCore.recipePhaseFilter(recipe),
+        recipeTitle: recipe && recipe.id !== 'full' ? recipe.title : '',
+      };
+    } catch (e) {
+      console.warn('[STRATEGY-KIT] 運用ボード設定の読み込みに失敗（従来どおり実行）:', e);
+      return empty;
+    }
+  }
+
+  function isPhaseInRecipe_(formInputs, phaseNo) {
+    const list = formInputs && Array.isArray(formInputs.recipePhases) ? formInputs.recipePhases : null;
+    if (!list) return true;
+    return list.indexOf(Number(phaseNo)) !== -1;
+  }
+
+  // レシピで飛ばす章のうち、戦略書に既に書かれている章は要点を前提として渡す。
+  async function seedAccumulatedFromMaster_(accumulated, formInputs) {
+    const list = formInputs && Array.isArray(formInputs.recipePhases) ? formInputs.recipePhases : null;
+    if (!list || !list.length) return;
+    try {
+      const phases = window.SK_CORE.getPhases();
+      const skipped = phases
+        .map(function (p) { return Number(p.no); })
+        .filter(function (no) { return list.indexOf(no) === -1 && !accumulated['§' + no]; });
+      if (!skipped.length) return;
+      const { opsGoogle } = await loadOpsDeps();
+      const master = await opsGoogle.getActiveMasterDoc();
+      if (!master) return;
+      const read = await opsGoogle.readMasterSections(master.documentId, skipped);
+      let summaryGate = null;
+      try { summaryGate = await loadSummaryGateDeps(); } catch (_) { summaryGate = null; }
+      skipped.forEach(function (no) {
+        const text = read.texts[no];
+        if (!text) return;
+        accumulated['§' + no + '（既存の戦略書）'] = summaryGate
+          ? summaryGate.preferSummaryForHandoff(text, 2000)
+          : text.slice(0, 2000);
+      });
+    } catch (e) {
+      console.warn('[STRATEGY-KIT] 既存章の読み込みに失敗（レシピの章だけで続行）:', e);
+    }
   }
 
   async function loadDecisionLogDeps() {
@@ -388,10 +474,101 @@
     }
   }
 
+  // ベンチマーク注入の「対象プロンプト」と「注入する指標の粒度」を決める唯一の真実源。
+  // prompt.id を条件分岐へ直書きしない（同じ id が複数箇所に散ると注入漏れ・食い違いが起きる）。
+  // 注入先を増やす／粒度を変える作業は、この関数内の SCOPES 表の1行だけで完結させること。
+  //   groups: 'all' … 全指標＋指標メモ＋アルゴリズム仮説メモ（§0/§7-4 の従来どおりの全量注入）
+  //   groups: [...]  … 該当グループの指標だけを抜粋注入（アルゴリズム仮説メモは §0 の出力が
+  //                    蓄積コンテキストに乗るため省く）。省いた指標名は注入ブロックに明示する。
+  // 第2引数 metricKeys を省略すると「注入対象かどうか」の判定にだけ使える（粒度は絞られない）。
+  function resolveBenchmarkScope(promptId, metricKeys) {
+    // 指標のグループ分け。platforms.json 側でキーが増減しうるため、
+    // どのグループにも一致しない新指標は「落とさず必ず載せる」側に倒す（取りこぼし防止）。
+    const GROUPS = {
+      // 工数・投下量（RICE の Effort、投稿カレンダーの本数を決める）
+      effort: [/^minutesPerPost/, /^postsPerWeek$/],
+      // リーチ・エンゲージ（配信量と反応の相場。コンテンツ設計が参照する）
+      reach: [
+        /^engagementRatePerPost$/,
+        /^impressionsPerPost$/,
+        /^reachPerPost$/,
+        /^reachMultiplier/,
+        /^storyReachRate$/,
+        /^saveRate$/,
+        /^shareRate$/,
+        /^reelRetentionRate$/,
+        /^nonFollowerReachRate$/,
+      ],
+      // 転換率（KPI の分解式に使う比率）
+      funnel: [
+        /^profileVisitToFollowRate$/,
+        /^profileClickRate$/,
+        /^profileVisitRate$/,
+        /^linkClickRate$/,
+      ],
+      // 金額・成長の集計値（運用エコノミクス専用）
+      economics: [
+        /^followerGrowthRateMonthly$/,
+        /^followerAcquisitionCost$/,
+        /^lpCvRate$/,
+        /^operatorHourlyRate$/,
+      ],
+    };
+    const SCOPES = {
+      'phase-sns-0-platform-research': { groups: 'all' },
+      'phase-sns-4-pillars': {
+        groups: ['reach', 'effort'],
+        label: 'リーチ・エンゲージ＋工数',
+      },
+      'phase-sns-6-intro': {
+        groups: ['effort', 'reach', 'funnel'],
+        label: '工数＋リーチ・エンゲージ＋転換率',
+      },
+      'phase-sns-7-operations': {
+        groups: ['effort', 'reach', 'funnel'],
+        label: '工数＋リーチ・エンゲージ＋転換率',
+        // §7-1 の本文には「本プロンプトにはベンチマークは注入されません」と書かれている版が
+        // 出回っている。本文より実際に注入された本ブロックを優先させる。
+        note: '※本文に「本プロンプトにはベンチマークは注入されません」とある場合でも、下表が実際に注入された値です。§7-4 を待たず下表を初期値として使ってください。',
+      },
+      'phase-sns-7-operations-economics': { groups: 'all' },
+    };
+    const scope = SCOPES[promptId];
+    if (!scope) return null;
+    const full = { keys: null, omitted: [], label: '', note: scope.note || '' };
+    const keys = Array.isArray(metricKeys) ? metricKeys : [];
+    if (scope.groups === 'all' || !keys.length) return full;
+
+    const selected = scope.groups.reduce(function (acc, g) {
+      return acc.concat(GROUPS[g] || []);
+    }, []);
+    const classified = Object.keys(GROUPS).reduce(function (acc, g) {
+      return acc.concat(GROUPS[g]);
+    }, []);
+    const picked = keys.filter(function (key) {
+      const hit = function (re) {
+        return re.test(key);
+      };
+      // 選択グループに属する指標＋どのグループにも属さない未分類の指標を載せる
+      return selected.some(hit) || !classified.some(hit);
+    });
+    // 想定外のキー改名などで1つも拾えなかったときは全量注入へフォールバック（無注入にしない）
+    if (!picked.length) return full;
+    return {
+      keys: picked,
+      omitted: keys.filter(function (key) {
+        return picked.indexOf(key) === -1;
+      }),
+      label: scope.label || '',
+      note: scope.note || '',
+    };
+  }
+
   // snsBenchmark を Markdown ブロック化して body 先頭に差し込む（injectBenchmark と同型）。
   // X 単一前提のため業種未登録向けの代替注入分岐は持たない（default 解決で足りる）。
   // metrics は platforms.json 側でキーが増減しうるため Object.entries で動的に行生成する。
-  function injectPlatformBenchmark(body, platform) {
+  // 第3引数 scope（resolveBenchmarkScope の戻り値）で注入する指標を絞れる。省略時は全量注入。
+  function injectPlatformBenchmark(body, platform, scope) {
     if (!platform || !platform.snsBenchmark) return body;
     const b = platform.snsBenchmark;
     const m = b.metrics || {};
@@ -410,22 +587,36 @@
       })
       .join('\n');
 
+    // scope.keys があるときだけ抜粋モード（§0/§7-4 は scope 無し＝全量注入で従来と同一出力）
+    const focused = !!(scope && scope.keys && scope.keys.length);
+    const metricKeys = focused ? scope.keys : Object.keys(m);
+    const omitted = (focused && scope.omitted) || [];
+
     const header =
       '【プラットフォーム別ベンチマーク（自動注入: ' +
       platform.label +
       ' / 更新 ' +
       b.updated +
+      (focused && scope.label ? ' / 本章向け抜粋: ' + scope.label : '') +
       '）】';
     const lines = [
       '',
       header,
       '※ここの数値は実行時点の事実ではなく、自社実測または現在の一次情報で検証する仮説レンジです。検証できない値は unknown とし、判定を保留してください。',
     ];
+    if (scope && scope.note) lines.push(scope.note);
+    if (focused && omitted.length) {
+      lines.push(
+        '※本章で使う指標だけを抜粋しています。ここに無い指標（' +
+          omitted.join('／') +
+          '）は §0 プラットフォーム調査・§7-4 運用エコノミクスに全量が注入されるため、本章では扱いません。'
+      );
+    }
     if (b.notes) lines.push('> ' + b.notes);
     lines.push('', '| 指標 | low / mid / high | タグ |', '|---|---|---|');
     // metrics は JSON のキー順を維持して動的に行生成（キー名をそのまま指標名に使う）
     const memos = [];
-    Object.keys(m).forEach(function (key) {
+    metricKeys.forEach(function (key) {
       const x = m[key];
       lines.push('| ' + key + ' | ' + fmtRange(x) + ' | ' + tag(x) + ' |');
       if (x && x.memo) memos.push('- ' + key + ': ' + x.memo);
@@ -438,7 +629,8 @@
       });
       lines.push('');
     }
-    if (platform.algorithmNotes) {
+    // アルゴリズム仮説メモは全量注入（§0/§7-4）のみ。抜粋章では §0 の出力が蓄積コンテキストに乗る。
+    if (!focused && platform.algorithmNotes) {
       lines.push(
         '【アルゴリズム仮説メモ（未検証の固定法則として使用禁止）】',
         platform.algorithmNotes,
@@ -536,12 +728,10 @@
       }
     }
 
-    // SNS版: §0/§7 にプラットフォーム別 snsBenchmark を自動注入（state.platforms.default で解決）。
+    // SNS版: プラットフォーム別 snsBenchmark を自動注入（state.platforms.default で解決）。
+    // どのプロンプトへ・どの粒度で注入するかは resolveBenchmarkScope が唯一の真実源。
     // state.platforms は benchmarkSource==="platform" のときだけロードされる → Webマーケ版は素通り。
-    if (
-      prompt.id === 'phase-sns-0-platform-research' ||
-      prompt.id === 'phase-sns-7-operations-economics'
-    ) {
+    if (resolveBenchmarkScope(prompt.id)) {
       const st =
         window.SK_CORE && window.SK_CORE.getState
           ? window.SK_CORE.getState()
@@ -552,7 +742,11 @@
         null;
       const plat = platformKey ? findPlatform(platformKey) : null;
       if (plat && plat.snsBenchmark) {
-        body = injectPlatformBenchmark(body, plat);
+        const scope = resolveBenchmarkScope(
+          prompt.id,
+          Object.keys(plat.snsBenchmark.metrics || {})
+        );
+        body = injectPlatformBenchmark(body, plat, scope);
       }
     }
 
@@ -654,10 +848,12 @@
       style: 'font-size:12px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:4px',
     });
     [
-      { value: 'gemini-3.6-flash', label: '通常: gemini-3.6-flash（推奨・無料枠OK）' },
+      { value: 'gemini-3.8-flash', label: '通常: gemini-3.8-flash（推奨・無料枠OK）' },
+      { value: 'gemini-3.6-flash', label: '通常: gemini-3.6-flash（無料枠OK）' },
       { value: 'gemini-3.5-flash', label: '通常: gemini-3.5-flash（無料枠OK）' },
       { value: 'gemini-3.5-flash-lite', label: '通常: gemini-3.5-flash-lite（無料枠OK・低コスト）' },
       { value: 'gemini-3.1-pro-preview', label: '通常: gemini-3.1-pro-preview（高精度・課金APIキーが必要）' },
+      { value: 'deepseek-v4-flash', label: '通常: DeepSeek V4 Flash（DeepSeekのAPIキーが必要）' },
     ].forEach(function (m) {
       modelSelect.appendChild(el('option', { value: m.value, text: m.label }));
     });
@@ -666,9 +862,11 @@
       style: 'font-size:12px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:4px',
     });
     [
-      { value: 'gemini-3.6-flash', label: 'ユニットエコノミクス: gemini-3.6-flash（推奨・無料枠OK）' },
+      { value: 'gemini-3.8-flash', label: 'ユニットエコノミクス: gemini-3.8-flash（推奨・無料枠OK）' },
+      { value: 'gemini-3.6-flash', label: 'ユニットエコノミクス: gemini-3.6-flash（無料枠OK）' },
       { value: 'gemini-3.5-flash', label: 'ユニットエコノミクス: gemini-3.5-flash（無料枠OK・節約）' },
       { value: 'gemini-3.1-pro-preview', label: 'ユニットエコノミクス: gemini-3.1-pro-preview（高精度・課金APIキーが必要）' },
+      { value: 'deepseek-v4-flash', label: 'ユニットエコノミクス: DeepSeek V4 Flash（DeepSeekのAPIキーが必要）' },
     ].forEach(function (m) {
       financeModelSelect.appendChild(el('option', { value: m.value, text: m.label }));
     });
@@ -755,8 +953,8 @@
         memo: memoArea.value || '',
         context: contextArea.value || '',
         mode: radioFull.checked ? 'full' : 'semi',
-        model: modelSelect.value || 'gemini-3.6-flash',
-        financeModel: financeModelSelect.value || 'gemini-3.6-flash',
+        model: modelSelect.value || 'gemini-3.8-flash',
+        financeModel: financeModelSelect.value || 'gemini-3.8-flash',
         // この版数があるドラフトは「受講者が選んだ値」として扱い、以後読み替えない。
         modelPolicyVersion: SK_MODEL_POLICY_VERSION,
         draftUrl: typeof draftUrlInput !== 'undefined' && draftUrlInput ? draftUrlInput.value || '' : '',
@@ -1145,7 +1343,7 @@
           geminiClient: deps.geminiClient,
           sourceDocumentId: setRes.draftDocId,
           phases,
-          model: modelSelect.value || 'gemini-3.6-flash',
+          model: modelSelect.value || 'gemini-3.8-flash',
         });
         await applyDraftBusinessInfoToSettings(externalAnalysis.businessInfo);
         renderExternalImportPreview(externalAnalysis);
@@ -1435,10 +1633,10 @@
         if (savedDraft.draftUrl && !draftUrlInput.value) draftUrlInput.value = savedDraft.draftUrl;
         const remapLegacyModels = skNeedsLegacyModelRemap_(savedDraft);
         if (savedDraft.model) {
-          modelSelect.value = restoreSelectableModel_(savedDraft.model, modelSelect, remapLegacyModels);
+          modelSelect.value = restoreSelectableModel_(savedDraft.model, modelSelect, remapLegacyModels, savedDraft.modelPolicyVersion);
         }
         if (savedDraft.financeModel) {
-          financeModelSelect.value = restoreSelectableModel_(savedDraft.financeModel, financeModelSelect, remapLegacyModels);
+          financeModelSelect.value = restoreSelectableModel_(savedDraft.financeModel, financeModelSelect, remapLegacyModels, savedDraft.modelPolicyVersion);
         }
         // 読み替えたら版数を刻んで保存する。次回以降は受講者の選択をそのまま尊重する。
         if (remapLegacyModels) persistAutomationDraft();
@@ -2017,7 +2215,7 @@
             });
           }
           const geminiClient = await loadGeminiClient();
-          const model = modelSelect.value || 'gemini-3.6-flash';
+          const model = modelSelect.value || 'gemini-3.8-flash';
           const runOpts = { storage: chrome.storage.local, syncStorage: chrome.storage.sync };
 
           // context / メモに URL があれば url_context ツールも付けてページ内容を読ませる（v3.3）。
@@ -2156,14 +2354,27 @@
             body: designBody,
           });
           const geminiClient = await loadGeminiClient();
-          const result = await geminiClient.generateContent({
-            prompt: promptText,
-            model: modelSelect.value || 'gemini-3.6-flash',
-            temperature: 0.4,
-          }, {
+          const runOpts = {
             storage: chrome.storage.local,
             syncStorage: chrome.storage.sync,
-          });
+          };
+          const designParams = {
+            prompt: promptText,
+            model: modelSelect.value || 'gemini-3.8-flash',
+            temperature: 0.4,
+          };
+          // 案件固有の質問にするためウェブ検索付きで作る。使えない経路では検索なしで再試行する。
+          let result;
+          try {
+            result = await geminiClient.generateContent(
+              Object.assign({ tools: [{ google_search: {} }] }, designParams),
+              runOpts
+            );
+            if (!String((result && result.text) || '').trim()) throw new Error('empty response text');
+          } catch (searchError) {
+            console.warn('[STRATEGY-KIT] 質問設計の検索付き生成に失敗したため検索なしで再試行します:', searchError);
+            result = await geminiClient.generateContent(designParams, runOpts);
+          }
           return String((result && result.text) || '').trim();
         },
       });
@@ -2290,6 +2501,17 @@
           memo: memoArea.value.trim(),
           context: contextArea.value.trim(),
         };
+        // 運用ボードの制約条件・会社資料の要点・目的別レシピを反映する（画面の入力欄は書き換えない）。
+        const opsForRun = await readOpsForRun_();
+        if (opsForRun.contextText) {
+          formInputs.context = [formInputs.context, opsForRun.contextText].filter(Boolean).join('\n\n');
+        }
+        formInputs.recipePhases = opsForRun.recipePhases;
+        formInputs.recipeTitle = opsForRun.recipeTitle;
+        if (opsForRun.recipePhases) {
+          // 一部の章だけ進む理由を、始める前に見える場所で伝える（運用ボードで選んだ目的）。
+          window.SK_CORE?.showToast?.('運用ボードの「' + opsForRun.recipeTitle + '」に合わせて、§' + opsForRun.recipePhases.join('・§') + ' だけを進めます（全部進めるには運用ボードの「目的から選ぶ」で「戦略を最初から作る」に戻してください）', false, 8000);
+        }
         if (!formInputs.industry) {
           window.alert('⚠ 上の「事業設定」セクションで業種を選んでください。\n\nページ上部の「事業設定」カードで業種（プリセット選択 or 自由入力）と店舗・屋号を入力してから、もう一度「実行」を押してください。');
           // トップ事業設定セクションへ誘導
@@ -2342,6 +2564,9 @@
           // 実行本体はこのサイドパネルで継続し、操作UIを専用の最大化
           // ウィンドウへ切り替える。ここを await するとウィンドウ生成の失敗で
           // 全自動まで止めてしまうため、UI handoff は best-effort にする。
+          // 予告なく画面が切り替わると受講者が戸惑うので、切り替える前に一言出す。
+          // 実行本体はこのサイドパネルにあるため「閉じない」ことも伝える。
+          window.SK_CORE?.showToast?.('全自動を開始しました。進み具合は全画面の司令塔に表示します（このサイドパネルは閉じずにそのままにしてください）', false, 6000);
           Promise.resolve(window.SK_CORE?.openMissionFullscreen?.()).catch(function (error) {
             console.warn('[STRATEGY-KIT] command center handoff failed:', error);
           });
@@ -2392,7 +2617,7 @@
           publishTaskMonitor_({
             status: 'blocked',
             taskLabel: mode + 'が停止しました',
-            lastEvent: mode + 'の実行エラー',
+            lastEvent: '理由: ' + String(help.short || mode + 'の実行エラー').slice(0, 160),
           });
           appendAutomationErrorLog(logArea, mode + 'の実行エラー', e);
           window.SK_CORE.showToast(mode + 'を実行中にエラーが発生しました。' + help.short, true, 6000);
@@ -2834,7 +3059,7 @@
         ].join('\n');
     const generated = await geminiClient.generateContent({
       prompt,
-      model: 'gemini-3.6-flash',
+      model: 'gemini-3.8-flash',
       temperature: isSummary ? 0.2 : 0.25,
     });
     const titlePrefix = isSummary ? '[SUMMARY]' : '[CLEAN]';
@@ -2857,10 +3082,11 @@
   // ===========================================================
   // 全自動モード: §0〜§9 を Gemini API で順番に生成しマスター本体に保存
   // ===========================================================
+  // Finance Gate 対象の小節を含む章は、小節ごとに1回ずつ生成する（分割実行）。
+  // 章を1本に連結した合成プロンプトで生成すると、Gate に渡る prompt.id が合成IDになり
+  // 検査が発動しないため。対象IDの一覧は finance-gate.js 側が持つ（ID二重管理をしない）。
   function shouldSplitPhaseForFinanceGate(phase) {
-    return !!(phase.prompts || []).some(function (prompt) {
-      return prompt && prompt.id === 'phase-7-unit-economics';
-    });
+    return !!(financeGateApi && financeGateApi.isFinanceGatePhase(phase));
   }
 
   function buildFullAutoUnits(phase, accumulated, formInputs) {
@@ -2988,12 +3214,42 @@
       }
       return text;
     }
-    let res = await geminiClient.generateContent({
-      prompt: promptText,
-      model: effectiveModel,
-      temperature: temperature,
-    });
+    // 実際にウェブ検索が走ったか（ログ用）。tools を渡しても効かない経路があるため
+    // 「要求した」ではなく「走った」を見る。Apps Script proxy は tools を無視するので常に false。
+    // 判定基準は phase0/hearing-readiness.js の wasPreResearchGrounded と同じ
+    // （automation.js は classic script で ESM を import できないため、ここに写している）。
+    function wasGeneratedWithSearch_(res) {
+      if (!res || typeof res !== 'object') return false;
+      if (res.mode === 'proxy') return false;
+      if (res.mode === 'deepseek') return Boolean(res.grounded);
+      const candidates = res.raw && res.raw.candidates;
+      if (!Array.isArray(candidates) || !candidates.length) return false;
+      return candidates.some(function (c) { return c && (c.groundingMetadata || c.grounding_metadata); });
+    }
+    // 各章の生成はウェブ検索付きで行う（Gemini=google_search / DeepSeek=web_search）。
+    // 検索が使えない経路（Apps Script proxy は tools を無視する・モデル非対応・一時エラー）でも
+    // 止めないため、失敗したら検索なしで1回だけ再試行する。
+    let res = null;
+    try {
+      res = await geminiClient.generateContent({
+        prompt: promptText,
+        model: effectiveModel,
+        temperature: temperature,
+        tools: [{ google_search: {} }],
+      });
+      requireGeneratedBody_(res);
+    } catch (searchError) {
+      console.warn('[STRATEGY-KIT] 検索付き生成に失敗したため検索なしで再試行します ('
+        + (sectionLabel || '') + '):', searchError);
+      res = await geminiClient.generateContent({
+        prompt: promptText,
+        model: effectiveModel,
+        temperature: temperature,
+      });
+    }
     let bodyText = requireGeneratedBody_(res);
+    console.info('[STRATEGY-KIT] ' + (sectionLabel || '') + ' 生成: 検索='
+      + (wasGeneratedWithSearch_(res) ? 'あり' : 'なし') + ' mode=' + String(res && res.mode));
 
     if (!isFinance) {
       return { bodyText: bodyText, model: effectiveModel, financeGate: null, financeGateWarning: false };
@@ -3075,40 +3331,12 @@
         '\n現状メモ:\n' + formInputs.memo +
         (formInputs.context ? '\n追加コンテキスト:\n' + formInputs.context : '');
     }
+    await seedAccumulatedFromMaster_(accumulated, formInputs);
 
     // R4: 失敗章のトラッキング（最後にまとめて再試行できるようにする）
     const failedSections = []; // [{ no, displayNo, title, displayLabel, reason }]
     // 安全網で ⚠要確認 のまま完走した小節（停止ではなく完走サマリで「要確認」表示する）
     const financeWarningSections = []; // [{ no, displayNo, title, displayLabel, missing, violations }]
-
-    // R4: ユーザー向けエラーメッセージへの整形
-    function humanizeGeminiError(e) {
-      const msg = (e && e.message) ? e.message : String(e);
-      if (msg.indexOf('Finance Gate 不合格') !== -1) {
-        return msg.slice(0, 180);
-      }
-      // 「無料枠では使えないモデル」と「一時的なレート上限」は、どちらも 429 で
-      // 同じ本文（You exceeded your current quota... / RESOURCE_EXHAUSTED）が返る。
-      // 区別できるのは quotaMetric だけ:
-      //   ..._input_token_count → モデルを変えるしかない
-      //   ..._requests          → 待てば直る
-      // 取り違えると、既定モデルで毎分上限に触れた受講者へ「モデルを変えてください
-      // （無料枠なら gemini-3.6-flash）」と、すでに使っているモデルを案内してしまう。
-      // モデル不在・権限拒否（404 / 403）は quotaMetric が無くても確実にモデル側の問題。
-      if (/input_token_count|PERMISSION_DENIED|NOT_FOUND|model not found|is not found for API version|HTTP 40[34]\b/i.test(msg)) {
-        return '選択中のAIモデルは、このAPIキーでは使えません。「実行モードを管理」でモデルを変更してください（無料枠なら gemini-3.6-flash / gemini-3.5-flash）';
-      }
-      if (msg.indexOf('503') !== -1 || /unavailable/i.test(msg)) {
-        return 'AI が一時的に混雑しています（503）。あとで再試行してください';
-      }
-      if (msg.indexOf('429') !== -1 || /rate/i.test(msg)) {
-        return 'AI のレートリミットに達しました（429）。1分ほど待ってから再試行してください';
-      }
-      if (/network|fetch|timeout/i.test(msg)) {
-        return 'ネットワーク接続が不安定です。Wi-Fiを確認してください';
-      }
-      return msg.slice(0, 120);
-    }
 
     function consumeForcedFullAutoFailure(sectionNo) {
       const forced = String(window.SK_FORCE_FULL_AUTO_FAIL_SECTION || '').trim();
@@ -3140,7 +3368,8 @@
       publishTaskMonitor_({
         status: 'blocked',
         taskLabel: '§' + dispNo + ' ' + dispLabel + ' で停止',
-        lastEvent: '保存地点から再開できます',
+        // 止まった理由を全画面にも出す（受講者が見ているのは全画面側のことが多い）。
+        lastEvent: '理由: ' + String(reason || '不明なエラー').slice(0, 160) + '（保存地点から再開できます）',
       });
       setCurrentLocationText('§' + dispNo + ' ' + dispLabel + ' で失敗しました', '手動で修正または再実行してから続行してください');
       saveAutomationState(resumeIndex, accumulated, 'full');
@@ -3154,7 +3383,7 @@
       appendAutomationErrorLog(ui.logArea, '§' + dispNo + ' ' + dispLabel + ' の実行エラー', new Error(reason));
     }
 
-    const financeModel = (opts && opts.financeModel) || 'gemini-3.6-flash';
+    const financeModel = (opts && opts.financeModel) || 'gemini-3.8-flash';
     const financeGate = await loadFinanceGateDeps();
     const geminiClient = await loadGeminiClient();
     let summaryGate = null;
@@ -3201,6 +3430,12 @@
 
       const phase = phases[i];
       const phaseLabel = '§' + phase.no + ' ' + phase.title;
+
+      // 目的別レシピで使わない章は飛ばす（戦略書のその章は触らない）。
+      if (!isPhaseInRecipe_(formInputs, phase.no)) {
+        appendPhaseLog(ui.logArea, { no: phase.no, title: phase.title + '（レシピ「' + (formInputs.recipeTitle || '') + '」では使わない章のため省略）' }, '', 'skip');
+        continue;
+      }
 
       // 進捗を保存
       saveAutomationState(i, accumulated, 'full');
@@ -3409,6 +3644,36 @@
     }
   }
 
+  // R4: ユーザー向けエラーメッセージへの整形
+  // 全自動本体（runFullAuto）と失敗小節の再試行（retryFailedSections）の両方で使う。
+  function humanizeGeminiError(e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    if (msg.indexOf('Finance Gate 不合格') !== -1) {
+      return msg.slice(0, 180);
+    }
+    // 「無料枠では使えないモデル」と「一時的なレート上限」は、どちらも 429 で
+    // 同じ本文（You exceeded your current quota... / RESOURCE_EXHAUSTED）が返る。
+    // 区別できるのは quotaMetric だけ:
+    //   ..._input_token_count → モデルを変えるしかない
+    //   ..._requests          → 待てば直る
+    // 取り違えると、既定モデルで毎分上限に触れた受講者へ「モデルを変えてください
+    // （無料枠なら gemini-3.8-flash）」と、すでに使っているモデルを案内してしまう。
+    // モデル不在・権限拒否（404 / 403）は quotaMetric が無くても確実にモデル側の問題。
+    if (/input_token_count|PERMISSION_DENIED|NOT_FOUND|model not found|is not found for API version|HTTP 40[34]\b/i.test(msg)) {
+      return '選択中のAIモデルは、このAPIキーでは使えません。「実行モードを管理」でモデルを変更してください（無料枠なら gemini-3.8-flash / gemini-3.6-flash）';
+    }
+    if (msg.indexOf('503') !== -1 || /unavailable/i.test(msg)) {
+      return 'AI が一時的に混雑しています（503）。あとで再試行してください';
+    }
+    if (msg.indexOf('429') !== -1 || /rate/i.test(msg)) {
+      return 'AI のレートリミットに達しました（429）。1分ほど待ってから再試行してください';
+    }
+    if (/network|fetch|timeout/i.test(msg)) {
+      return 'ネットワーク接続が不安定です。Wi-Fiを確認してください';
+    }
+    return msg.slice(0, 120);
+  }
+
   // ログに1章分追加
   function appendPhaseLog(logArea, phase, text, aiUsed) {
     const el = window.SK_CORE.el;
@@ -3558,7 +3823,7 @@
           prompt: unit.prompt,
           promptText: unit.promptText,
           selectedModel: model,
-          financeModel: financeModel || 'gemini-3.6-flash',
+          financeModel: financeModel || 'gemini-3.8-flash',
           sectionLabel: '§' + unit.sectionNo + ' ' + unit.title,
         });
         bodyText = generated.bodyText;
@@ -3582,8 +3847,7 @@
           window.SK_CORE.showToast('§' + (unit.displayNo || unit.sectionNo) + ' に要確認項目があります。done として保存します。', 'warn', 5000);
         }
       } catch (e) {
-        const msg = (e && e.message) ? e.message : String(e);
-        stillFailed.push({ no: f.no, displayNo: f.displayNo, title: f.title, displayLabel: f.displayLabel, reason: msg.slice(0, 120) });
+        stillFailed.push({ no: f.no, displayNo: f.displayNo, title: f.title, displayLabel: f.displayLabel, reason: humanizeGeminiError(e).slice(0, 120) });
         continue;
       }
 
@@ -3626,7 +3890,8 @@
         status: 'blocked',
         taskLabel: '再試行できなかった小節があります',
         taskCount: stillFailed.length + '件が未完了',
-        lastEvent: successCount + '件は保存済み',
+        lastEvent: successCount + '件は保存済み'
+          + (stillFailed[0] && stillFailed[0].reason ? '／理由: ' + String(stillFailed[0].reason).slice(0, 140) : ''),
       });
       if (typeof ui.onFailedSectionsChange === 'function') {
         ui.onFailedSectionsChange(stillFailed);
@@ -3726,6 +3991,7 @@
         '\n現状メモ:\n' + formInputs.memo +
         (formInputs.context ? '\n追加コンテキスト:\n' + formInputs.context : '');
     }
+    await seedAccumulatedFromMaster_(accumulated, formInputs);
 
     for (let i = stepStartIndex; i < allSteps.length; i++) {
       if (ctrl.cancelled) {
@@ -3746,6 +4012,9 @@
       }
       const step = allSteps[i];
       const phase = step.phase;
+
+      // 目的別レシピで使わない章は飛ばす。
+      if (!isPhaseInRecipe_(formInputs, phase.no)) continue;
 
       // 進捗を保存
       //   v0.9.13: サブステップ有り phase は '3-2' のような文字列で保存。

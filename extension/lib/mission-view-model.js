@@ -21,7 +21,17 @@ export const MISSION_STATUS_LABELS = {
   ready: '開始前',
 };
 
+// 失効までの時間。全自動の実行中だけ短く（サイドパネルが落ちて「実行中」が残るのを防ぐ）、
+// 半自動（人がAIの回答を読んで貼る）や、停止・一時停止・完了の表示は人の時間で待つ。
+// 半自動に全自動と同じ10分を当てると、考えている間に「開始前」へ戻ってしまう。
 const TASK_STALE_AFTER_MS = 10 * 60 * 1000;
+const HUMAN_PACED_TASK_STALE_AFTER_MS = 24 * 60 * 60 * 1000;
+
+export function taskStaleAfterMs(snapshot) {
+  const machinePaced = (snapshot.status === 'running' || snapshot.status === 'retrying')
+    && snapshot.mode !== 'semi';
+  return machinePaced ? TASK_STALE_AFTER_MS : HUMAN_PACED_TASK_STALE_AFTER_MS;
+}
 
 export function missionStatusLabel(status) {
   return MISSION_STATUS_LABELS[status] || '開始前';
@@ -31,7 +41,7 @@ export function missionStatusLabel(status) {
 export function getLiveMissionTask(snapshot, now = Date.now()) {
   if (!snapshot || snapshot.visible === false || snapshot.status === 'idle') return null;
   const updatedAt = Number(snapshot.updatedAt || 0);
-  if (!updatedAt || now - updatedAt > TASK_STALE_AFTER_MS) return null;
+  if (!updatedAt || now - updatedAt > taskStaleAfterMs(snapshot)) return null;
   return snapshot;
 }
 
@@ -95,7 +105,10 @@ export function deriveMissionDetails(status, ctx) {
   } else if (status === 'completed') {
     detailTitle = '戦略書が完成しました';
     details = [
-      ['完成物', 'STRATEGY-KIT 戦略書'],
+      // 製品名は呼び出し側（mission.js）が product.json の branding から渡す。
+      // 製品名が未解決のときは製品名なしで「戦略書」とだけ出す。
+      // 'STRATEGY-KIT' を既定にすると X-KIT / INSTAGRAM-KIT で誤った製品名を表示してしまう。
+      ['完成物', ((ctx && ctx.productLabel) ? ctx.productLabel + ' ' : '') + '戦略書'],
       ['種別', 'Google Docs'],
       ['要確認', '数値と固有名詞を最終確認'],
     ];
@@ -225,7 +238,13 @@ export function deriveMissionModel(input, now = Date.now()) {
   const workingIsPartial = !workingIsFilled && partialSet.has(workNo);
   const needsMode = !!input?.needsMode && hasBusiness && !isRunning && status !== 'completed';
 
-  let { detailTitle, details } = deriveMissionDetails(status, { completed, total, currentPhase: workingPhase, task });
+  let { detailTitle, details } = deriveMissionDetails(status, {
+    completed,
+    total,
+    currentPhase: workingPhase,
+    task,
+    productLabel: input?.productLabel,
+  });
   let nextMove = deriveNextMove(status, {
     hasBusiness,
     needsMode,

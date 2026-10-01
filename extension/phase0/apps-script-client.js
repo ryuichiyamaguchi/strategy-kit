@@ -4,7 +4,7 @@ import { ApiError } from './errors.js';
 const SCRIPT_PROJECTS_BASE = 'https://script.googleapis.com/v1/projects';
 const DEFAULT_PROXY_TITLE = 'Strategy Kit Gemini Proxy';
 const DEFAULT_PROXY_DESCRIPTION = 'STRATEGY-KIT Gemini proxy web app';
-const DEFAULT_PROXY_MODEL = 'gemini-3.6-flash';
+const DEFAULT_PROXY_MODEL = 'gemini-3.8-flash';
 const APPS_SCRIPT_USER_SETTINGS_URL = 'https://script.google.com/home/usersettings';
 
 function contentHeaders() {

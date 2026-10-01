@@ -1,5 +1,14 @@
+// 本家 STRATEGY-KIT の §7-4（ユニットエコノミクス試算）。
 export const FINANCE_GATE_PROMPT_ID = 'phase-7-unit-economics';
-export const FINANCE_GATE_RECOMMENDED_MODEL = 'gemini-3.6-flash';
+// SNS 版 2製品（X-KIT / INSTAGRAM-KIT）の §7-4（運用エコノミクス試算）。
+// 指標体系（工数・フォロワー獲得単価・CV）が本家（CAC/LTV/Payback）と別物なので、
+// 検査対象IDとしては同列に扱うが、パーサ・算術検証は SNS 専用系統へ分岐する。
+export const SNS_FINANCE_GATE_PROMPT_ID = 'phase-sns-7-operations-economics';
+export const FINANCE_GATE_PROMPT_IDS = Object.freeze([
+  FINANCE_GATE_PROMPT_ID,
+  SNS_FINANCE_GATE_PROMPT_ID,
+]);
+export const FINANCE_GATE_RECOMMENDED_MODEL = 'gemini-3.8-flash';
 
 const DEFERRAL_PATTERN = /詳細な試算数値.*PDCA|PDCA.*更新|測定結果に基づき.*アップデート|後日.*更新|後で.*確認/;
 const PLACEHOLDER_PATTERN = /[◯〇○]|空欄|未設定|N\/A|TBD/i;
@@ -149,7 +158,15 @@ function validateSlot(label, section) {
 }
 
 export function isFinanceGatePrompt(prompt) {
-  return prompt?.id === FINANCE_GATE_PROMPT_ID;
+  return FINANCE_GATE_PROMPT_IDS.indexOf(prompt?.id) !== -1;
+}
+
+// 章（phase）に Finance Gate 対象の小節が含まれるか。全自動モードは「この章を小節ごとに
+// 1回ずつ生成する（分割実行）」判定に使う。分割されない章は全小節が1本に連結された合成
+// プロンプトになり、Finance Gate に渡る prompt.id が合成IDになって検査が発動しないため、
+// 検査対象IDの一覧はここ（Finance Gate 側）を単一の真実源にする。
+export function isFinanceGatePhase(phase) {
+  return !!(phase?.prompts || []).some((prompt) => isFinanceGatePrompt(prompt));
 }
 
 export function validateUnitEconomicsOutput(text, options = {}) {
@@ -250,8 +267,33 @@ function classifyVerdict(cell) {
 // ヘッダ検出は堅牢化してある（A1 対策）:
 //   - 先頭セルが「指標」または「項目」（項目名 等の前方一致も含む）ならヘッダ行とみなす。
 //   - 明示ヘッダが無くても、ブロック内に既知ラベルが 2 つ以上並ぶ表なら先頭行をヘッダにフォールバック。
-// いずれも「先頭セルの語」を検出キーにしているだけで、9固定ラベル契約（行ラベル）は不変。
-export function parseUnitEconomicsSummary(text) {
+// いずれも「先頭セルの語」を検出キーにしているだけで、固定ラベル契約（行ラベル）は不変。
+//
+// spec で「どのラベル体系の表か」を差し替えられる（本家 STRATEGY-KIT = 9ラベル／
+// SNS 版 X-KIT・INSTAGRAM-KIT = 11ラベル）。パース手順そのものは両者で同一。
+//   spec.labels  … 正規ラベル（返り値の metrics のキー）
+//   spec.aliases … 正規ラベル→表記ゆれ（X版「月間インプレッション」/ IG版「月間リーチ」）
+//   spec.anchors … このラベルが揃っているブロックだけを要約表とみなす（他表の誤検出防止）
+function buildLabelMatcher(spec) {
+  const norm = (s) => String(s || '').replace(/\s/g, '');
+  const pairs = [];
+  for (const label of spec.labels) {
+    const aliases = (spec.aliases && spec.aliases[label]) || [label];
+    for (const alias of aliases) pairs.push([norm(alias), label]);
+  }
+  // 長いラベルを優先（"LTV_CAC比(粗利)" が "CAC" に食われないよう完全一致→前方一致の順で照合）。
+  const byLength = pairs.slice().sort((a, b) => b[0].length - a[0].length);
+  return (cell) => {
+    const rl = norm(cell);
+    if (!rl) return null;
+    const exact = pairs.find(([alias]) => rl === alias);
+    if (exact) return exact[1];
+    const prefixed = byLength.find(([alias]) => rl.startsWith(alias));
+    return prefixed ? prefixed[1] : null;
+  };
+}
+
+function parseSummaryTable(text, spec) {
   const lines = String(text || '').split(/\r?\n/);
   // 連続する表行を1ブロックにまとめる（区切り行 |---| は捨てるがブロックは分断しない）。
   const blocks = [];
@@ -269,18 +311,8 @@ export function parseUnitEconomicsSummary(text) {
   }
   if (current && current.length) blocks.push(current);
 
-  const norm = (s) => String(s || '').replace(/\s/g, '');
   const HEADER_FIRST = /指標|項目/;
-  // 長いラベルを優先（"LTV_CAC比(粗利)" が "CAC" に食われないよう完全一致→前方一致の順で照合）。
-  const labelsByLen = UNIT_ECONOMICS_SUMMARY_LABELS.slice().sort((a, b) => norm(b).length - norm(a).length);
-  const matchLabel = (cell) => {
-    const rl = norm(cell);
-    return (
-      UNIT_ECONOMICS_SUMMARY_LABELS.find((l) => rl === norm(l)) ||
-      labelsByLen.find((l) => rl.startsWith(norm(l))) ||
-      null
-    );
-  };
+  const matchLabel = buildLabelMatcher(spec);
 
   // 要約表とみなせる最初のブロックを採用する。
   for (const rows of blocks) {
@@ -295,23 +327,38 @@ export function parseUnitEconomicsSummary(text) {
     if (!headerCols.length) continue;
 
     const rowByLabel = new Map();
+    // 表記ゆれのある行（X版「月間インプレッション」/ IG版「月間リーチ」）は正規ラベルへ寄せるが、
+    // 警告文には出力側が実際に書いた語をそのまま使うため、生ラベルも控えておく。
+    const rawLabels = {};
     for (const cells of rows.slice(headerIndex + 1)) {
       const matched = matchLabel(cells[0]);
-      if (matched && !rowByLabel.has(matched)) rowByLabel.set(matched, cells.slice(1));
+      if (matched && !rowByLabel.has(matched)) {
+        rowByLabel.set(matched, cells.slice(1));
+        rawLabels[matched] = String(cells[0] || '').trim() || matched;
+      }
     }
-    if (!rowByLabel.has('採否判定') || !rowByLabel.has('投下予算')) continue;
+    if (spec.anchors.some((label) => !rowByLabel.has(label))) continue;
 
     const slots = headerCols.map((name, j) => {
       const metrics = {};
-      for (const label of UNIT_ECONOMICS_SUMMARY_LABELS) {
+      for (const label of spec.labels) {
         const row = rowByLabel.get(label);
         metrics[label] = row ? (row[j] || '') : '';
       }
       return { name, metrics };
     });
-    return { found: true, slots };
+    return { found: true, slots, rawLabels };
   }
-  return { found: false, slots: [] };
+  return { found: false, slots: [], rawLabels: {} };
+}
+
+const UNIT_ECONOMICS_SUMMARY_SPEC = {
+  labels: UNIT_ECONOMICS_SUMMARY_LABELS,
+  anchors: ['採否判定', '投下予算'],
+};
+
+export function parseUnitEconomicsSummary(text) {
+  return parseSummaryTable(text, UNIT_ECONOMICS_SUMMARY_SPEC);
 }
 
 function rangesOverlap(a, b, tolerance) {
@@ -434,6 +481,221 @@ function fmt(range) {
   return range.low === range.high ? String(round(range.low)) : `${round(range.low)}-${round(range.high)}`;
 }
 
+// ===========================================================================
+// SNS 版（X-KIT / INSTAGRAM-KIT）の §7-4「運用エコノミクス要約表」検証
+// ---------------------------------------------------------------------------
+// 本家は CAC / LTV / Payback の 9ラベル×3枠。SNS 版は指標体系そのものが別で、
+// 工数・総コスト・フォロワー獲得単価・CV・粗利の 11ラベル×3枠を検査する。
+// 「月間リーチ」は X 版では「月間インプレッション」と書かれるため alias で吸収する
+// （警告文には出力側が実際に書いた語をそのまま使う）。
+// これらのラベル文字列は prompts-sns.json / prompts-instagram.json の §7-4 と対の契約であり、
+// 片方だけ変更してはならない（安定文字列）。
+// ===========================================================================
+export const SNS_OPERATIONS_SUMMARY_LABELS = [
+  '月間投稿本数',
+  '月間運用工数',
+  '月間総コスト',
+  '月間リーチ',
+  '月間フォロワー増',
+  'フォロワー獲得単価',
+  'フォロワー獲得単価の想定上限',
+  '月間CV',
+  '月間粗利',
+  '粗利÷総コスト',
+  '採否判定',
+];
+
+const SNS_SUMMARY_SPEC = {
+  labels: SNS_OPERATIONS_SUMMARY_LABELS,
+  aliases: {
+    // X-KIT はインプレッション分母、INSTAGRAM-KIT はリーチ分母。行としては同じ「到達」行。
+    月間リーチ: ['月間リーチ', '月間インプレッション'],
+  },
+  // 本家の要約表（投下予算/CAC/…）を誤って SNS 表として拾わないための錨。
+  anchors: ['採否判定', '月間総コスト'],
+};
+
+const SNS_NUMERIC_SUMMARY_LABELS = SNS_OPERATIONS_SUMMARY_LABELS.filter((l) => l !== '採否判定');
+
+const SNS_ARITHMETIC_DEFAULTS = {
+  goProfitRatio: 1.0, // 粗利÷総コスト がこれ以上 → GO 可
+  noGoProfitRatio: 0.5, // これ未満 → NO-GO（条件付GO にもできない）
+  tolerance: 0.25, // レンジ整合の許容幅（±25%）。本家と同値
+};
+
+export function parseSnsOperationsSummary(text) {
+  return parseSummaryTable(text, SNS_SUMMARY_SPEC);
+}
+
+// SNS 版の算術整合検証。検査するのは次の3点（いずれも「表の中だけで閉じる」検算）:
+//   ① フォロワー獲得単価 ≒ 月間総コスト ÷ 月間フォロワー増（手入力での書き換え検出）
+//   ② 粗利÷総コスト ≒ 月間粗利 ÷ 月間総コスト（同上）
+//   ③ 採否判定が §7-4 の基準（粗利÷総コスト と 想定上限）と矛盾していないか
+// レンジ表記（例「840-1,500円」）は本家と同じく {low, high} に畳み、rangesOverlap で
+// ±25% の許容幅つきに突き合わせる（丸め・端数の書き方の違いで落とさないため）。
+export function validateSnsOperationsArithmetic(text, options = {}) {
+  const cfg = Object.assign({}, SNS_ARITHMETIC_DEFAULTS, options.arithmetic || {});
+  const violations = [];
+  const parsed = parseSnsOperationsSummary(text);
+  if (!parsed.found) {
+    return {
+      ok: false,
+      violations: ['要約表: 機械可読の「運用エコノミクス要約表」が見つかりません（ラベル固定の表を必ず出力してください）'],
+    };
+  }
+  // 警告文の指標名は、出力側が実際に書いた語（X版=月間インプレッション / IG版=月間リーチ）に揃える。
+  const labelName = (label) => (parsed.rawLabels && parsed.rawLabels[label]) || label;
+
+  for (const slot of parsed.slots) {
+    const name = slot.name || '枠';
+    const m = slot.metrics;
+    const range = {};
+    const explicitUnknowns = [];
+    // 欠損／プレースホルダ検出
+    for (const label of SNS_NUMERIC_SUMMARY_LABELS) {
+      const cell = String(m[label] || '');
+      const explicitlyUnknown = EXPLICIT_UNKNOWN_PATTERN.test(cell) && !hasNumber(cell);
+      const r = parseRange(cell);
+      range[label] = r;
+      if (explicitlyUnknown) {
+        explicitUnknowns.push(labelName(label));
+      } else if (!r) {
+        violations.push(`${name}: ${labelName(label)} が数値または明示的な unknown で埋まっていません（◯・空欄・TBDのままにしない）`);
+      }
+    }
+    const verdict = classifyVerdict(m['採否判定']);
+    if (!verdict.known) {
+      violations.push(`${name}: 採否判定が GO / 条件付GO / NO-GO / 判定保留 のいずれでもありません`);
+    }
+    if (explicitUnknowns.length && !verdict.isHold) {
+      violations.push(`${name}: ${explicitUnknowns.join('・')} が unknown のため、採否は「判定保留」にしてください`);
+    }
+
+    const cost = range['月間総コスト'];
+    const followers = range['月間フォロワー増'];
+    const unitCost = range['フォロワー獲得単価'];
+    const unitCostCap = range['フォロワー獲得単価の想定上限'];
+    const profit = range['月間粗利'];
+    const profitRatio = range['粗利÷総コスト'];
+
+    // ① フォロワー獲得単価 ≒ 月間総コスト ÷ 月間フォロワー増
+    if (cost && followers && unitCost && followers.low > 0 && followers.high > 0) {
+      const expected = { low: cost.low / followers.high, high: cost.high / followers.low };
+      if (!rangesOverlap(unitCost, expected, cfg.tolerance)) {
+        violations.push(
+          `${name}: フォロワー獲得単価 ${fmt(unitCost)}円 が 月間総コスト÷月間フォロワー増 の計算値 ${fmt(expected)}円 と一致しません（手入力で書き換えた疑い）`
+        );
+      }
+    }
+
+    // ② 粗利÷総コスト ≒ 月間粗利 ÷ 月間総コスト
+    let computedRatio = null;
+    if (profit && cost && cost.low > 0 && cost.high > 0) {
+      computedRatio = { low: profit.low / cost.high, high: profit.high / cost.low };
+      if (profitRatio && !rangesOverlap(profitRatio, computedRatio, cfg.tolerance)) {
+        violations.push(
+          `${name}: 粗利÷総コスト ${fmt(profitRatio)}倍 が 月間粗利÷月間総コスト の計算値 ${fmt(computedRatio)}倍 と一致しません`
+        );
+      }
+    }
+
+    // ③a 粗利÷総コスト と採否の矛盾。本家と同じく、レンジは不利側から段階的に見る
+    //     （楽観側だけで判定すると「0.2-3.0倍で GO」のような誤 GO が素通りするため）。
+    const ratioRange = profitRatio || computedRatio;
+    if (ratioRange && verdict.isGo) {
+      if (ratioRange.high < cfg.noGoProfitRatio) {
+        violations.push(
+          `${name}: 粗利÷総コスト が最良ケースでも${cfg.noGoProfitRatio}倍未満（${fmt(ratioRange)}倍）なのに「${verdict.raw}」判定です（NO-GO にすべき）`
+        );
+      } else if (ratioRange.high < cfg.goProfitRatio && verdict.plainGo) {
+        violations.push(
+          `${name}: 粗利÷総コスト が最良ケースでも${cfg.goProfitRatio}倍未満（${fmt(ratioRange)}倍）なのに無条件GO（条件付GO / NO-GO にすべき）`
+        );
+      } else if (ratioRange.low < cfg.goProfitRatio && verdict.plainGo) {
+        violations.push(
+          `${name}: 粗利÷総コスト の下限が${cfg.goProfitRatio}倍未満（${fmt(ratioRange)}倍）なのに無条件GO（前提を絞るか 条件付GO にすべき）`
+        );
+      }
+    }
+
+    // ③b フォロワー獲得単価が想定上限を超えているのに GO。
+    if (unitCost && unitCostCap && verdict.isGo) {
+      const capHigh = unitCostCap.high * (1 + cfg.tolerance);
+      if (unitCost.low > capHigh) {
+        violations.push(
+          `${name}: ${labelName('フォロワー獲得単価')} ${fmt(unitCost)}円 は最良ケースでも想定上限 ${fmt(unitCostCap)}円 を超えるのに「${verdict.raw}」判定です`
+        );
+      } else if (unitCost.high > capHigh && verdict.plainGo) {
+        violations.push(
+          `${name}: フォロワー獲得単価の上限 ${fmt(unitCost)}円 が想定上限 ${fmt(unitCostCap)}円 を超えるのに無条件GO（前提を絞るか 条件付GO にすべき）`
+        );
+      }
+    }
+  }
+
+  return { ok: violations.length === 0, violations };
+}
+
+// SNS 版の総合検証。返り値の形（ok / missing / violations）は本家 validateUnitEconomics と同一で、
+// automation.js の repair ループ・安全網（appendUnitEconomicsWarning）がそのまま使える。
+export function validateSnsOperations(text, options = {}) {
+  const source = String(text || '');
+  const arithmetic = validateSnsOperationsArithmetic(source, options);
+  const allViolations = arithmetic.violations || [];
+
+  // 空セル指摘は「記入漏れ」、それ以外（算術不一致・誤GO）は「数値矛盾」に振り分ける。
+  // 判定語が本家（'数値で埋まっていません'）と違うのは、本家の実メッセージが
+  // 「…が数値または明示的な unknown で埋まっていません」で、その部分文字列を含まないため。
+  // 本家側の挙動は変えない（既存動作の凍結）ので、SNS 側だけ実メッセージに合う語で判定する。
+  const isEmptyCell = (v) => v.indexOf('埋まっていません') !== -1;
+  const missing = [];
+  const violations = [];
+  if (DEFERRAL_PATTERN.test(source)) {
+    missing.push('全体: 数値試算の先送り文があります');
+  }
+  for (const v of allViolations) {
+    (isEmptyCell(v) ? missing : violations).push(v);
+  }
+
+  // 列(枠)契約: 本家と同じく短期3枠（Quick Win 1 / Quick Win 2 / 地道）を下限とする。
+  const minSlots = Number.isFinite(options.minSlots) ? options.minSlots : DEFAULT_MIN_SUMMARY_SLOTS;
+  const parsed = parseSnsOperationsSummary(source);
+  if (parsed.found && parsed.slots.length < minSlots) {
+    const names = parsed.slots.map((s) => s.name).filter(Boolean).join(' / ') || '（なし）';
+    missing.push(
+      `要約表: 短期${minSlots}枠（Quick Win 1 / Quick Win 2 / 地道）が必要ですが ${parsed.slots.length} 枠しかありません（検出: ${names}／欠落した枠を数値入りで追加してください）`
+    );
+  }
+
+  return {
+    ok: missing.length === 0 && violations.length === 0,
+    missing,
+    violations,
+  };
+}
+
+// どちらの指標体系で検査するかの判定。automation.js は validateUnitEconomics(bodyText) を
+// 引数1つで呼ぶ（章の prompt を渡さない）ため、既定は本文からの自動判別にする。
+// 判別順:
+//   1. 明示指定（options.variant / options.promptId / options.prompt.id）
+//   2. 本家の要約表が見つかる → 'core'（本家の既存動作を最優先で温存する）
+//   3. SNS 版の要約表が見つかる → 'sns'
+//   4. 表が無いとき: SNS 版固有の語彙が本文にあれば 'sns'、無ければ 'core'（従来どおり）
+// 本家の表は 採否判定＋投下予算、SNS 版の表は 採否判定＋月間総コスト を錨にしており、
+// 互いの表を取り違えることはない。
+const SNS_TEXT_HINT = /フォロワー獲得単価|月間フォロワー増|運用エコノミクス/;
+
+export function detectFinanceGateVariant(text, options = {}) {
+  if (options.variant === 'sns' || options.variant === 'core') return options.variant;
+  const promptId = options.promptId || options.prompt?.id || '';
+  if (promptId === SNS_FINANCE_GATE_PROMPT_ID) return 'sns';
+  if (promptId === FINANCE_GATE_PROMPT_ID) return 'core';
+  const source = String(text || '');
+  if (parseUnitEconomicsSummary(source).found) return 'core';
+  if (parseSnsOperationsSummary(source).found) return 'sns';
+  return SNS_TEXT_HINT.test(source) ? 'sns' : 'core';
+}
+
 // 総合検証（automation.js の Finance Gate はこれを使う）。表基準（機械可読の「ユニットエコノミクス
 // 要約表」= 9固定ラベル）を単一の真実源にする。合否（ok）の材料は次の3つだけ:
 //   1. arithmetic（9ラベル×各枠の数値有無・採否・算術一致）
@@ -450,6 +712,11 @@ function fmt(range) {
 // これを repair/warning に流すと修復の注意を削り、安全網の本文注記を誤らせるため排除する。
 export function validateUnitEconomics(text, options = {}) {
   const source = String(text || '');
+  // SNS 版（X-KIT / INSTAGRAM-KIT）の §7-4 は指標体系が別なので専用検証へ振る。
+  // 本家の出力はここを通らない（detectFinanceGateVariant は本家の表を最優先で 'core' と判定する）。
+  if (detectFinanceGateVariant(source, options) === 'sns') {
+    return validateSnsOperations(source, options);
+  }
   const arithmetic = validateUnitEconomicsArithmetic(source, options);
   const allViolations = arithmetic.violations || [];
 
@@ -480,12 +747,90 @@ export function validateUnitEconomics(text, options = {}) {
   };
 }
 
+// SNS 版（X-KIT / INSTAGRAM-KIT）の修復プロンプト。構造例の到達行ラベルは、その製品が
+// 実際に使う語（X版=月間インプレッション / IG版=月間リーチ）に合わせる。
+export function buildSnsOperationsRepairPrompt({
+  originalPrompt = '',
+  outputText = '',
+  validation = { missing: [] },
+  sectionLabel = '運用エコノミクス',
+} = {}) {
+  const missing = (validation.missing || []).map((item) => `- ${item}`).join('\n');
+  const violations = (validation.violations || []).map((item) => `- ${item}`).join('\n');
+  // IG 版は「リーチ」が基幹指標。X 版の本文には「月間リーチ」表記が無いので、
+  // 見つからなければ X 版の「月間インプレッション」を使う。
+  const reachLabel = /月間リーチ/.test(`${outputText}\n${originalPrompt}`)
+    ? '月間リーチ'
+    : '月間インプレッション';
+  return [
+    `Finance Gate 不合格です。以下の不足・数値矛盾を修正し、${sectionLabel}だけを全文で書き直してください。`,
+    '下記は自動検査が検出した未解決項目です。ここが埋まる／整合するまで直してください（特に【数値矛盾】は電卓で計算し直してから要約表へ転記）。',
+    '',
+    '【不足項目（記入漏れ・未解決）】',
+    missing || '- なし',
+    '',
+    '【数値矛盾（算術整合違反・未解決）】',
+    violations || '- なし',
+    '',
+    '【要約表の構造例（数値は説明用であり、自案件へ転記禁止）】',
+    '| 指標 | Quick Win 1 | Quick Win 2 | 地道 |',
+    '|---|---|---|---|',
+    '| 月間投稿本数 | 22-30本 | 13-17本 | 9-13本 |',
+    '| 月間運用工数 | 15-25時間 | 10-16時間 | 6-10時間 |',
+    '| 月間総コスト | 45,000-75,000円 | 30,000-48,000円 | 18,000-30,000円 |',
+    `| ${reachLabel} | 60,000-120,000 | 40,000-80,000 | 25,000-50,000 |`,
+    '| 月間フォロワー増 | 80-200人 | 50-130人 | 30-80人 |',
+    '| フォロワー獲得単価 | 225-938円 | 231-960円 | 225-1,000円 |',
+    '| フォロワー獲得単価の想定上限 | 800-1,200円 | 800-1,200円 | 800-1,200円 |',
+    '| 月間CV | 6-15件 | 4-10件 | 2-6件 |',
+    '| 月間粗利 | 48,000-120,000円 | 32,000-80,000円 | 16,000-48,000円 |',
+    '| 粗利÷総コスト | 0.6-2.7倍 | 0.7-2.7倍 | 0.5-2.7倍 |',
+    '| 採否判定 | 判定保留 | 判定保留 | 判定保留 |',
+    '※ ヘッダと11行の構造だけを使う。数値が取得できないセルは `unknown [不明]` とし、その列の採否を「判定保留」にする。サンプル数値を転記しない。',
+    '',
+    '【必須条件】',
+    '- Quick Win 1 / Quick Win 2 / 地道 をすべて出す（3列横持ちの1枚の表。枠ごとの縦持ち表にしない）',
+    `- 各枠に 月間投稿本数 / 月間運用工数 / 月間総コスト / ${reachLabel} / 月間フォロワー増 / フォロワー獲得単価 / フォロワー獲得単価の想定上限 / 月間CV / 月間粗利 / 粗利÷総コスト / 採否判定 を出す。取得済みの値は数値、未取得は \`unknown [不明]\``,
+    '- ラベル固定の「運用エコノミクス要約表」を必ず出力する（ラベル文字列は変更しない）',
+    '- フォロワー獲得単価 = 月間総コスト ÷ 月間フォロワー増（手入力で書き換えない）',
+    '- 月間粗利 = 月間CV × CV1件あたり粗利 ／ 粗利÷総コスト = 月間粗利 ÷ 月間総コスト',
+    '- フォロワー獲得単価の想定上限 = CV1件あたり粗利 × フォロワー→CV転換率',
+    '- 採否は「粗利÷総コスト ≥ 1.0 かつ フォロワー獲得単価 ≤ 想定上限」で GO。0.5〜1.0 かつ12ヶ月で1.0超の見込みなら 条件付GO。それ以外は NO-GO',
+    '- 空欄、◯、TBDは禁止。不明なら理由付きの `unknown [不明]` とし、必要な計測と判定条件を書く',
+    '- 実測がない項目は、注入ベンチマークの適用条件と出典を確認できる場合だけ [仮説] レンジに使う。確認できなければ unknown',
+    '- 判定が NO-GO でも出力を止めない。⚠ 付きの警告を本文に残し、章は最後まで完走させる',
+    '- 出力はMarkdownのみ。HTMLは出さない',
+    '',
+    `【元の${sectionLabel}プロンプト】`,
+    originalPrompt,
+    '',
+    '【前回の不合格出力】',
+    outputText,
+  ].join('\n');
+}
+
 export function buildUnitEconomicsRepairPrompt({
   originalPrompt = '',
   outputText = '',
   validation = { missing: [] },
   sectionLabel = 'ユニットエコノミクス',
+  variant = null,
+  promptId = '',
 } = {}) {
+  // SNS 版は指標体系が別なので、修復指示も SNS 版の要約表で出す
+  // （本家の CAC / LTV / Payback を SNS 版の修復プロンプトに混ぜない）。
+  const kind = detectFinanceGateVariant(
+    `${outputText}\n${originalPrompt}`,
+    { variant, promptId }
+  );
+  if (kind === 'sns') {
+    return buildSnsOperationsRepairPrompt({
+      originalPrompt,
+      outputText,
+      validation,
+      sectionLabel: sectionLabel === 'ユニットエコノミクス' ? '運用エコノミクス' : sectionLabel,
+    });
+  }
   const missing = (validation.missing || []).map((item) => `- ${item}`).join('\n');
   const violations = (validation.violations || []).map((item) => `- ${item}`).join('\n');
   return [

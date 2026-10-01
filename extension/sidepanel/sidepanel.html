@@ -3,7 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>STRATEGY-KIT</title>
+    <!-- 製品名は sidepanel.js が product.json の branding から入れる（ここでは持たない） -->
+    <title>サイドパネル</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -39,15 +40,16 @@
 
     <main class="sk-shell">
     <!-- ============== 薄型バー v2（唯一の常設クローム・高さ40px＋進捗ヘアライン3px） ============== -->
-    <div id="slim-bar" class="slim-bar" role="toolbar" aria-label="STRATEGY-KIT ナビゲーションバー">
+    <div id="slim-bar" class="slim-bar" role="toolbar" aria-label="ナビゲーションバー">
       <button id="slim-menu" class="slim-bar-icon-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="mission-menu" aria-label="メニューを開く">
         <svg class="icon icon-sm" aria-hidden="true"><use href="#i-phases"/></svg>
       </button>
       <button id="slim-center" class="slim-bar-center" type="button" aria-label="全画面コマンドセンターを開く">
-        <span class="slim-bar-mark" aria-hidden="true">SK</span>
+        <span class="slim-bar-mark" id="slim-brand-mark" aria-hidden="true">SK</span>
+        <!-- 製品名は sidepanel.js の init が product.json の branding から入れる -->
         <span class="slim-brand-lockup" aria-hidden="true">
-          <strong>STRATEGY-KIT</strong>
-          <em>Helper</em>
+          <strong id="slim-brand-name"></strong>
+          <em id="slim-brand-suffix"></em>
         </span>
         <span id="slim-center-phase" class="slim-bar-phase">§0 事業理解</span>
         <span id="slim-center-percent" class="slim-bar-percent">0%</span>
@@ -69,12 +71,13 @@
     </div>
 
     <!-- ============== Mission Header (全タブ共通・畳める) ============== -->
-    <header id="mission-header" class="mission-header" aria-label="STRATEGY-KIT ミッションコントロール">
+    <header id="mission-header" class="mission-header" aria-label="ミッションコントロール">
       <div class="mission-header-bar">
-        <div class="brand mission-brand" id="brand-root" aria-label="STRATEGY-KIT">
+        <!-- ロゴ monogram / 2段テキスト / aria-label は sidepanel.js が product.json の branding から入れる -->
+        <div class="brand mission-brand" id="brand-root">
           <span class="mission-brand-mark" id="brand-logo" aria-hidden="true">SK</span>
           <span class="mission-brand-name">
-            <span class="brand-text-main" id="brand-text-main">STRATEGY</span><span class="brand-text-sub" id="brand-text-sub">kit</span>
+            <span class="brand-text-main" id="brand-text-main"></span><span class="brand-text-sub" id="brand-text-sub"></span>
           </span>
         </div>
         <span id="mission-collapsed-summary" class="mission-collapsed-summary" aria-hidden="true">
@@ -150,6 +153,10 @@
           <button id="menu-prompt-pack" class="mission-menu-item" type="button" title="プロンプト一式と2周目の手順をMarkdownで書き出す（AIエージェント用）" aria-label="エージェント用に書き出す">
             <svg class="icon icon-sm" aria-hidden="true"><use href="#i-doc"/></svg>
             <span>エージェント用に書き出す</span>
+          </button>
+          <button id="menu-operations" class="mission-menu-item" type="button" title="施策の実行管理・実績の取り込み・答え合わせ・報告書・書き出し" aria-label="運用ボードを開く">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-check"/></svg>
+            <span>運用ボード（実行・計測・報告）</span>
           </button>
           <button id="reset-state" class="mission-menu-item" type="button" title="全状態をリセット" aria-label="全状態をリセット">
             <svg class="icon icon-sm" aria-hidden="true"><use href="#i-reset"/></svg>
@@ -356,13 +363,15 @@
     <!-- ============== Tab content panes ============== -->
     <section id="tab-content-anchor" class="content sk-shell-work" tabindex="-1">
       <div id="tab-phases" class="tab-content is-active is-phase-card" role="tabpanel" aria-labelledby="tab-btn-phases">
+        <!-- 運用ボードの「今週やること」（施策を取り込んだ案件だけ表示） -->
+        <section id="ops-week-card" class="ops-week-card" aria-label="今週やること" hidden></section>
         <!-- 薄型パネル v2: 現在フェーズカード（1画面1目的）とフェーズ一覧トグル -->
         <div id="strategy-phase-toggle" class="strategy-phase-toggle" role="group" aria-label="戦略タブの表示切替">
           <button type="button" class="phase-toggle-btn" data-phase-view="card" aria-pressed="true">現在のフェーズ</button>
           <button type="button" class="phase-toggle-btn" data-phase-view="list" aria-pressed="false">フェーズ一覧</button>
         </div>
         <section id="current-phase-card" class="current-phase-card" aria-label="現在のフェーズ"></section>
-        <p id="strategy-card-hint" class="strategy-card-hint">進捗確認と実行操作は、薄バーの「§N ％ ▾」から全画面コマンドセンターへ。</p>
+        <p id="strategy-card-hint" class="strategy-card-hint">進み具合の確認と実行の操作は、いちばん上のバー（「§N」と「％」の表示）を押すと開く全画面で行えます。</p>
         <!-- ミッション状況サマリ（旧 mission-overview から移設・暫定。段階2で新装） -->
         <section class="mission-strategy-summary" aria-label="ミッションの状況">
           <section id="mission-state-details" class="mission-state-details" aria-labelledby="mission-state-title">
@@ -617,7 +626,7 @@
     </div>
 
     <footer class="footer">
-      <span id="footer-version" class="footer-version">STRATEGY-KIT</span>
+      <span id="footer-version" class="footer-version"></span>
       <span class="footer-sep">·</span>
       <span class="footer-license">職業訓練マーケティング戦略講座 修了記念配布物</span>
     </footer>

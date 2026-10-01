@@ -13,20 +13,22 @@
  *     return StrategyKitLib.geminiCustom(prompt, model, temperature, apiKey);
  *   }
  *
- * 利用可能なモデル（2026-04時点）:
- *   - gemini-2.5-flash       : 高速・標準（Free 250 RPD）
- *   - gemini-2.5-flash-lite  : 軽量・高速（Free 1000 RPD）
- *   - gemini-2.5-pro         : 高品質・思考型（Free 上限低め）
+ * 利用可能なモデル（2026-10時点）:
+ *   - gemini-3.8-flash       : 推奨・高速・高精度（Stable・既定）
+ *   - gemini-3.6-flash       : 1つ前の世代（Stable）
+ *   - gemini-3.5-flash       : 高速・標準（Stable）
+ *   - gemini-3.5-flash-lite  : 軽量・低コスト（Stable）
+ *   - gemini-3.1-pro-preview : 高精度・思考型（Preview）
  */
 
-const SK_GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash';
+const SK_GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
 const SK_GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 /**
  * Gemini API 呼出（apiKey 引数化版）。ライブラリ内部から呼ばれる。
  * @param {string} prompt 送信するプロンプト
  * @param {string=} model モデル名
- * @param {number=} temperature 0.0〜1.0
+ * @param {number=} temperature 0.0〜1.0（0.0〜1.0）
  * @param {string} apiKey 受講者の GEMINI_API_KEY
  * @return {string} Gemini のテキスト応答（エラー時は '[ERROR] ...'）
  */
@@ -39,7 +41,9 @@ function _geminiCall_(prompt, model, temperature, apiKey) {
   const m = model || SK_GEMINI_DEFAULT_MODEL;
   const t = typeof temperature === 'number' ? temperature : 0.4;
 
-  const url = SK_GEMINI_ENDPOINT + '/' + m + ':generateContent?key=' + encodeURIComponent(apiKey);
+  // キーは URL ではなくヘッダーで渡す（Google 公式の REST 例と同じ。2026-05-28 以降に
+  // AI Studio で作られる新しい種類のキー（auth key）もこの形で受け付けられる）。
+  const url = SK_GEMINI_ENDPOINT + '/' + m + ':generateContent';
   const payload = {
     contents: [{ parts: [{ text: String(prompt) }] }],
     generationConfig: { temperature: t },
@@ -47,6 +51,7 @@ function _geminiCall_(prompt, model, temperature, apiKey) {
   const opts = {
     method: 'post',
     contentType: 'application/json',
+    headers: { 'x-goog-api-key': apiKey },
     payload: JSON.stringify(payload),
     muteHttpExceptions: true,
   };

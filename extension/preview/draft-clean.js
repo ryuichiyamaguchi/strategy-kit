@@ -7,6 +7,18 @@ function qs(id) {
   return document.getElementById(id);
 }
 
+// タブタイトルの製品名は product.json の branding.footerLabel に間接化する
+// （SNS 版のプレビューに STRATEGY-KIT が出ないようにする。未読・欠落時は現状文言）。
+async function resolveBrandLabel() {
+  try {
+    const res = await fetch(chrome.runtime.getURL('product.json'));
+    const cfg = await res.json();
+    return (cfg && cfg.branding && cfg.branding.footerLabel) || 'STRATEGY-KIT';
+  } catch (_) {
+    return 'STRATEGY-KIT';
+  }
+}
+
 function createEl(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
   Object.entries(attrs || {}).forEach(([key, value]) => {
@@ -227,9 +239,9 @@ function renderSection(section, index) {
   return sectionNode;
 }
 
-function renderPreview(record) {
+function renderPreview(record, brandLabel = 'STRATEGY-KIT') {
   const model = record?.model || buildDraftPreviewModel(record || {});
-  document.title = `${model.displayTitle} | STRATEGY-KIT`;
+  document.title = `${model.displayTitle} | ${brandLabel}`;
   qs('kind-label').textContent = model.kindLabel;
   qs('preview-title').textContent = model.displayTitle;
   qs('preview-summary').textContent = model.summary || '要約は生成されていません。';
@@ -256,9 +268,12 @@ function renderPreview(record) {
 async function init() {
   qs('print-btn')?.addEventListener('click', () => window.print());
   try {
-    const record = await loadPreviewRecord(getPreviewId());
+    const [record, brandLabel] = await Promise.all([
+      loadPreviewRecord(getPreviewId()),
+      resolveBrandLabel(),
+    ]);
     if (!record) throw new Error('Preview record is missing.');
-    renderPreview(record);
+    renderPreview(record, brandLabel);
   } catch (error) {
     console.error('[STRATEGY-KIT] draft preview failed:', error);
     qs('empty-state')?.classList.remove('hidden');

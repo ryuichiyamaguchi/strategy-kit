@@ -1212,3 +1212,27 @@ textarea {
     grid-row: 12;
   }
 }
+
+/* v0.13.0: 設定カードの並びを「最初にやること」順へ戻す。
+   旧レイヤーは Gemini 設定（APIキーの注意書き）を最上段へ引き上げていたため、
+   本来の第一歩である事業情報が1画面スクロール先に沈んでいた。
+   DeepSeek 設定は行の指定が無く自動配置で末尾に回っていたので、ここで明示する。
+   左メニュー（options.html の .settings-sidebar）も同じ順・同じ名前に揃える。 */
+@media (min-width: 860px) {
+  .container > #business-settings-card { grid-row: 4; }
+  .container > #oauth-card { grid-row: 5; }
+  .container > #gemini-settings-card { grid-row: 6; }
+  .container > #deepseek-settings-card { grid-row: 7; }
+  .container > #display-settings-card { grid-row: 8; }
+  .container > #engagement-mode-readout-card { grid-row: 9; }
+  .container > #master-doc-card { grid-row: 10; }
+  .container > #update-settings-card { grid-row: 11; }
+  .container > #about-settings-card { grid-row: 12; }
+  .container > .actions { grid-row: 13; }
+}
+
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}

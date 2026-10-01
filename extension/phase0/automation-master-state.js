@@ -1,4 +1,5 @@
 import { buildSectionState } from './section-state.js';
+import { isFinanceGatePhase } from './finance-gate.js';
 
 export function buildMasterSectionDefs(phases = []) {
   const defs = [];
@@ -43,9 +44,12 @@ export function buildMasterAutomationState(doc, phases = []) {
   };
 }
 
+// マスター側の節の数え方は、全自動モードの分割実行（automation.js の
+// shouldSplitPhaseForFinanceGate）と必ず一致させる。ここがズレると、生成側は §7-1…§7-5 を
+// 書くのにマスター側は §7 を1つ期待する、という食い違いになり、進捗率・再開位置・失敗検出が壊れる。
+// 対象プロンプトIDの一覧は finance-gate.js を単一の真実源にする（IDを各所へ直書きしない）。
 function shouldSplitPhaseForMasterState(phase) {
-  const prompts = Array.isArray(phase?.prompts) ? phase.prompts : [];
-  return prompts.some((prompt) => prompt?.id === 'phase-7-unit-economics');
+  return isFinanceGatePhase(phase);
 }
 
 function buildProgressFromSections(sections = []) {

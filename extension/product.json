@@ -3,6 +3,7 @@
   "promptsPath": "data/prompts.json",
   "benchmarkSource": "industry",
   "benchmarkPath": "data/industries.json",
+  "releaseUrl": "https://github.com/ryuichiyamaguchi/strategy-kit/releases/latest",
   "branding": {
     "name": "STRATEGY-KIT Helper",
     "footerLabel": "STRATEGY-KIT",
@@ -13,5 +14,8 @@
     ],
     "audienceContext": "職業訓練マーケティング戦略講座の受講者",
     "purposeLabel": "マーケティング戦略立案"
+  },
+  "features": {
+    "operations": true
   }
 }

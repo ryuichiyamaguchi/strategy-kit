@@ -9280,3 +9280,97 @@ body {
     padding-inline: 0.625rem;
   }
 }
+
+/* =========================================================
+   v0.13.0 narrow slim bar — 「今どこ」を製品名より優先する
+   サイドパネルの実幅（およそ 355px）では、旧ルールが §N 表示を消し、
+   代わりに途中で切れた製品名（「STRATEGY-…」「Helpe / r」）が残っていた。
+   狭い幅では製品名の文字を隠してマークだけにし、現在の §N と進捗率を出す。
+   ========================================================= */
+@media (max-width: 520px) {
+  .slim-brand-lockup {
+    display: none;
+  }
+
+  .slim-bar-phase {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-left: 0;
+    overflow: hidden;
+    color: #c9dbe2;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
+/* =========================================================
+   v0.13.0 運用ボード: 戦略タブ上部の「今週やること」
+   ========================================================= */
+.ops-week-card {
+  margin: 10px 12px 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(28, 225, 230, 0.35);
+  border-radius: 12px;
+  background: #071824;
+  color: #e6f2f5;
+}
+
+.ops-week-card[hidden] {
+  display: none !important;
+}
+
+.ops-week-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ops-week-eyebrow {
+  color: #8fe9ec;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.ops-week-count {
+  font-size: 0.875rem;
+}
+
+.ops-week-list {
+  margin: 8px 0 0;
+  padding-left: 1.1em;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.ops-week-list li.is-overdue {
+  color: #ffb4a8;
+}
+
+.ops-week-empty {
+  margin: 6px 0 0;
+  color: #b8cad1;
+  font-size: 0.8125rem;
+}
+
+.ops-week-open {
+  margin-top: 10px;
+  width: 100%;
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: #1ce1e6;
+  color: #04212b;
+  font-weight: 800;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.ops-week-open:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+

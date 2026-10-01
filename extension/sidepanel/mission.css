@@ -2857,3 +2857,20 @@ body {
     font-size: 0.875rem;
   }
 }
+
+#mission-command-state {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* v0.13.0 運用ボードで選んだ目的（レシピ）の表示 */
+.mission-recipe-note {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border: 1px solid rgba(241, 168, 74, 0.55);
+  border-radius: 10px;
+  color: #ffe2bb;
+  font-size: 13px;
+  line-height: 1.6;
+}
+

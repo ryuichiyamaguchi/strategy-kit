@@ -18,6 +18,19 @@
       return 'STRATEGY-KIT';
     }
   }
+  // ダウンロードファイル名用の製品スラッグ（STRATEGY-KIT → strategy-kit / X-KIT → x-kit）。
+  function brandSlug_() {
+    const slug = brandFooterLabel_().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+    return slug || 'strategy-kit';
+  }
+  // 出力物メタデータ用の拡張バージョン（取得できない場合のみ固定値）。
+  function appVersion_() {
+    try {
+      return (chrome && chrome.runtime && chrome.runtime.getManifest().version) || '0.12.0';
+    } catch (_) {
+      return '0.12.0';
+    }
+  }
   function brandAudienceContext_() {
     try {
       const fn = window.SK_CORE && window.SK_CORE.getBranding;
@@ -266,7 +279,8 @@
     const sections = bundle.sections || [];
     const lines = [
       '---',
-      'strategyKitVersion: "0.12.0"',
+      'product: "' + brandFooterLabel_() + '"',
+      'productVersion: "' + appVersion_() + '"',
       'exportType: "notebooklm-source"',
       'sourceUsed: "' + (bundle.sourceUsed || 'draft') + '"',
       'exportedAt: "' + exportedAt + '"',
@@ -736,7 +750,7 @@
   function downloadImageDataUrl(dataUrl, fileName) {
     const a = document.createElement('a');
     a.href = dataUrl;
-    a.download = fileName || 'strategy-kit-diagram.png';
+    a.download = fileName || brandSlug_() + '-diagram.png';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -758,7 +772,7 @@
     const sourceLabel = meta && meta.sourceLabel ? meta.sourceLabel : (resultArea.dataset && resultArea.dataset.renderSourceLabel) || '';
     const dataUrl = image && image.dataUrl ? image.dataUrl : '';
     const isDataImage = dataUrl.indexOf('data:image') === 0;
-    const fileName = 'strategy-kit-' + (diagram.id || 'diagram') + '-' + formatCompactTimestamp(new Date()) + '.png';
+    const fileName = brandSlug_() + '-' + (diagram.id || 'diagram') + '-' + formatCompactTimestamp(new Date()) + '.png';
 
     resultArea.appendChild(el('section', { class: 'sk-diagram-image-result' },
       el('h3', { style: 'font-size:13px;margin:8px 0 6px;color:#0f766e', text: '生成された画像系図解' })

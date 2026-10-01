@@ -144,7 +144,7 @@
     <section class="card" role="status" aria-live="polite" data-status="running">
       <header class="head">
         <span class="live" aria-hidden="true"></span>
-        <span class="brand">STRATEGY-KIT · タスク実況</span>
+        <span class="brand">タスク実況</span>
         <span class="compact-label"></span>
         <button class="toggle" type="button" aria-expanded="true" aria-label="タスク実況を折りたたむ">⌃</button>
       </header>
@@ -170,6 +170,25 @@
     eventTime = shadow.querySelector('.event-time');
     toggle.addEventListener('click', () => setCollapsed(!collapsed));
     document.documentElement.appendChild(host);
+    applyBrandLabel(shadow.querySelector('.brand'));
+  }
+
+  // 見出しの製品名は product.json の branding.footerLabel に間接化する
+  // （X-KIT / INSTAGRAM-KIT の実況カードに STRATEGY-KIT を出さない）。
+  // 解決できないときは製品名なしの「タスク実況」のまま（誤った製品名より無表記が安全）。
+  function applyBrandLabel(brandEl) {
+    if (!brandEl) return;
+    try {
+      fetch(chrome.runtime.getURL('product.json'))
+        .then((res) => res.json())
+        .then((cfg) => {
+          const label = cfg && cfg.branding && cfg.branding.footerLabel;
+          if (label) brandEl.textContent = label + ' · タスク実況';
+        })
+        .catch(() => {});
+    } catch (_) {
+      /* product.json を読めない環境では無表記のまま */
+    }
   }
 
   function unmount() {

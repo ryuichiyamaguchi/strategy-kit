@@ -8,13 +8,15 @@
  *
  * 使い方:
  *   セルに =GEMINI("3階建てモデルとは？") と入力
- *   第2引数でモデル指定: =GEMINI("...", "gemini-2.5-flash")
+ *   第2引数でモデル指定: =GEMINI("...", "gemini-3.8-flash")
  *   第3引数で温度指定:   =GEMINI("...", , 0.2)
  *
- * 利用可能なモデル（2026-04時点）:
- *   - gemini-2.5-flash       : 高速・標準（Free 250 RPD）
- *   - gemini-2.5-flash-lite  : 軽量・高速（Free 1000 RPD）
- *   - gemini-2.5-pro         : 高品質・思考型（Free 上限低め）
+ * 利用可能なモデル（2026-10時点）:
+ *   - gemini-3.8-flash       : 推奨・高速・高精度（Stable・既定）
+ *   - gemini-3.6-flash       : 1つ前の世代（Stable）
+ *   - gemini-3.5-flash       : 高速・標準（Stable）
+ *   - gemini-3.5-flash-lite  : 軽量・低コスト（Stable）
+ *   - gemini-3.1-pro-preview : 高精度・思考型（Preview）
  *
  * 制約:
  *   - レート制限はGoogle側に依存（Free tier: Flash 250 RPD / Flash-Lite 1000 RPD）
@@ -22,14 +24,14 @@
  *   - 機微情報を投げないこと
  */
 
-const SK_GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash';
+const SK_GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
 const SK_GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 /**
  * Geminiにプロンプトを投げて応答テキストを返す。
  * @param {string} prompt 送信するプロンプト
- * @param {string=} model モデル名（省略時 gemini-flash-latest）
- * @param {number=} temperature 0.0〜1.0（省略時 0.4）
+ * @param {string=} model モデル名（省略時 gemini-3.8-flash）
+ * @param {number=} temperature 0.0〜1.0（0.0〜1.0）
  * @return {string} Gemini のテキスト応答
  * @customfunction
  */
@@ -43,7 +45,9 @@ function GEMINI(prompt, model, temperature) {
   const m = model || SK_GEMINI_DEFAULT_MODEL;
   const t = typeof temperature === 'number' ? temperature : 0.4;
 
-  const url = `${SK_GEMINI_ENDPOINT}/${m}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  // キーは URL ではなくヘッダーで渡す（Google 公式の REST 例と同じ。2026-05-28 以降に
+  // AI Studio で作られる新しい種類のキー（auth key）もこの形で受け付けられる）。
+  const url = `${SK_GEMINI_ENDPOINT}/${m}:generateContent`;
   const payload = {
     contents: [{ parts: [{ text: String(prompt) }] }],
     generationConfig: { temperature: t },
@@ -51,6 +55,7 @@ function GEMINI(prompt, model, temperature) {
   const opts = {
     method: 'post',
     contentType: 'application/json',
+    headers: { 'x-goog-api-key': apiKey },
     payload: JSON.stringify(payload),
     muteHttpExceptions: true,
   };

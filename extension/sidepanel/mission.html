@@ -3,7 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>STRATEGY-KIT — ホーム（司令塔）</title>
+    <!-- 製品名は mission.js の initBranding が product.json から前置する（ここでは持たない） -->
+    <title>ホーム（司令塔）</title>
     <link rel="stylesheet" href="./mission.css" />
   </head>
   <body>
@@ -13,7 +14,7 @@
         <div class="mission-brand">
           <span class="brand-mark" aria-hidden="true"><i></i></span>
           <span class="mission-brand-copy">
-            <strong>STRATEGY-KIT</strong>
+            <strong id="mission-brand-name"></strong>
             <small>Executive Mission Control</small>
           </span>
         </div>
@@ -21,6 +22,9 @@
           <span class="live-dot" aria-hidden="true"></span>
           <span id="mission-status-text">待機中</span>
         </span>
+        <button id="mission-open-ops" class="mission-help-open" type="button" hidden>
+          運用ボード
+        </button>
         <button id="mission-help-open" class="mission-help-open" type="button" aria-haspopup="dialog">
           使い方
         </button>
@@ -290,7 +294,7 @@
                   <span class="mission-deck-eyebrow">EXECUTION DESK</span>
                   <h2 id="mission-detail-title" class="mission-command-title">戦略を実行する</h2>
                 </div>
-                <span id="mission-command-state" class="mission-section-badge">READY</span>
+                <span id="mission-command-state" class="mission-section-badge">開始前</span>
               </div>
               <div class="mission-provider-row">
                 <span class="mission-provider-mark" aria-hidden="true" id="mission-provider-mark">AI</span>
@@ -328,7 +332,8 @@
                 <label class="mission-field mission-full-auto-only">
                   <span>生成モデル</span>
                   <select id="mission-model-select">
-                    <option value="gemini-3.6-flash">Gemini 3.6 Flash（推奨・無料枠OK）</option>
+                    <option value="gemini-3.8-flash">Gemini 3.8 Flash（推奨・無料枠OK）</option>
+                    <option value="gemini-3.6-flash">Gemini 3.6 Flash（無料枠OK）</option>
                     <option value="gemini-3.5-flash">Gemini 3.5 Flash（無料枠OK）</option>
                     <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite（無料枠OK）</option>
                     <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro（課金APIキーが必要）</option>
@@ -337,6 +342,7 @@
                 <label class="mission-field mission-full-auto-only">
                   <span>数値検証モデル</span>
                   <select id="mission-finance-model-select">
+                    <option value="gemini-3.8-flash">Gemini 3.8 Flash（推奨・無料枠OK）</option>
                     <option value="gemini-3.6-flash">Gemini 3.6 Flash（無料枠OK）</option>
                     <option value="gemini-3.5-flash">Gemini 3.5 Flash（無料枠OK）</option>
                     <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro（課金APIキーが必要）</option>
@@ -344,6 +350,7 @@
                 </label>
               </form>
 
+              <p id="mission-recipe-note" class="mission-recipe-note" role="status" hidden></p>
               <div class="mission-primary-controls">
                 <button id="mission-run" class="mission-btn mission-btn-run" type="button">
                   全自動を開始
@@ -395,7 +402,7 @@
 
       <footer class="mission-footer">
         <span>戦略を、AIと共に。次の一手を、確信に変える。</span>
-        <strong>STRATEGY-KIT <em>Helper</em></strong>
+        <strong id="mission-footer-brand"></strong>
       </footer>
     </div>
 
@@ -403,7 +410,7 @@
       <div class="mission-help-dialog-head">
         <div>
           <span class="mission-deck-eyebrow">QUICK MANUAL</span>
-          <h2 id="mission-help-title">STRATEGY-KITの使い方</h2>
+          <h2 id="mission-help-title">使い方</h2>
         </div>
         <form method="dialog">
           <button id="mission-help-close" class="mission-help-close" type="submit" aria-label="使い方を閉じる">×</button>
